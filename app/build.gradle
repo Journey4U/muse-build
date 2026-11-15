@@ -11,7 +11,9 @@ rootProject.file('local.properties').withInputStream {
 // Spike 0: GeckoView 160 AAR declares minCompileSdk=37 + minCompileMinorSdk=2;
 // project compiles against 37.0. Bypass the metadata check for the spike only;
 // if GeckoView really used 37.2-only APIs, compilation below will fail instead.
-tasks.named("checkMobileReleaseAarMetadata") { enabled = false }
+tasks.configureEach {
+    if (name == "checkMobileReleaseAarMetadata") enabled = false
+}
 
 android {
     namespace = 'com.muse.android.tv'
@@ -172,5 +174,6 @@ dependencies {
     annotationProcessor libs.glide.compiler
     coreLibraryDesugaring libs.desugar
 }
+
 
 
