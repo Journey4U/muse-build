@@ -13,10 +13,6 @@
     <string name="home_setting">设置</string>
     <string name="home_history">最近观看</string>
     <string name="home_recommend">更新推荐</string>
-
-    <!-- Nav -->
-    <string name="nav_browser">浏览器</string>
-    <string name="nav_browser_empty">该站点没有主页</string>
     <string name="config_refreshed">接口已刷新</string>
     <string name="setting_reset_app">重置App</string>
     <string name="reset_app_confirm">将清除全部数据（接口配置、历史、收藏与所有设置）并重启应用，确定继续吗？</string>
@@ -31,4 +27,3 @@
     <string name="detail_episode">选集</string>
 
 </resources>
-

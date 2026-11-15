@@ -36,7 +36,6 @@ import com.muse.android.tv.R;
 import com.muse.android.tv.api.DanmakuApi;
 import com.muse.android.tv.api.SiteApi;
 import com.muse.android.tv.api.config.VodConfig;
-import com.muse.android.tv.api.loader.LocalSourceHub;
 import com.muse.android.tv.bean.Danmaku;
 import com.muse.android.tv.bean.Episode;
 import com.muse.android.tv.bean.Flag;
@@ -96,24 +95,14 @@ import com.muse.android.tv.utils.Traffic;
 import com.muse.android.tv.utils.UrlUtil;
 import com.muse.android.tv.utils.Util;
 import com.github.bassaer.library.MDColor;
-import com.github.catvod.crawler.SpiderDebug;
 
 import org.greenrobot.eventbus.Subscribe;
-import org.json.JSONObject;
 import org.greenrobot.eventbus.ThreadMode;
 
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, CustomKeyDownVod.Listener, ParseDialog.Listener, ArrayAdapter.OnClickListener, FlagAdapter.OnClickListener, EpisodeAdapter.OnClickListener, QualityAdapter.OnClickListener, QuickAdapter.OnClickListener, Clock.Callback {
 
@@ -136,17 +125,13 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     private Runnable mR3;
     private Runnable mR4;
     private Runnable mR5;
-    private long mLastTxBytes;
     private long mLastRxBytes;
     private long mLastRxTime;
     private Player mMediaInfoPlayer;
     private boolean mMediaInfo;
     private History mHistory;
-    private boolean mNovelTtsContinue;
     private boolean fullscreen;
     private boolean useParse;
-    private String mSiteBaseUrl;
-    private String mSiteBaseUrlKey;
 
     public static void push(FragmentActivity activity, String text) {
         Uri uri = UrlUtil.uri(text);
@@ -183,20 +168,9 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         start(activity, key, id, name, pic, mark, false, false);
     }
 
-    // 跨类型切集直达的目标集序号（阅读器/图片页强播时暂存，紧随的 start 调用写入 intent 后清零）
-    private static int sPendingEpisodeIndex = -1;
-
-    /** 跨类型切集强播：不经自动播放开关，进详情直接播指定序号的集（多集按序号定位不串位）。 */
-    public static void startForceEpisode(Activity activity, String key, String id, String name, String pic, String mark, int episodeIndex) {
-        sPendingEpisodeIndex = episodeIndex;
-        start(activity, key, id, name, pic, mark);
-    }
-
     public static void start(Activity activity, String key, String id, String name, String pic, String mark, boolean collect, boolean cast) {
         Intent intent = new Intent(activity, VideoActivity.class);
         intent.putExtra("collect", collect);
-        if (sPendingEpisodeIndex >= 0) intent.putExtra("episode_index", sPendingEpisodeIndex);
-        sPendingEpisodeIndex = -1;
         intent.putExtra("cast", cast);
         intent.putExtra("mark", mark);
         intent.putExtra("name", name);
@@ -468,11 +442,6 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     }
 
     @Override
-    public int getEpisodeIndex() {
-        return getIntent().getIntExtra("episode_index", -1);
-    }
-
-    @Override
     public boolean isSiteChangeable() {
         return getSite().isChangeable();
     }
@@ -577,23 +546,10 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
                     urls.add(episode.getUrl());
                 }
             }
-            NovelActivity.startForResult(this, title, url, names, urls, position, getHistoryKey(), mHistory.getVodName(), mHistory.getVodPic(), getSite().getName(), mNovelTtsContinue, getKey(), getId(), result.getFlag());
-            mNovelTtsContinue = false;
+            NovelActivity.startForResult(this, title, url, names, urls, position);
         } else if (url != null && url.startsWith("pics://")) {
-            // 漫画：有话列表时走 startForResult（不 finish），阅读器内选话回传后由 onActivityResult 重新 selectEpisode；
-            // 无话列表时沿用旧路（直接进图、finish 上一级）。
-            if (mEpisodeAdapter != null && mEpisodeAdapter.getItemCount() > 0) {
-                ArrayList<String> names = new ArrayList<>();
-                for (Episode episode : mEpisodeAdapter.getItems()) names.add(episode.getName());
-                ArrayList<String> urls = new ArrayList<>();
-                for (Episode episode : mEpisodeAdapter.getItems()) urls.add(episode.getUrl());
-                ImageActivity.startForResult(this, title, url, result.getHeader(), names, urls, mEpisodeAdapter.getPosition(), getKey(), getId(), result.getFlag(), mHistory.getVodName(), mHistory.getVodPic());
-            } else {
-                ImageActivity.start(this, title, url, result.getHeader());
-                finish();
-            }
-        } else if (getSite().isWebPlay()) {
-            startWebPlayer(result);
+            ImageActivity.start(this, title, url, result.getHeader());
+            finish();
         } else {
             startPlayer(getHistoryKey(), result, useParse, getSite().getTimeout(), startPositionMs, metadata);
         }
@@ -614,485 +570,6 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         VodPlaybackMedia.searchDanmaku(result, history, episode, player()::setDanmaku, player()::addDanmaku);
     }
 
-
-    /**
-     * 网页播放（与手机版 VideoActivity 同批方法，逐字抄）：站主页推导 + 进 WebPlayActivity。
-     * 只调共享层现成方法（Site/VodConfig/SpiderDebug/LocalSourceHub/UrlUtil），不改共享层。
-     */
-    /**
-     * 网页播放（A：源声明 webPlay=1）：不走解析、不进原生播放器，直接进站主页的完整浏览器，
-     * 站内搜片、换线路、选集全用网站自己的功能（对付鉴权/加密站）。
-     */
-    private void startWebPlayer(Result result) {
-        String home = siteHomePageUrl();
-        if (home == null) return;
-        openWebPlayer(home, result.getHeader(), result.getClick());
-    }
-
-    /** 播放器里的网页播放入口已去掉（2026-11-13 Liu 定）：webview 只从主页页进，按钮恒藏。 */
-    private void refreshWebButton() {
-        mBinding.control.action.web.setVisibility(View.GONE);
-    }
-
-    /** 站主页：webPage 模板的域名优先，其次站点域名（跳过 IP/API），再次蜘蛛详情真实域名；都没有返回 null。 */
-    /** 主页模式与主页浏览器入口共用的主页推导：webPage 模板域名 > 站点域名（跳 IP/API）> 蜘蛛详情真实域名。 */
-    /** 站点是否走重定向/域名跳转（api/ext 含 [工具: 模板）：这类站的配置首页是跳转页，须用 jar 追踪的真实域名。 */
-    private static boolean isRedirectSite(Site site) {
-        if (site == null) return false;
-        String api = site.getApi();
-        if (api != null && api.contains("[工具:")) return true;
-        String ext = site.getExt();
-        if (ext != null && ext.contains("[工具:")) return true;
-        return false;
-    }
-
-    public static String siteHomePageUrl(Site site) {
-        String url = resolveHomePageUrl(site);
-        return url;
-    }
-
-    private static String resolveHomePageUrl(Site site) {
-        // v91：顶层「主页url」最优先（Liu 2026-11-14 定）——显式配置的永久站永远赢过蜘蛛记的域名。
-        // 蜘蛛记的域名会坏（轮换/镜像挂掉）还一直占着不放（无过期、切源也不失效），主页就被带去坏域名白屏；
-        // 正常站（py/js）不受影响——它们不是重定向站，下面那步对它们本就是空操作。
-        if (site != null) {
-            String entry = site.getHomePageUrl();
-            if (entry != null && !entry.isEmpty() && !entry.contains("[工具:")) {
-                String origin = originOf(entry);
-                if (origin != null) {
-                    // 重定向站：http 的发布页是 JS 跳转页（跳第三方中转站会被 webview 跨站拦截成白屏），
-                    // https 直接 301 到真实站，走网络层不被拦截——故升 https（v91）。
-                    if (isRedirectSite(site) && origin.startsWith("http://")) {
-                        origin = "https://" + origin.substring("http://".length());
-                    }
-                    return origin + "/";
-                }
-            }
-        }
-        // 只有重定向型站才用 jar 追踪的真实域名（本站记的，10 分钟内有效；切源即失效——只认本站 key，
-        // 不再用全局最近一次，否则切到别的站还会吃上一个站的域名，v80 的教训）。
-        if (isRedirectSite(site)) {
-            String recorded = site != null ? SpiderDebug.detailOrigin(site.getKey()) : null;
-            if (recorded != null && !recorded.isEmpty()) {
-                String origin = originOf(recorded);
-                if (origin != null) return origin + "/";
-            }
-        }
-        String template = webPageTemplate(site);
-        if (template != null && !template.isEmpty()) {
-            String origin = originOf(template);
-            if (origin != null) return origin + "/";
-        }
-        String base = siteBaseUrl(site);
-        if (base != null && !base.isEmpty()) {
-            String origin = originOf(base);
-            if (origin != null && !isIpHost(origin)) return origin + "/";
-        }
-        // detailOrigin 只对重定向站有意义（v89：非重定向站即使误记了也绝不能用，否则主页被带偏）。
-        if (site != null && isRedirectSite(site)) {
-            String recorded = SpiderDebug.detailOrigin(site.getKey());
-            if (recorded != null && !recorded.isEmpty()) {
-                String origin = originOf(recorded);
-                if (origin != null) return origin + "/";
-            }
-        }
-        return null;
-    }
-
-    private String siteHomePageUrl() {
-        return siteHomePageUrl(getSite());
-    }
-
-    /** host 是不是纯 IP（API 地址，不是网站）；带端口时先剥端口。 */
-    private static boolean isIpHost(String origin) {
-        if (origin == null) return true;
-        int schemeEnd = origin.indexOf("://") + 3;
-        String host = schemeEnd > 2 ? origin.substring(schemeEnd) : origin;
-        int colon = host.indexOf(':');
-        if (colon >= 0) host = host.substring(0, colon);
-        return host.matches("\\d+\\.\\d+\\.\\d+\\.\\d+");
-    }
-
-    private static String webPageTemplate(Site site) {
-        if (site == null) return null;
-        // 站点条目顶层直接写了 webPage（如麦田Ai），优先用它，不再只认 ext/规则文件。
-        String top = site.getWebPage();
-        if (top != null && !top.isEmpty()) return top;
-        String ext = site.getExt();
-        if (ext == null || ext.isEmpty()) return null;
-        String rule = ext.trim();
-        if (rule.startsWith("{")) return webPageFromJson(rule);
-        File file = ruleFile(site, ext);
-        if (file == null || !file.isFile() || !file.getName().toLowerCase().endsWith(".json")) return null;
-        String text = readText(file);
-        return text == null ? null : webPageFromJson(text);
-    }
-
-    private String webPageTemplate() {
-        return webPageTemplate(getSite());
-    }
-
-    private static String webPageFromJson(String json) {
-        try {
-            JSONObject object = new JSONObject(json);
-            for (String key : new String[]{"webPage", "webpage", "web_page"}) {
-                String value = object.optString(key, "");
-                if (!value.isEmpty()) return value;
-            }
-            // 有的规则把 webPage 写在 ext 里（如麦田旧规则），也认。
-            JSONObject ext = object.optJSONObject("ext");
-            if (ext != null) {
-                for (String key : new String[]{"webPage", "webpage", "web_page"}) {
-                    String value = ext.optString(key, "");
-                    if (!value.isEmpty()) return value;
-                }
-            }
-        } catch (Exception ignored) {
-        }
-        return null;
-    }
-
-    /**
-     * 本站域名：所有类型通用，不只 XBPQ。取法按序：
-     * type-1 取 api；行内 JSON ext 取「域名*」键或 site/host/domain 键；本地规则/
-     * 脚本文件先定位文件再读——json 规则取「域名*」键，py/js 脚本取脚本里的站点
-     * 地址（host/api 赋值优先，没有取文件里第一个站点地址）。
-     * 文件定位跟蜘蛛同一基准：先按当前加载的配置文件所在目录，再走扫描目录。
-     * 一部片子只算一次。
-     */
-    private String siteBaseUrl() {
-        String key = getKey() + "|" + getVodId();
-        if (!key.equals(mSiteBaseUrlKey)) {
-            mSiteBaseUrlKey = key;
-            mSiteBaseUrl = resolveSiteBaseUrl(getSite());
-        }
-        return mSiteBaseUrl;
-    }
-
-    private static String siteBaseUrl(Site site) {
-        return resolveSiteBaseUrl(site);
-    }
-
-    private static String resolveSiteBaseUrl(Site site) {
-        if (site == null) return null;
-        String api = site.getApi();
-        // 真实远程地址直接当站点域名；本地代理 /file/ 地址不是远程站，继续往下走文件分支。
-        if (api != null && (api.startsWith("http://") || api.startsWith("https://")) && !api.contains("/file/")) return api;
-        String ext = site.getExt();
-        if (ext == null || ext.isEmpty()) {
-            // cat 类 JS 源：脚本路径写在 api 里（ext 为空），也按规则/脚本文件走。
-            // api 可能是本地代理地址（http://127.0.0.1:port/file/...），先经 filePathOf 还原成本地路径再判。
-            String apiPath = site.getApi();
-            if (apiPath != null) {
-                String real = filePathOf(apiPath.trim());
-                String low = real.toLowerCase();
-                if (!low.startsWith("http://") && !low.startsWith("https://") && !low.startsWith("csp_")
-                        && (low.endsWith(".js") || low.endsWith(".py") || low.endsWith(".json"))) {
-                    ext = apiPath.trim();
-                }
-            }
-        }
-        if (ext == null || ext.isEmpty()) return null;
-        String rule = ext.trim();
-        // 本地代理 /file/ 地址先还原成本地路径，不当远程站直接返回。
-        if ((rule.startsWith("http://") || rule.startsWith("https://")) && rule.contains("/file/")) rule = filePathOf(rule);
-        if (rule.startsWith("http://") || rule.startsWith("https://")) return rule;
-        if (rule.startsWith("{")) {
-            // 行内 JSON ext（金牌 ext.site 是多域名逗号列表）：显式「主页url」优先；
-            // 没有则 py 的运行时竞速域名优先于静态列表（detailOrigin 只对 py 源有值）。
-            try {
-                JSONObject o = new JSONObject(rule);
-                for (String k : new String[]{"主页url", "homepage", "homePage"}) {
-                    String v = o.optString(k, "");
-                    if (v.startsWith("http://") || v.startsWith("https://")) return v;
-                }
-            } catch (Exception ignored) {
-            }
-            String recorded = SpiderDebug.detailOrigin(site.getKey());
-            if (recorded != null) return recorded;
-            return domainFromJson(rule);
-        }
-        File file = ruleFile(site, ext);
-        if (file == null || !file.isFile()) return null;
-        String text = readText(file);
-        if (text == null) return null;
-        String name = file.getName().toLowerCase();
-        if (name.endsWith(".py") || name.endsWith(".js")) {
-            // 源里显式写的前端网址（homepage 注释）优先，盖过 API 地址与详情来源。
-            String home = homepageFromScript(text);
-            if (home != null) return home;
-            // 蜘蛛详情页实际用的域名（py 源运行时解析的镜像站）优先，静态猜测兜底。
-            String recorded = SpiderDebug.detailOrigin(site.getKey());
-            if (recorded != null) return recorded;
-            return domainFromScript(text);
-        }
-        String domain = domainFromJson(text);
-        return domain != null ? domain : domainFromScript(text);
-    }
-
-    /** 定位本地规则/脚本文件：绝对路径直取，否则按配置文件所在目录拼，最后走扫描目录。 */
-    private static File ruleFile(Site site, String ext) {
-        if (ext == null) return null;
-        String raw = ext.trim();
-        if (raw.startsWith("{") || raw.startsWith("[")) return null;
-        String path = filePathOf(raw);
-        if (path == null || path.isEmpty()) return null;
-        File direct = new File(path);
-        if (direct.isAbsolute() && direct.isFile()) return direct;
-        String base = configBaseDir();
-        if (base != null) {
-            File f = new File(base, path);
-            if (f.isFile()) return f;
-        }
-        return LocalSourceHub.siteFile(site.getApi(), ext, null);
-    }
-
-    /** ext 的文件写法转成本地路径：file:// 取 path 段，内置 /file/ 服务地址解码后取。 */
-    private static String filePathOf(String raw) {
-        if (raw.startsWith("file:")) return Uri.parse(raw).getPath();
-        if ((raw.startsWith("http://") || raw.startsWith("https://")) && raw.contains("/file/")) {
-            return Uri.decode(raw.substring(raw.indexOf("/file/") + 6));
-        }
-        return raw;
-    }
-
-    /** 当前加载的配置文件所在目录，跟蜘蛛解析规则用的是同一个基准。 */
-    private static String configBaseDir() {
-        try {
-            String configUrl = VodConfig.getUrl();
-            if (TextUtils.isEmpty(configUrl)) return null;
-            String url = configUrl.trim();
-            if (url.startsWith("file:")) {
-                String path = url.substring(url.indexOf("file:") + 5);
-                while (path.startsWith("/")) path = path.substring(1);
-                path = "/" + Uri.decode(path);
-                return parentOf(path);
-            }
-            if (url.startsWith("/")) return parentOf(url);
-            if (url.startsWith("http://127.0.0.1") && url.contains("/file/")) {
-                String path = url.substring(url.indexOf("/file/") + 6);
-                path = Uri.decode(path);
-                return parentOf(path.startsWith("/") ? path : "/" + path);
-            }
-        } catch (Throwable ignored) {
-        }
-        return null;
-    }
-
-    private static String parentOf(String path) {
-        int i = path.lastIndexOf('/');
-        return i > 0 ? path.substring(0, i) : null;
-    }
-
-    /** 从 JSON 文本里找站点地址：显式「主页url」优先（源里写死的前端网址），再「域名*」键，再 site/host/domain/baseUrl/url 键；域名值是模板时按同规则的变量替出来。 */
-    private static String domainFromJson(String json) {
-        if (json == null || json.isEmpty()) return null;
-        try {
-            JSONObject object = new JSONObject(json);
-            String found = domainFromObject(object);
-            if (found != null) return found;
-            // XBPQ 规则的动态域名变量（域名-c 等）写在 ext 里面，顶层读不到，再进 ext 找一遍。
-            if (object.has("ext")) {
-                try {
-                    JSONObject ext = object.getJSONObject("ext");
-                    found = domainFromObject(ext);
-                    if (found != null) return found;
-                } catch (Exception ignored) {
-                    // ext 不是对象（字符串/数组），跳过
-                }
-            }
-        } catch (Exception e) {
-            // 不是 JSON，直接放弃
-        }
-        return null;
-    }
-
-    private static String domainFromObject(JSONObject object) {
-        boolean hasRedirectTemplate = false;
-        for (String key : new String[]{"主页url", "homepage", "homePage"}) {
-            String raw = object.optString(key, "");
-            if (raw.contains("[工具:")) { hasRedirectTemplate = true; continue; }
-            String value = resolveDomainTemplate(object, raw);
-            if (value.startsWith("http://") || value.startsWith("https://")) return value;
-        }
-        // 「域名-c」是发布页/多域名解析出来的当前可用域名，优先于静态的「域名」。
-        String rawC = object.optString("域名-c", "");
-        if (rawC.contains("[工具:")) {
-            hasRedirectTemplate = true;
-        } else {
-            String c = resolveDomainTemplate(object, rawC);
-            if (c.startsWith("http://") || c.startsWith("https://")) return c;
-        }
-        java.util.Iterator<String> keys = object.keys();
-        while (keys.hasNext()) {
-            String key = keys.next();
-            if (!key.contains("域名")) continue;
-            String raw = object.optString(key, "");
-            if (raw.contains("[工具:")) { hasRedirectTemplate = true; continue; }
-            String value = resolveDomainTemplate(object, raw);
-            if (value.startsWith("http://") || value.startsWith("https://")) return value;
-        }
-        for (String key : new String[]{"site", "host", "domain", "baseUrl", "base_url", "url"}) {
-            String raw = object.optString(key, "");
-            if (raw.contains("[工具:")) { hasRedirectTemplate = true; continue; }
-            String value = resolveDomainTemplate(object, raw);
-            if (value.startsWith("http://") || value.startsWith("https://")) return value;
-        }
-        // 本对象含重定向模板（[工具:...]）时，真实域名取蜘蛛实际请求的来源（jar 已解析）。
-        if (hasRedirectTemplate) {
-            String last = SpiderDebug.lastSpiderOrigin();
-            if (last != null && (last.startsWith("http://") || last.startsWith("https://"))) return last;
-        }
-        return null;
-    }
-
-    /** 从 py/js 脚本注释里找显式前端网址：# homepage: URL 或 // homepage: URL（注释不执行，不会跟蜘蛛冲突）；找不到返回 null。 */
-    private static String homepageFromScript(String text) {
-        if (text == null || text.isEmpty()) return null;
-        Matcher m = Pattern.compile("(?i)(?:#|//)\\s*(homepage|home_page|主页url|主页|前台|前端|域名-c|域名c)\\s*[:：]\\s*(https?://[^\\s'\"<>]+)").matcher(text);
-        while (m.find()) {
-            String origin = originOf(m.group(2));
-            if (origin != null && !isLocalOrCodeHost(origin) && !isIpHost(origin)) return origin;
-        }
-        return null;
-    }
-
-    /** 域名模板：{{变量}} 按同一规则的其它字段替出来（最多 5 轮防循环），[工具:...] 后缀去掉。 */
-    private static String resolveDomainTemplate(JSONObject object, String value) {
-        if (value == null) return "";
-        String out = value.trim();
-        for (int i = 0; i < 5 && out.contains("{{"); i++) {
-            int s = out.indexOf("{{");
-            int e = out.indexOf("}}", s + 2);
-            if (s < 0 || e < 0) break;
-            String name = out.substring(s + 2, e).trim();
-            out = out.substring(0, s) + object.optString(name, "") + out.substring(e + 2);
-        }
-        int tool = out.indexOf("[工具:");
-        if (tool >= 0) out = out.substring(0, tool).trim();
-        return out;
-    }
-
-    /** 从 py/js 脚本里找站点地址：host/api 赋值优先，没有取文件里第一个站点地址（跳过本地代理与代码托管站）。 */
-    private static String domainFromScript(String text) {
-        if (text == null || text.isEmpty()) return null;
-        Matcher m = Pattern.compile("(?i)(host|api|domain|site|baseurl|base_url|base)\\s*=\\s*[\"'](https?://[^\"'\\s]+)[\"']").matcher(text);
-        while (m.find()) {
-            String origin = originOf(m.group(2));
-            if (origin != null && !isLocalOrCodeHost(origin)) return origin;
-        }
-        Matcher m2 = Pattern.compile("https?://[A-Za-z0-9.-]+(?::\\d+)?").matcher(text);
-        while (m2.find()) {
-            String origin = m2.group();
-            if (isLocalOrCodeHost(origin)) continue;
-            return origin;
-        }
-        return null;
-    }
-
-    private static boolean isLocalOrCodeHost(String origin) {
-        String host = origin.substring(origin.indexOf("://") + 3).toLowerCase();
-        return host.startsWith("127.0.0.1") || host.startsWith("localhost")
-                || host.startsWith("raw.githubusercontent.com") || host.startsWith("github.com")
-                || host.startsWith("cdn.jsdelivr.net") || host.startsWith("unpkg.com");
-    }
-
-    /** 地址只留协议+域名（+端口），路径不要——相对 id 拼上去才不会错位。 */
-    private static String originOf(String url) {
-        if (url == null) return null;
-        int scheme = url.indexOf("://");
-        if (scheme < 0) return null;
-        int start = scheme + 3;
-        int end = url.length();
-        for (int i = start; i < url.length(); i++) {
-            char c = url.charAt(i);
-            // 逗号是多域名列表的分隔符（金牌 ext.site 是逗号列表），到逗号就停，只取第一个域名。
-            if (c == '/' || c == '?' || c == '#' || c == ',') {
-                end = i;
-                break;
-            }
-        }
-        if (end <= start) return null;
-        return url.substring(0, end);
-    }
-
-    private static String readText(File file) {
-        try {
-            FileInputStream in = new FileInputStream(file);
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            byte[] buffer = new byte[4096];
-            int count;
-            while ((count = in.read(buffer)) != -1) out.write(buffer, 0, count);
-            in.close();
-            return out.toString("UTF-8");
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    private void onWebPlay() {
-        String home = siteHomePageUrl();
-        if (home == null) return;
-        openWebPlayer(home, null, "");
-        hideControl();
-    }
-
-    /** 把页面地址里的 -{线路}-{集} 段换成当前集号（如 vodplay/102317-1-1.html → vodplay/102317-1-5.html，第二段才是集号）；没有这段时原样返回。 */
-    /** v24 补：主线电视 v23 的 rewriteEpisode() 调 currentEpisodeNumber()，但 leanback 未定义（手机版 VideoActivity 有此方法）；
-     * v23 提交未构建，此遗漏未被发现。照手机版逐字抄，仅一处等价改写：leanback EpisodeAdapter 无 isEmpty()，改用 getItemCount() > 0。 */
-    /** 当前集的集号（1 起）：先从集名里取数字（第05集→5），没有取列表位置+1。 */
-    private int currentEpisodeNumber() {
-        if (mEpisodeAdapter != null && mEpisodeAdapter.getItemCount() > 0) {
-            int position = mEpisodeAdapter.getPosition();
-            List<Episode> items = mEpisodeAdapter.getItems();
-            if (items != null && position >= 0 && position < items.size()) {
-                String name = items.get(position).getName();
-                if (name != null) {
-                    Matcher m = Pattern.compile("第(\\d+)集").matcher(name);
-                    if (m.find()) {
-                        try {
-                            int n = Integer.parseInt(m.group(1));
-                            if (n > 0) return n;
-                        } catch (Exception ignored) {
-                        }
-                    }
-                    m = Pattern.compile("(\\d+)").matcher(name);
-                    int last = -1;
-                    while (m.find()) {
-                        try {
-                            last = Integer.parseInt(m.group(1));
-                        } catch (Exception ignored) {
-                        }
-                    }
-                    if (last > 0) return last;
-                }
-            }
-            if (position >= 0) return position + 1;
-        }
-        return 1;
-    }
-
-    private String rewriteEpisode(String url) {
-        if (url == null) return null;
-        int ep = currentEpisodeNumber();
-        Matcher m = Pattern.compile("-(\\d+)-(\\d+)").matcher(url);
-        int start = -1, end = -1;
-        while (m.find()) {
-            start = m.start(2);
-            end = m.end(2);
-        }
-        if (start < 0) return url;
-        return url.substring(0, start) + ep + url.substring(end);
-    }
-
-    private void openWebPlayer(String url, Map<String, String> header, String click) {
-        if (TextUtils.isEmpty(url) || !UrlUtil.isWebUrl(url)) return;
-        // 主页模式：站内搜片、换线路、选集全用网站自己的功能，壳子不传集列表/线路。
-        if (TextUtils.isEmpty(click)) click = getSite().getClick();
-        player().stop();
-        WebPlayActivity.start(this, getName(), url, header, new ArrayList<>(), new ArrayList<>(), 0, getKey(), "", click, new ArrayList<>());
-    }
-
     @Override
     public void renderDetail(Vod item, History history) {
         mHistory = history;
@@ -1104,7 +581,6 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         checkKeepImg();
         setText(item);
         updateKeep();
-        refreshWebButton();
     }
 
     @Override
@@ -1125,7 +601,6 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     @Override
     public void renderEmptyDetail() {
         showEmpty();
-        refreshWebButton();
     }
 
     @Override
@@ -1137,13 +612,11 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     public void renderFlags(List<Flag> items) {
         mBinding.flag.setVisibility(items.isEmpty() ? View.GONE : View.VISIBLE);
         mFlagAdapter.addAll(items);
-        if (items.isEmpty()) refreshWebButton();
     }
 
     @Override
     public void renderEpisodes(List<Episode> items) {
         setEpisodeAdapter(items);
-        if (items == null || items.isEmpty()) refreshWebButton();
     }
 
     @Override
@@ -1162,7 +635,6 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     public void renderReverseEpisodes(List<Episode> items, boolean scroll) {
         setEpisodeAdapter(items);
         if (scroll) mBinding.episode.setSelectedPosition(mEpisodeAdapter.getPosition());
-        if (items == null || items.isEmpty()) refreshWebButton();
     }
 
     @Override
@@ -1277,10 +749,7 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     }
 
     private void checkId() {
-        // 强播直达（跨类型切集）或自动播放开关开（电视默认开，Liu 2026-11-07 定）才强制播；
-        // 开关关时详情回来只高亮当前集、等用户点播；开+延时>0 时不强播，
-        // 交给 seamless 的延时档（标记选中后读秒起播，开关状态已由设置弹窗写回共享键）
-        if (getEpisodeIndex() >= 0 || (PlayerSetting.isAutoPlayTv() && PlayerSetting.getAutoPlayDelay() <= 0)) mVod.setForcePlayOnce(true);
+        mVod.setForcePlayOnce(true);
         mVod.checkId();
     }
 
@@ -1346,21 +815,12 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         mVod.selectQuality(result);
     }
 
-    /**
-     * 详情没出内容（如源没写播放数组）时 mHistory 为空；集数组渲染与排序/倒播入口
-     * 仍会走到，直接调 mHistory 会空指针崩溃，统一走这里判空。
-     */
-    private boolean isRevSort() {
-        return mHistory != null && mHistory.isRevSort();
-    }
-
     private void setArrayAdapter(int size) {
-        if (mHistory == null) return;
         List<String> items = new ArrayList<>();
         items.add(getString(R.string.play_reverse));
         items.add(getString(mHistory.getRevPlayText()));
         mBinding.array.setVisibility(size > 1 ? View.VISIBLE : View.GONE);
-        if (isRevSort()) for (int i = size; i > 0; i -= 20) items.add(i + "-" + Math.max(i - 19, 1));
+        if (mHistory.isRevSort()) for (int i = size; i > 0; i -= 20) items.add(i + "-" + Math.max(i - 19, 1));
         else for (int i = 0; i < size; i += 20) items.add((i + 1) + "-" + Math.min(i + 20, size));
         mArrayAdapter.addAll(items);
     }
@@ -1389,13 +849,12 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
 
     @Override
     public void onRevSort() {
-        mVod.setRevSort(!isRevSort());
+        mVod.setRevSort(!mHistory.isRevSort());
         mVod.reverseEpisode(false);
     }
 
     @Override
     public void onRevPlay(TextView view) {
-        if (mHistory == null) return;
         mVod.setRevPlay(!mHistory.isRevPlay());
         view.setText(mHistory.getRevPlayText());
         Notify.show(mHistory.getRevPlayHint());
@@ -1608,13 +1067,9 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
 
     private void hideProgress() {
         mBinding.progress.getRoot().setVisibility(View.GONE);
-        // Persistent playInfo: keep it and its tick when the switch is on, so the
-        // readout survives loading finishing. Switch off: old hide + reset behavior.
-        if (!PlayerSetting.isNetInfo()) {
-            mBinding.playInfo.setVisibility(View.GONE);
-            App.removeCallbacks(mR3);
-            Traffic.reset();
-        }
+        mBinding.playInfo.setVisibility(View.GONE);
+        App.removeCallbacks(mR3);
+        Traffic.reset();
     }
 
     private void showError(String text) {
@@ -1662,9 +1117,7 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     private void hideControl() {
         mBinding.control.getRoot().setVisibility(View.GONE);
         App.removeCallbacks(mR1);
-        // Persistent playInfo (net_info switch on): playInfo lives outside control,
-        // so hiding control must not hide it or stop its 1s tick. Switch off: old behavior.
-        if (!PlayerSetting.isNetInfo() && !isVisible(mBinding.progress.getRoot())) {
+        if (!isVisible(mBinding.progress.getRoot())) {
             mBinding.playInfo.setVisibility(View.GONE);
             App.removeCallbacks(mR3);
         }
@@ -1762,19 +1215,11 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         // the device-wide counters so the readout still works there.
         view.setVisibility(View.VISIBLE);
         long now = System.currentTimeMillis();
-        long totalTx = TrafficStats.getTotalTxBytes();
-        long totalRx = TrafficStats.getTotalRxBytes() / 1024;
-        long elapsed = Math.max(now - mLastRxTime, 1);
-        long txSpeed = totalTx == TrafficStats.UNSUPPORTED ? -1 : (totalTx / 1024 - mLastTxBytes) * 1000 / elapsed;
-        long rxSpeed = (totalRx - mLastRxBytes) * 1000 / elapsed;
-        mLastTxBytes = totalTx == TrafficStats.UNSUPPORTED ? mLastTxBytes : totalTx / 1024;
-        mLastRxBytes = totalRx;
+        long total = TrafficStats.getTotalRxBytes() / 1024;
+        long speed = (total - mLastRxBytes) * 1000 / Math.max(now - mLastRxTime, 1);
+        mLastRxBytes = total;
         mLastRxTime = now;
-        view.setText("[↑" + formatFallbackSpeed(txSpeed) + " ↓" + formatFallbackSpeed(rxSpeed) + "]");
-    }
-
-    private String formatFallbackSpeed(long speed) {
-        return speed < 0 ? "-- KB/s" : speed < 1000 ? speed + " KB/s" : String.format("%.1f MB/s", speed / 1024f);
+        view.setText(speed < 1000 ? speed + " KB/s" : String.format("%.1f MB/s", speed / 1024f));
     }
 
     private void setR1Callback() {
@@ -2110,14 +1555,10 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (resultCode == RESULT_OK && requestCode == 1001) PlaybackIntent.onExternalResult(data, service()::dispatchNext, controller()::seekTo);
-        if (requestCode == NovelActivity.REQUEST_NOVEL || requestCode == ImageActivity.REQUEST_IMAGE) {
+        if (requestCode == NovelActivity.REQUEST_NOVEL) {
             int position = data == null ? -1 : data.getIntExtra("episode_position", -1);
             if (resultCode != RESULT_OK || position < 0 || mEpisodeAdapter == null || position >= mEpisodeAdapter.getItemCount()) finish();
-            else {
-                // 小说朗读跨章接力：上一实例离开时正在朗读，则新实例自动续读。
-                mNovelTtsContinue = requestCode == NovelActivity.REQUEST_NOVEL && data.getBooleanExtra("tts_continue", false);
-                mVod.selectEpisode(mEpisodeAdapter.getItems().get(position));
-            }
+            else mVod.selectEpisode(mEpisodeAdapter.getItems().get(position));
         }
     }
 
@@ -2159,6 +1600,4 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         super.onDestroy();
     }
 }
-
-
 

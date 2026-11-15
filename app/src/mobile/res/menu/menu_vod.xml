@@ -17,13 +17,6 @@
         app:showAsAction="always" />
 
     <item
-        android:id="@+id/bookshelf"
-        android:icon="@drawable/ic_action_bookshelf"
-        android:title="@string/shelf_title"
-        app:iconTint="@color/white"
-        app:showAsAction="always" />
-
-    <item
         android:id="@+id/history"
         android:icon="@drawable/ic_action_history"
         android:title="@string/app_history"

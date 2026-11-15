@@ -43,14 +43,6 @@
             tools:visibility="visible" />
 
         <com.google.android.material.textview.MaterialTextView
-            android:id="@+id/web"
-            style="@style/Control"
-            android:layout_marginEnd="8dp"
-            android:text="@string/play_web"
-            android:visibility="gone"
-            tools:visibility="visible" />
-
-        <com.google.android.material.textview.MaterialTextView
             android:id="@+id/player"
             style="@style/Control"
             android:layout_marginEnd="8dp"
@@ -158,4 +150,3 @@
 
     </androidx.appcompat.widget.LinearLayoutCompat>
 </HorizontalScrollView>
-

@@ -1,7 +1,6 @@
 package com.muse.android.tv.ui.fragment;
 
 import android.annotation.SuppressLint;
-import android.text.TextUtils;
 import android.content.Intent;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -36,14 +35,12 @@ import com.muse.android.tv.ui.activity.CastActivity;
 import com.muse.android.tv.ui.activity.CollectActivity;
 import com.muse.android.tv.ui.activity.HistoryActivity;
 import com.muse.android.tv.ui.activity.HomeActivity;
-import com.muse.android.tv.ui.activity.BookshelfActivity;
 import com.muse.android.tv.ui.activity.KeepActivity;
 import com.muse.android.tv.ui.activity.LiveActivity;
 import com.muse.android.tv.ui.activity.PushActivity;
 import com.muse.android.tv.ui.activity.SearchActivity;
 import com.muse.android.tv.ui.activity.SettingActivity;
 import com.muse.android.tv.ui.activity.VideoActivity;
-import com.muse.android.tv.ui.activity.WebPlayActivity;
 import com.muse.android.tv.ui.activity.VodActivity;
 import com.muse.android.tv.ui.adapter.BaseDiffCallback;
 import com.muse.android.tv.ui.base.BaseFragment;
@@ -54,7 +51,6 @@ import com.muse.android.tv.ui.presenter.HeaderPresenter;
 import com.muse.android.tv.ui.presenter.HistoryPresenter;
 import com.muse.android.tv.ui.presenter.ProgressPresenter;
 import com.muse.android.tv.ui.presenter.VodPresenter;
-import com.muse.android.tv.utils.Notify;
 import com.muse.android.tv.utils.ResUtil;
 import com.github.catvod.utils.Prefers;
 import com.google.common.collect.Lists;
@@ -74,11 +70,9 @@ import java.util.List;
  * - 功能行间距由 16 改为 22（原版 k(22,1,1)；Vod 行 16、历史行 16+ALIGNED 与原版一致）。
  * - 布局改回原版 fragment_home：ProgressLayout 包 VerticalGridView（padding 26/12/26/24），
  *   旧版的裸 VerticalGridView + "progress" 适配器项已删掉。
- * 未搬的一处原版细节（我方 bean 不支持，见 DIFF-REPORT）：
+ * 未搬的两处原版细节（我方 bean 不支持，见 DIFF-REPORT）：
+ * - a0() 的首末功能首尾焦点环绕（Func bean 无 nextFocusLeft/Right 字段）。
  * - f0() 的标题 nextFocusDown（标题 DOWN 走 Activity 的 focusCurrentPageFirst，与旧版相同）。
- * a0() 的首末功能首尾焦点环绕已按原版补回（2026-11-01 Liu 下令三线电视版全改）：Func 带
- * generateViewId 的 id 与 nextFocusLeft/Right 字段，getFuncItems 组装后首末互指，
- * FuncPresenter 绑定时 setId + setNextFocusLeft/RightId，与原版 R3/x 一致。
  * 首页 Vod 不钻文件夹（与原版一致：直接进播放页/收藏）。
  */
 public class HomePageFragment extends BaseFragment implements VodPresenter.OnClickListener, FuncPresenter.OnClickListener, HistoryPresenter.OnClickListener {
@@ -158,26 +152,13 @@ public class HomePageFragment extends BaseFragment implements VodPresenter.OnCli
         b0();
     }
 
-    /** 原版 P3/e.a0()：功能行来自 Button.getButtons()，直播在 LiveConfig 无 URL 时排除；组装后按原版首末互指（焦点环绕）。 */
+    /** 原版 P3/e.a0()：功能行来自 Button.getButtons()，直播在 LiveConfig 无 URL 时排除。首末焦点环绕未搬（见类注释）。 */
     private List<Func> getFuncItems() {
         List<Func> items = new ArrayList<>();
         boolean hasLiveUrl = LiveConfig.hasUrl();
         for (Button button : Button.getButtons()) {
             if (!hasLiveUrl && button.getResId() == R.string.home_live) continue;
             items.add(Func.create(button.getResId()));
-        }
-        // 浏览器入口：只在当前站能推出主页时亮，紧跟书架项后（首页功能行里小说边上）。
-        Site home = getHome();
-        if (home != null && !TextUtils.isEmpty(VideoActivity.siteHomePageUrl(home))) {
-            Func browser = Func.create(R.string.nav_browser);
-            int shelf = -1;
-            for (int i = 0; i < items.size(); i++) if (items.get(i).getResId() == R.string.shelf_title) shelf = i;
-            if (shelf >= 0) items.add(shelf + 1, browser);
-            else items.add(browser);
-        }
-        if (items.size() > 1) {
-            items.get(0).setNextFocusLeft(items.get(items.size() - 1).getId());
-            items.get(items.size() - 1).setNextFocusRight(items.get(0).getId());
         }
         return items;
     }
@@ -311,8 +292,6 @@ public class HomePageFragment extends BaseFragment implements VodPresenter.OnCli
         else if (item.getResId() == R.string.home_cast) startActivity(new Intent(requireActivity(), CastActivity.class));
         else if (item.getResId() == R.string.home_history_short) startActivity(new Intent(requireActivity(), HistoryActivity.class));
         else if (item.getResId() == R.string.home_keep) KeepActivity.start(requireActivity());
-        else if (item.getResId() == R.string.shelf_title) BookshelfActivity.start(requireActivity());
-        else if (item.getResId() == R.string.nav_browser) openBrowser();
         else if (item.getResId() == R.string.home_push) PushActivity.start(requireActivity());
         else if (item.getResId() == R.string.home_search) SearchActivity.start(requireActivity());
         else if (item.getResId() == R.string.home_setting) SettingActivity.start(requireActivity());
@@ -321,17 +300,6 @@ public class HomePageFragment extends BaseFragment implements VodPresenter.OnCli
                 VodActivity.start(requireActivity(), getHome().getKey(), ((HomeActivity) getActivity()).getHomeResult());
             }
         }
-    }
-
-    /** 进当前站点的主页（网页播放那套主页推导）；推不出就提示，不进空白页（与手机版 HomeActivity.openBrowser 同逻辑）。 */
-    private void openBrowser() {
-        Site site = getHome();
-        String url = site == null ? null : VideoActivity.siteHomePageUrl(site);
-        if (TextUtils.isEmpty(url)) {
-            Notify.show(R.string.nav_browser_empty);
-            return;
-        }
-        WebPlayActivity.start(requireActivity(), site.getName(), url, null, null, null, 0, site.getKey(), "", site.getClick(), null);
     }
 
     @Override
@@ -378,4 +346,3 @@ public class HomePageFragment extends BaseFragment implements VodPresenter.OnCli
         return true;
     }
 }
-

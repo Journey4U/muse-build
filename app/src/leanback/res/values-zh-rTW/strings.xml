@@ -13,10 +13,6 @@
     <string name="home_setting">設定</string>
     <string name="home_history">最近觀看</string>
     <string name="home_recommend">更新推薦</string>
-
-    <!-- Nav -->
-    <string name="nav_browser">瀏覽器</string>
-    <string name="nav_browser_empty">該站點沒有主頁</string>
     <string name="config_refreshed">介面已刷新</string>
     <string name="setting_reset_app">重置App</string>
     <string name="reset_app_confirm">將清除全部資料（介面配置、歷史、收藏與所有設定）並重啟應用，確定繼續嗎？</string>
@@ -31,4 +27,3 @@
     <string name="detail_episode">選集</string>
 
 </resources>
-

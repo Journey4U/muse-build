@@ -1,7 +1,5 @@
 package com.muse.android.tv.bean;
 
-import android.view.View;
-
 import androidx.annotation.Nullable;
 
 import com.muse.android.tv.R;
@@ -12,9 +10,6 @@ public class Func implements Diffable<Func> {
 
     private final int resId;
     private int drawable;
-    private final int id = View.generateViewId();
-    private int nextFocusLeft;
-    private int nextFocusRight;
 
     public static Func create(int resId) {
         return new Func(resId);
@@ -27,26 +22,6 @@ public class Func implements Diffable<Func> {
 
     public int getResId() {
         return resId;
-    }
-
-    public int getId() {
-        return id;
-    }
-
-    public int getNextFocusLeft() {
-        return nextFocusLeft;
-    }
-
-    public int getNextFocusRight() {
-        return nextFocusRight;
-    }
-
-    public void setNextFocusLeft(int nextFocusLeft) {
-        this.nextFocusLeft = nextFocusLeft;
-    }
-
-    public void setNextFocusRight(int nextFocusRight) {
-        this.nextFocusRight = nextFocusRight;
     }
 
     public int getDrawable() {
@@ -66,8 +41,6 @@ public class Func implements Diffable<Func> {
         else if (resId == R.string.home_cast) this.drawable = R.drawable.ic_home_cast;
         else if (resId == R.string.home_history_short) this.drawable = R.drawable.ic_home_history;
         else if (resId == R.string.home_search) this.drawable = R.drawable.ic_home_search;
-        else if (resId == R.string.shelf_title) this.drawable = R.drawable.ic_action_bookshelf;
-        else if (resId == R.string.nav_browser) this.drawable = R.drawable.ic_nav_browser;
         else if (resId == R.string.home_setting) this.drawable = R.drawable.ic_home_setting;
     }
 
@@ -88,4 +61,3 @@ public class Func implements Diffable<Func> {
         return equals(other);
     }
 }
-

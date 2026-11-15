@@ -15,7 +15,6 @@ import com.muse.android.tv.Updater;
 import com.muse.android.tv.api.config.LiveConfig;
 import com.muse.android.tv.api.config.VodConfig;
 import com.muse.android.tv.api.config.WallConfig;
-import com.muse.android.tv.api.loader.LocalSourceHub;
 import com.muse.android.tv.bean.Config;
 import com.muse.android.tv.bean.Live;
 import com.muse.android.tv.bean.Site;
@@ -35,7 +34,6 @@ import com.muse.android.tv.ui.dialog.ConfigDialog;
 import com.muse.android.tv.ui.dialog.DohDialog;
 import com.muse.android.tv.ui.dialog.HistoryDialog;
 import com.muse.android.tv.ui.dialog.LiveDialog;
-import com.muse.android.tv.ui.dialog.LocalSourceDialog;
 import com.muse.android.tv.ui.dialog.RestoreDialog;
 import com.muse.android.tv.ui.dialog.SiteDialog;
 import com.muse.android.tv.utils.FileUtil;
@@ -91,7 +89,6 @@ public class SettingActivity extends BaseActivity implements ConfigListener, Sit
 
     private void setOtherText() {
         mBinding.dohText.setText(getDohList()[getDohIndex()]);
-        setLocalSourceText();
         mBinding.incognitoText.setText(Setting.getSwitch(Setting.isIncognito()));
         mBinding.sizeText.setText((size = ResUtil.getStringArray(R.array.select_size))[PlayerSetting.getSize()]);
     }
@@ -109,7 +106,6 @@ public class SettingActivity extends BaseActivity implements ConfigListener, Sit
     protected void initEvent() {
         mBinding.vod.setOnClickListener(this::onVod);
         mBinding.doh.setOnClickListener(this::setDoh);
-        mBinding.localSource.setOnClickListener(this::onLocalSource);
         mBinding.live.setOnClickListener(this::onLive);
         mBinding.wall.setOnClickListener(this::onWall);
         mBinding.size.setOnClickListener(this::setSize);
@@ -383,13 +379,4 @@ public class SettingActivity extends BaseActivity implements ConfigListener, Sit
         mBinding.wallUrl.setText(WallConfig.getDesc());
     }
 
-
-    /** 设置页本地源行副标题：显示 Hub 状态（未启用 / 未设置文件夹 / 上次扫描摘要）。 */
-    private void setLocalSourceText() {
-        mBinding.localSourceText.setText(LocalSourceHub.getStatusText());
-    }
-
-    private void onLocalSource(View view) {
-        LocalSourceDialog.show(this, this::setLocalSourceText);
-    }
 }
