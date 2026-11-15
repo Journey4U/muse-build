@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Spike0 Test</title></head>
+<body>
+<h1>GeckoView Spike 0</h1>
+<div id="spike-results">pending</div>
+<!-- ad-domain requests: webRequest should block all of these -->
+<img id="ad-img-1" src="https://creative.myavlive.com/test.png" alt="">
+<img id="ad-img-2" src="https://creative.mavrtracktor.com/test.png" alt="">
+<script src="https://go.mavrtracktor.com/test.js"></script>
+<!-- non-ad request: must NOT be blocked -->
+<img id="ok-img" src="https://example.com/test.png" alt="">
+<script>
+(function(){
+  var out = [];
+  out.push("mainFlag=" + (typeof window.__museSpikeMain !== "undefined" ? window.__museSpikeMain : "absent"));
+  out.push("chrome=" + (typeof window.chrome));
+  try {
+    var ws = new WebSocket("wss://ca.ijknabd.top/test");
+    out.push("ws-created=true");
+    try { ws.close(); } catch (e) {}
+  } catch (e) {
+    out.push("ws-blocked=" + e.message);
+  }
+  setTimeout(function(){
+    var i1 = document.getElementById("ad-img-1");
+    var i2 = document.getElementById("ad-img-2");
+    var ok = document.getElementById("ok-img");
+    out.push("adImg1=" + (i1.naturalWidth > 0 ? "LOADED(BAD)" : "not-loaded(GOOD)"));
+    out.push("adImg2=" + (i2.naturalWidth > 0 ? "LOADED(BAD)" : "not-loaded(GOOD)"));
+    out.push("okImg=" + (ok.naturalWidth > 0 ? "LOADED(GOOD)" : "not-loaded(?)"));
+    document.getElementById("spike-results").textContent = out.join(" | ");
+    console.log("SPIKE-PAGE " + out.join(" | "));
+  }, 3000);
+})();
+</script>
+</body></html>

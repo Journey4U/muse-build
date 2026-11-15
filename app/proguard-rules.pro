@@ -85,3 +85,6 @@
 -keepclassmembers class com.muse.chaquo.Platform {
     public android.app.Application getApplication();
 }
+
+# Spike 0: keep GeckoView
+-keep class org.mozilla.geckoview.** { *; }

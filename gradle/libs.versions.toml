@@ -1,7 +1,7 @@
 [versions]
 agp = "9.3.1"
 python = "17.0.0"
-minSdk = "24"
+minSdk = "26"
 targetSdk = "28"
 compileSdk = "37"
 
@@ -122,3 +122,4 @@ chaquo-python = { id = "com.chaquo.python", version.ref = "python" }
 glide = ["glide", "glide-annotations", "glide-avif-integration", "glide-okhttp3-integration"]
 jupnp = ["org-jupnp", "org-jupnp-android", "org-jupnp-support"]
 okhttp = ["okhttp", "okhttp-dnsoverhttps", "okhttp-logging-interceptor"]
+

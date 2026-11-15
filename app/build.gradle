@@ -108,6 +108,8 @@ dependencies {
     implementation project(':quickjs')
     implementation project(':hook')
     implementation libs.appcompat
+    // Spike 0: GeckoView (arm64 only)
+    implementation "org.mozilla.geckoview:geckoview-arm64-v8a:160.0.20261104181552"
     implementation libs.lifecycle.service
     implementation libs.media
     implementation libs.palette
@@ -162,3 +164,4 @@ dependencies {
     annotationProcessor libs.glide.compiler
     coreLibraryDesugaring libs.desugar
 }
+
