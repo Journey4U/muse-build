@@ -1288,8 +1288,8 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         "h>16)continue;if(/^(广告)?(\\d{1,2}:\\d{2}|\\d+s?|\\d+秒)后(自动)?(关闭|关)$/.test(t)){killPreRollOne(el2);}else if(/^(跳过广告",
         "|SkipAd)$/i.test(t)){var h=el2.tagName==='A'?(el2.getAttribute('href')||''):'';if(el2.tagName!=='A'||h.indexOf",
         "('javascript:')===0)clickNeutral(el2);}}}function run(){if(document.fullscreenElement)return;try{sweep();}catc",
-        "h(e){}}run();setTimeout(run,1200);setTimeout(run,3500);var sweepTimer=setInterval(run,2000);setTimeout(functio",
-        "n(){try{clearInterval(sweepTimer);}catch(e){}},300000);if(document.addEventListener){document.addEventListener",
+        "h(e){}}run();setTimeout(run,1200);setTimeout(run,3500);var sweepTimer=setInterval(run,5000);setTimeout(functio",
+        "n(){try{clearInterval(sweepTimer);}catch(e){}},60000);if(document.addEventListener){document.addEventListener",
         "('fullscreenchange',function(){if(!document.fullscreenElement){var vs=document.querySelectorAll('video');for(v",
         "ar i=0;i<vs.length;i++){var v=vs[i];if(v.style&&v.style.display==='none')v.style.display='';var p=v.parentElem",
         "ent;while(p&&p!==document.body){if(p.style&&p.style.display==='none')p.style.display='';p=p.parentElement;}}se",
@@ -1533,6 +1533,8 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         String ua = Setting.getUa();
         if (!TextUtils.isEmpty(ua)) setting.setUserAgentString(ua);
         mBinding.web.setWebViewClient(webViewClient());
+        // 电视卡顿优化（2026-11-16）：WebView 用硬件层，合成走 GPU，减轻 32 位电视 CPU 负担。
+        mBinding.web.setLayerType(View.LAYER_TYPE_HARDWARE, null);
         mChromeClient = webChromeClient();
         mBinding.web.setWebChromeClient(mChromeClient);
     }
