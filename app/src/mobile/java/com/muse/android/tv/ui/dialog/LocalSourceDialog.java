@@ -123,11 +123,7 @@ public class LocalSourceDialog extends BaseAlertDialog {
         if (!save()) return;
         Activity host = getActivity();
         if (host == null) return;
-        PermissionUtil.requestFile(this, granted -> {
-            if (!Boolean.TRUE.equals(granted)) {
-                Notify.show(R.string.local_source_permission_required);
-                return;
-            }
+        PermissionUtil.ensureStoragePermission(this, () -> {
             Context appContext = host.getApplicationContext();
             Notify.show(R.string.local_source_scanning);
             new Thread(() -> {
@@ -144,7 +140,17 @@ public class LocalSourceDialog extends BaseAlertDialog {
                 reload(host);
             });
             }, "local-source-scan").start();
-        });
+        }, () -> showPermissionDenied(host));
+    }
+
+    /** v67：拒绝弹现有提示 +「去设置」（弹窗此时已 dismiss，用点按钮时捕获的 host 建弹窗）。 */
+    private void showPermissionDenied(Activity host) {
+        if (host == null || host.isFinishing()) return;
+        new MaterialAlertDialogBuilder(host)
+                .setMessage(R.string.local_source_permission_required)
+                .setPositiveButton(R.string.permission_open_settings, (dialog, which) -> PermissionUtil.openAppSettings(host))
+                .setNegativeButton(R.string.dialog_negative, null)
+                .show();
     }
 
     /** r26-②：本轮「保存并加载」若因自写源保护跳过了自动刷新回填，补一句说明。 */
@@ -176,7 +182,7 @@ public class LocalSourceDialog extends BaseAlertDialog {
         // 「保存并加载」＝把刚生成的本壳产物设为点播配置并加载（与「本地源生成设置」
         // 对话框的 reload 同一口径）：产物文件存在就直接设为点播，配置栏随之变成产物地址；
         // 当前配置为空、或已经就是这个产物时同样走这条路。产物不存在（生成失败）时才
-        // 退回重载当前配置。生成前 onSaveAndLoad 已走过 requestFile，这里不再另起权限路径。
+        // 退回重载当前配置。生成前 onSaveAndLoad 已走过权限统一门，这里不再另起权限路径。
         String output = LocalSourceHub.getOutputPath();
         if (TextUtils.isEmpty(output) || !new File(output).isFile()) {
             VodConfig.get().init().load(callback);
@@ -186,3 +192,4 @@ public class LocalSourceDialog extends BaseAlertDialog {
         VodConfig.load(Config.find(url, 0), callback);
     }
 }
+

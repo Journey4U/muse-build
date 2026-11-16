@@ -71,7 +71,7 @@ public class FileActivity extends BaseActivity implements FileAdapter.OnClickLis
     }
 
     private void checkPermission() {
-        PermissionUtil.requestFile(this, granted -> { if (granted) update(Path.root()); else finish(); });
+        PermissionUtil.ensureStoragePermission(this, () -> update(Path.root()), this::finish);
     }
 
     private void update(File dir) {
@@ -116,3 +116,4 @@ public class FileActivity extends BaseActivity implements FileAdapter.OnClickLis
         }
     }
 }
+

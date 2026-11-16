@@ -243,6 +243,14 @@ public class Site implements Parcelable {
         return TextUtils.isEmpty(homePageUrl) ? "" : homePageUrl;
     }
 
+    /**
+     * v67：是不是 v61 网页源条目 —— 只有 key/name/主页url，没有 api/ext。
+     * 普通源即使写了顶层「主页url」也有 api，所以不会误判。
+     */
+    public boolean isWebSource() {
+        return getApi().isEmpty() && getExt().isEmpty() && !getHomePageUrl().isEmpty();
+    }
+
     public Integer getType() {
         return type == null ? 0 : type;
     }
@@ -494,5 +502,6 @@ public class Site implements Parcelable {
         }
     };
 }
+
 
 

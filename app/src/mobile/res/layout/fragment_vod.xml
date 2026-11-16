@@ -97,6 +97,17 @@
         android:layout_height="match_parent"
         app:layout_behavior="@string/appbar_scrolling_view_behavior" />
 
+    <!-- v69：当前配置无站源时居中提示（不可点） -->
+    <com.google.android.material.textview.MaterialTextView
+        android:id="@+id/emptyTip"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/vod_empty_tip"
+        android:textSize="18sp"
+        android:visibility="gone"
+        app:layout_anchor="@id/pager"
+        app:layout_anchorGravity="center" />
+
     <include
         android:id="@+id/progress"
         layout="@layout/view_progress"

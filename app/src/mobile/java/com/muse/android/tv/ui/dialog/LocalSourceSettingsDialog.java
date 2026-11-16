@@ -485,11 +485,7 @@ public class LocalSourceSettingsDialog extends BaseAlertDialog {
         }
         Activity host = getActivity();
         if (host == null) return;
-        PermissionUtil.requestFile(this, granted -> {
-            if (!Boolean.TRUE.equals(granted)) {
-                Notify.show(R.string.local_source_permission_required);
-                return;
-            }
+        PermissionUtil.ensureStoragePermission(this, () -> {
             Context appContext = host.getApplicationContext();
             Notify.show(R.string.local_source_scanning);
             new Thread(() -> {
@@ -505,7 +501,17 @@ public class LocalSourceSettingsDialog extends BaseAlertDialog {
                 reload();
             });
             }, "local-source-generate").start();
-        });
+        }, () -> showPermissionDenied(host));
+    }
+
+    /** v67：拒绝弹现有提示 +「去设置」（弹窗此时已 dismiss，用点按钮时捕获的 host 建弹窗）。 */
+    private void showPermissionDenied(Activity host) {
+        if (host == null || host.isFinishing()) return;
+        new MaterialAlertDialogBuilder(host)
+                .setMessage(R.string.local_source_permission_required)
+                .setPositiveButton(R.string.permission_open_settings, (dialog, which) -> PermissionUtil.openAppSettings(host))
+                .setNegativeButton(R.string.dialog_negative, null)
+                .show();
     }
 
     /** r26-②：本轮「保存并加载」若因自写源保护跳过了自动刷新回填，补一句说明。 */
@@ -546,3 +552,4 @@ public class LocalSourceSettingsDialog extends BaseAlertDialog {
         else VodConfig.load(config, callback);
     }
 }
+

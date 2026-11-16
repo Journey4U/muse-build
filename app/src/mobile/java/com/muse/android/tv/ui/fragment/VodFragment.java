@@ -151,6 +151,13 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         setFabVisible(0);
         hideProgress();
         showContent();
+        updateEmptyTip();
+    }
+
+    /** v69：当前配置无站源时，主页居中显示「请添加站源」（不可点）；有站源时隐藏。 */
+    private void updateEmptyTip() {
+        boolean empty = VodConfig.get().getSites().isEmpty();
+        mBinding.emptyTip.setVisibility(empty ? View.VISIBLE : View.GONE);
     }
 
     private void setFabVisible(int position) {
@@ -169,8 +176,9 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         }
     }
 
+    /** v69：标题不再显示配置名（文件名）：只认站点名，空了就回应用名。 */
     private void setTitle() {
-        List<String> items = Arrays.asList(getHome().getName(), getConfig().getName(), getString(R.string.app_name));
+        List<String> items = Arrays.asList(getHome().getName(), getString(R.string.app_name));
         Optional<String> optional = items.stream().filter(s -> !TextUtils.isEmpty(s)).findFirst();
         optional.ifPresent(s -> mBinding.title.setText(s));
     }
@@ -274,6 +282,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
 
     private void homeContent() {
         showProgress();
+        mBinding.emptyTip.setVisibility(View.GONE);
         setFabVisible(0);
         mAdapter.clear();
         mFolderPaths.clear();

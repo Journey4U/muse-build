@@ -139,7 +139,7 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
     protected void initEvent() {
         mBinding.vod.setOnClickListener(this::onVod);
         mBinding.localSource.setOnClickListener(v -> LocalSourceDialog.show(this, this::setLocalSourceText));
-        mBinding.webSource.setOnClickListener(v -> WebSourceDialog.show(getContext()));
+        mBinding.webSource.setOnClickListener(v -> WebSourceDialog.show(this));
         mBinding.doh.setOnClickListener(this::setDoh);
         mBinding.live.setOnClickListener(this::onLive);
         mBinding.wall.setOnClickListener(this::onWall);
@@ -172,10 +172,21 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
     @Override
     public void setConfig(Config config) {
         if (config.getUrl().startsWith("file")) {
-            PermissionUtil.requestFile(this, allGranted -> load(config));
+            // v67：拒绝也不加载（之前拒绝也照样 load 是 bug），拒绝只提示、不加载
+            PermissionUtil.ensureStoragePermission(this, () -> load(config), this::showStoragePermissionDenied);
         } else {
             load(config);
         }
+    }
+
+    /** v67：本地配置读盘被拒：弹提示 +「去设置」，不加载配置。 */
+    private void showStoragePermissionDenied() {
+        if (!isAdded()) return;
+        new MaterialAlertDialogBuilder(requireActivity())
+                .setMessage(R.string.config_storage_permission_required)
+                .setPositiveButton(R.string.permission_open_settings, (dialog, which) -> PermissionUtil.openAppSettings(requireActivity()))
+                .setNegativeButton(R.string.dialog_negative, null)
+                .show();
     }
 
     private void load(Config config) {
@@ -443,4 +454,5 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
         EventBus.getDefault().unregister(this);
     }
 }
+
 

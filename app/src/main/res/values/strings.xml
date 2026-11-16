@@ -750,6 +750,7 @@
     <string name="site_share_fail">Share failed: no app available to handle it</string>
     <string name="site_target_title">Act on selection</string>
     <string name="site_web_source_add">Add web source</string>
+    <string name="site_web_source_created">Web source added: %1$s, saved to local config Muse网页源.json</string>
     <string name="site_web_source_done">Web source added: %1$s</string>
     <string name="site_web_source_exists">That name already exists</string>
     <string name="site_web_source_fail">Failed to add web source</string>
@@ -760,6 +761,24 @@
     <string name="site_web_source_url_empty">URL cannot be empty</string>
     <string name="site_web_source_url_hint">URL, e.g. https://missav.ai/</string>
     <string name="site_web_source_url_invalid">Invalid URL, use an http/https address</string>
+    <!-- v69 主页空态提示 -->
+    <string name="vod_empty_tip">请添加站源</string>
+    <!-- v67 网页源删除/改名 -->
+    <string name="site_websource_delete">删除网页源</string>
+    <string name="site_websource_rename">改名</string>
+    <string name="site_websource_del_title">删除网页源</string>
+    <string name="site_websource_del_message">确定删除网页源「%1$s」？\n删除后将从当前配置中移除，不可恢复。</string>
+    <string name="site_websource_del_done">已删除网页源：%1$s</string>
+    <string name="site_websource_del_fail">删除网页源失败</string>
+    <string name="site_websource_rename_title">网页源改名</string>
+    <string name="site_websource_rename_done">已改名：%1$s</string>
+    <string name="site_websource_edit_fail">修改网页源失败</string>
+    <string name="site_websource_not_found">该网页源已不在当前配置里</string>
+    <string name="site_websource_network">当前是网络源配置，网页源只能在本地源配置里删除或改名</string>
+    <!-- v67 权限统一 -->
+    <string name="config_storage_permission_required">需要存储权限才能读取本地配置文件</string>
+    <string name="websource_storage_permission_required">需要存储权限才能保存网页源</string>
+    <string name="permission_open_settings">去设置</string>
     <string name="shelf_title">Bookshelf</string>
     <string name="shelf_import">Import book</string>
     <string name="shelf_recent">Recent reading</string>
@@ -782,6 +801,8 @@
     <string name="shelf_folder_result">Folder import done: %1$d added, %2$d skipped, %3$d failed</string>
     <string name="shelf_folder_empty">No TXT or EPUB files in this folder.</string>
 </resources>
+
+
 
 
 

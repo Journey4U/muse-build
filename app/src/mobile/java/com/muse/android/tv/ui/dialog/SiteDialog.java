@@ -423,10 +423,85 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
     @Override
     public boolean onTextLongClick(Site item) {
         if (getContext() == null) return true;
+        // v67：网页源条目长按不进勾选模式，弹「删除 / 改名」菜单；普通源行为一行不动。
+        // 已在勾选模式里时照旧（长按只负责勾选，不中途弹菜单）。
+        if (!adapter.isSelecting() && item != null && item.isWebSource()) {
+            showWebSourceMenu(item);
+            return true;
+        }
         if (!adapter.isSelecting()) adapter.setSelecting(true);
         adapter.toggleChecked(item);
         updateSelectionUi();
         return true;
+    }
+
+    /** v67：网页源长按菜单 —— 只两项：删除 / 改名（删改都只动当前配置文件里这一条）。 */
+    private void showWebSourceMenu(Site site) {
+        Context context = getContext();
+        if (context == null || site == null) return;
+        String[] actions = new String[]{getString(R.string.site_websource_delete), getString(R.string.site_websource_rename)};
+        new MaterialAlertDialogBuilder(context, R.style.TaixuAlertDialogTheme)
+                .setTitle(site.getName())
+                .setItems(actions, (dialog, which) -> {
+                    if (which == 0) confirmDeleteWebSource(site);
+                    else renameWebSource(site);
+                })
+                .setNegativeButton(R.string.dialog_negative, null)
+                .show();
+    }
+
+    /** v67：删网页源前的二次确认（删的是当前配置文件里这一条，删后从文件里移除，不可恢复）。 */
+    private void confirmDeleteWebSource(Site site) {
+        Context context = getContext();
+        if (context == null) return;
+        new MaterialAlertDialogBuilder(context, R.style.TaixuAlertDialogTheme)
+                .setTitle(R.string.site_websource_del_title)
+                .setMessage(getString(R.string.site_websource_del_message, site.getName()))
+                .setNegativeButton(R.string.dialog_negative, null)
+                .setPositiveButton(R.string.site_del_confirm, (dialog, which) -> doDeleteWebSource(site))
+                .show();
+    }
+
+    /**
+     * v67：真正删一条网页源 —— 后台调 Hub 文本级删除，成功 / 条目已不在时都重载列表
+     * （删的是当前正在用的站时，重载后 home 自动落到第一条站，即默认站）。
+     */
+    private void doDeleteWebSource(Site site) {
+        final String key = site.getKey();
+        final String name = site.getName();
+        new Thread(() -> {
+            final int result = LocalSourceHub.deleteWebSource(key);
+            App.post(() -> {
+                if (!isAdded()) return;
+                if (result == LocalSourceHub.WEB_OK) {
+                    Notify.show(getString(R.string.site_websource_del_done, name));
+                    reloadAfterMove();
+                } else if (result == LocalSourceHub.WEB_NOT_FOUND) {
+                    Notify.show(R.string.site_websource_not_found);
+                    reloadAfterMove();
+                } else if (result == LocalSourceHub.WEB_NO_PERMISSION) {
+                    showWebSourceNoPermission();
+                } else if (result == LocalSourceHub.WEB_NETWORK) {
+                    Notify.show(R.string.site_websource_network);
+                } else {
+                    Notify.show(R.string.site_websource_del_fail);
+                }
+            });
+        }, "local-source-websource-delete").start();
+    }
+
+    /** v67：网页源改名 —— 复用 WebSourceDialog 的输入弹窗（预填名字与网址），改后重载列表。 */
+    private void renameWebSource(Site site) {
+        WebSourceDialog.showEdit(this, site, () -> {
+            if (!isAdded()) return;
+            reloadAfterMove();
+        });
+    }
+
+    /** v67：删网页源写盘时才发现没权限 —— 与添加口径一致，弹权限提示 +「去设置」。 */
+    private void showWebSourceNoPermission() {
+        Context context = getContext();
+        if (context != null) WebSourceDialog.showNoPermission(context);
     }
 
     /** 勾选操作栏的接线与显隐。 */
@@ -1147,3 +1222,4 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
         setWidth(ResUtil.isLand(requireContext()) ? 0.5f : 0.98f);
     }
 }
+
