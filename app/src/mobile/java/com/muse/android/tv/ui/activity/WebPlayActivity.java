@@ -1196,7 +1196,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         "t(el))return false;if(isNavMenu(el))return false;if(el.querySelector&&el.querySelector('video'))return false;v",
         "ar cs=getComputedStyle(el);if(cs.position!=='fixed'&&cs.position!=='absolute'&&cs.position!=='sticky')return f",
         "alse;var r=el.getBoundingClientRect();if(r.width<window.innerWidth*0.4)return false;if(r.bottom<window.innerHe",
-        "ight-2)return false;if(r.top<window.innerHeight*0.5)return false;if(r.height<60||r.height>250)return false;var",
+        "ight-2)return false;if(r.top<window.innerHeight*0.5)return false;if(r.height<60)return false;var",
         " hasVisual=false;if(el.tagName==='IMG'||el.tagName==='IFRAME')hasVisual=true;else if(el.querySelector&&el.quer",
         "ySelector('img,iframe'))hasVisual=true;if(!hasVisual){var bg=cs.backgroundImage||'';if(bg.indexOf('url(')>=0)h",
         "asVisual=true;}if(!hasVisual){var kids=el.querySelectorAll('*');for(var k=0;k<kids.length;k++){var kb=getCompu",
@@ -1578,8 +1578,10 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 }
                 // v53 奇优：/static/jquery.js 是底部横幅的 WebSocket 通道（解析阶段同步开 WS，早于 CLEAN_JS 注入；
                 // WS 握手不走 shouldInterceptRequest，只能拦加载器本身）。完整路径匹配：只拦 path 恰好是
-                // /static/jquery.js 的请求；页面真 jQuery 走 CDN（path 不是这条），不误伤。只在奇优站内拦。
-                if (isQiyouSite() && "/static/jquery.js".equals(request.getUrl().getPath())) {
+                // /static/jquery.js 的请求；页面真 jQuery 走 CDN（path 不是这条），不误伤。
+                // 根上拦（2026-11-16）：不 gate isQiyouSite()——新奇优域名（如 wdbay.com）key/title 里没有 qiyou/奇优，
+                // isQiyouSite() 认不出，门一关加载器就漏过去、WS 就开了、条幅就出来了；WS 域名轮换拦不住，按 path 拦才管用。
+                if ("/static/jquery.js".equals(request.getUrl().getPath())) {
                     if (mBlockedHosts.add(host)) DebugLogStore.add("WebPlay", "blocked qiyou static jquery url=" + request.getUrl());
                     return mEmpty;
                 }
