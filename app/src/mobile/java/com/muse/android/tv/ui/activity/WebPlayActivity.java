@@ -93,7 +93,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
      * 也藏掉；图片地址是 blob: 或 data:（内嵌 base64）的 opaque 图同样按弹窗处理。页面常延迟注入广告，故装 MutationObserver 在 60 秒内持续清扫，
      * onPageCommitVisible 起跑以减少广告闪现。观察器另监听 style 属性（先藏后显的弹窗），防抖 100ms；同一播放器内多余 video 与文档底部 in-flow 横幅另有专 rule；近乎全屏的定死图片覆盖层（同站图亦然）另有专 rule。
      */
-    // v58 (P0): isChallenge 扩为整页挑战检测——标题含「请稍候/Just a moment」或 HTML 含 challenges.cloudflare.com/cf-challenge 时整页跳过 CLEAN_JS；
+    // v119 (P0, 同步主线 v58)：isChallenge 扩为整页挑战检测——标题含「请稍候/Just a moment」或 HTML 含 challenges.cloudflare.com/cf-challenge 时整页跳过 CLEAN_JS；
     // div 循环加 isChallenge 守卫；isModal/isOpaqueModal/isBigOverlay 内部加 isChallenge 守卫。
     private static final String[] CLEAN_JS_PARTS = {
         "(function(){if(window.__museWebClean)return;try{var __museCT=(document.title||'').toLowerCase();if(__museCT.in",
@@ -1345,10 +1345,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     private String mFlag = "";
     private String mClick = "";
     private String mAnchorUrl = "";
-    /** v61：主页是发布站/跳转页时其 host（VideoActivity 传进来）；该页上的人工点按跳转放行。 */
-    private String mJumpHost = "";
     private boolean mBlankRecovered = false;
-    private Runnable mBlankRecheck; // v56: delayed blank re-check, cancelled on new navigation
     private int mValidatorLogs = 0;
     private int mPosition;
     private boolean mBarsVisible = true;
@@ -1367,11 +1364,6 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     }
 
     public static void start(Activity activity, String title, String url, Map<String, String> header, ArrayList<String> names, ArrayList<String> ids, int position, String key, String flag, String click, ArrayList<String> flags) {
-        start(activity, title, url, header, names, ids, position, key, flag, click, flags, "");
-    }
-
-    /** v61：带跳转页 host 的重载——主页是发布站/跳转页时，把其 host 传进来放行该页上的人工点按跳转。 */
-    public static void start(Activity activity, String title, String url, Map<String, String> header, ArrayList<String> names, ArrayList<String> ids, int position, String key, String flag, String click, ArrayList<String> flags, String jumpHost) {
         Intent intent = new Intent(activity, WebPlayActivity.class);
         // v91：切源进新浏览器时，先关掉已在栈里的旧浏览器页（只留一个 webview 在跑；否则换 20 条站源就攒 20 个 webview，内存先爆）。
         // standard 模式 + CLEAR_TOP = 旧实例 finish（onDestroy 里 web.destroy()）再建新实例；正常流程（已按返回关掉旧页）下是空操作。
@@ -1386,7 +1378,6 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         intent.putExtra("flag", flag == null ? "" : flag);
         intent.putExtra("click", click == null ? "" : click);
         intent.putStringArrayListExtra("flags", flags == null ? new ArrayList<>() : flags);
-        intent.putExtra("jumpHost", jumpHost == null ? "" : jumpHost);
         activity.startActivity(intent);
     }
 
@@ -1412,8 +1403,6 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         if (mFlag == null) mFlag = "";
         mClick = intent.getStringExtra("click");
         if (mClick == null) mClick = "";
-        mJumpHost = intent.getStringExtra("jumpHost");
-        if (mJumpHost == null) mJumpHost = "";
         ArrayList<String> names = intent.getStringArrayListExtra("names");
         if (names != null) mNames = names;
         ArrayList<String> ids = intent.getStringArrayListExtra("ids");
@@ -1490,6 +1479,9 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         });
     }
 
+
+
+
     /** 只留顶栏：常驻不自动隐藏（像浏览器一样）；全屏播放时顶栏由全屏视图接管隐藏。 */
     private void showBars() {
         if (mCustomView != null) return;
@@ -1565,23 +1557,27 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                     mValidatorLogs++;
                     DebugLogStore.add("WebPlay", "validator hit url=" + reqUrl);
                 }
-                // 广告加载器（混淆 js 拉的远程广告脚本，域名按日期轮换）：按子串拦，通用、不只麦田。
-                if (isAdLoaderUrl(request.getUrl().toString())) {
-                    if (mBlockedHosts.add(host)) DebugLogStore.add("WebPlay", "blocked ad-loader url=" + request.getUrl());
-                    return mEmpty;
-                }
-                // 奇优（只在奇优站内）：gdw.js 是奇优的广告加载器（写 #noiddiv + WebSocket 远程代码注底部横幅），
-                // xs2.js 是另一路广告注入器（往列表插「小说」推荐卡）。只拦文件名子串，不带 query 串；
-                // 不进全局黑名单，只在奇优站内拦，避免误伤别的站。
-                if (isQiyouSite() && isQiyouAdScript(reqUrl)) {
-                    if (mBlockedHosts.add(host)) DebugLogStore.add("WebPlay", "blocked qiyou ad script url=" + request.getUrl());
-                    return mEmpty;
+                // 奇优根除（v115）：gdw.js / xs2.js 是奇优的纯广告加载器（gdw.js 写 #noiddiv + WebSocket 远程代码注底部横幅；
+                // xs2.js 往列表插「小说」推荐卡），只在奇优站内按文件名子串拦，别的站不碰（文件名可能撞）。不带 query 串，站方改版也不怕。
+                // v116 补漏：兄弟插卡器 xs.js（与 xs2.js 同模板）此前未拦——"xs2.js" 子串不含 "xs.js"；
+                // "xs.js" + "xs2.js" 并列覆盖 js_xs.js / js_xs2.js / xs.js / xs2.js 四种写法（见下表）。
+                if (isQiyouSite()) {
+                    String u = reqUrl.toLowerCase(Locale.US);
+                    if (u.contains("gdw.js") || u.contains("xs.js") || u.contains("xs2.js")) {
+                        if (mBlockedHosts.add(host)) DebugLogStore.add("WebPlay", "blocked qiyou ad-loader url=" + request.getUrl());
+                        return mEmpty;
+                    }
                 }
                 // v53 奇优：/static/jquery.js 是底部横幅的 WebSocket 通道（解析阶段同步开 WS，早于 CLEAN_JS 注入；
                 // WS 握手不走 shouldInterceptRequest，只能拦加载器本身）。完整路径匹配：只拦 path 恰好是
                 // /static/jquery.js 的请求；页面真 jQuery 走 CDN（path 不是这条），不误伤。只在奇优站内拦。
                 if (isQiyouSite() && "/static/jquery.js".equals(request.getUrl().getPath())) {
                     if (mBlockedHosts.add(host)) DebugLogStore.add("WebPlay", "blocked qiyou static jquery url=" + request.getUrl());
+                    return mEmpty;
+                }
+                // 广告加载器（混淆 js 拉的远程广告脚本，域名按日期轮换）：按子串拦，通用、不只麦田。
+                if (isAdLoaderUrl(request.getUrl().toString())) {
+                    if (mBlockedHosts.add(host)) DebugLogStore.add("WebPlay", "blocked ad-loader url=" + request.getUrl());
                     return mEmpty;
                 }
                 // 底部广告轮询脚本（如 Mirages 主题 bottom_ad_poll.js）：只拉广告 feed，不承载正片，直接拦。
@@ -1626,15 +1622,6 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 // /pop 本身空白且立即跳广告域名，不是正片/分类内容。
                 if (isPopunderPath(request.getUrl().getPath())) {
                     return true;
-                }
-                // v61：发布站/跳转页上的人工点按放行——主页本身就是发布站/防丢url 或 [工具:重定向] 跳转页时，
-                // 用户在该页上点按进真实站是正常操作（有些发布站不自动跳，必须人工点）。只放行「当前页就是跳转页」
-                // 且带手势的点按；目标是已知广告域名时照样拦。一旦落到真实站，currentHost 变了，这里不再生效，
-                // 防广告劫持的规矩照旧。
-                if (request.hasGesture() && !TextUtils.isEmpty(mJumpHost)
-                        && !TextUtils.isEmpty(currentHost) && mJumpHost.equalsIgnoreCase(currentHost)
-                        && (TextUtils.isEmpty(targetHost) || !isAd(targetHost))) {
-                    return false;
                 }
                 if (!TextUtils.isEmpty(targetHost) && !TextUtils.isEmpty(currentHost)
                         && !sameSite(targetHost, currentHost)) {
@@ -1712,7 +1699,6 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 if (url == null || url.equals("about:blank")) return;
                 // v96：先藏 webview，等 CLEAN_JS 首扫跑完再显示——hsck 首页顶部 58 条赌博横幅在首扫前会闪约 0.25 秒。
                 mBlankRecovered = false;
-                if (mBlankRecheck != null) view.removeCallbacks(mBlankRecheck);
                 view.setVisibility(View.INVISIBLE);
                 if (mForceShowWeb != null) view.removeCallbacks(mForceShowWeb);
                 mForceShowWeb = () -> view.setVisibility(View.VISIBLE);
@@ -1723,7 +1709,6 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
             public void onPageCommitVisible(WebView view, String url) {
                 super.onPageCommitVisible(view, url);
                 if (url == null || url.equals("about:blank")) return;
-
                 view.evaluateJavascript(CLEAN_JS, value -> view.setVisibility(View.VISIBLE));
             }
 
@@ -1742,25 +1727,12 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 CookieManager.getInstance().flush();
                 // v100：空白页回滚——被拦的广告跳转有时会把当前页卸成空文档（标题空、无视频、无图），
                 // 点什么都没反应。检出空白就回滚到入口地址一次（mAnchorUrl），避免死在空白页。
-                // v56：首次检出空白不立即回滚——Nuxt 等 SPA 壳在 onPageFinished 时尚未水合，标题/正文/图
-                // 暂时全空是正常现象；延时 1.5 秒复核，仍空白才回滚，避免刷新被误判成空白页。
-                String blankJs = "(function(){try{var t=(document.title||'').trim()==='';var b=(document.body?document.body.innerText.trim():'')==='';var n=document.images.length;return (t?'1':'0')+','+(b?'1':'0')+','+n;}catch(e){return '0,0,0';}})()";
-                view.evaluateJavascript(blankJs, blankVal -> {
-                    String val = blankVal;
-                    if (val != null && val.length() >= 2 && val.startsWith("\"") && val.endsWith("\"")) val = val.substring(1, val.length() - 1);
-                    if (!"1,1,0".equals(val)) return;
-                    if (mBlankRecovered || TextUtils.isEmpty(mAnchorUrl) || mAnchorUrl.equals(url)) return;
-                    if (mBlankRecheck != null) view.removeCallbacks(mBlankRecheck);
-                    mBlankRecheck = () -> view.evaluateJavascript(blankJs, reVal -> {
-                        String re = reVal;
-                        if (re != null && re.length() >= 2 && re.startsWith("\"") && re.endsWith("\"")) re = re.substring(1, re.length() - 1);
-                        if (!"1,1,0".equals(re)) return;
-                        if (mBlankRecovered || TextUtils.isEmpty(mAnchorUrl) || mAnchorUrl.equals(url)) return;
+                view.evaluateJavascript("(function(){try{return ((document.title||'').trim()===''&&(document.body?document.body.innerText.trim():'')===''&&document.images.length===0)?'1':'0';}catch(e){return '0';}})()", blankVal -> {
+                    if ("1".equals(blankVal) && !mBlankRecovered && !TextUtils.isEmpty(mAnchorUrl) && !mAnchorUrl.equals(url)) {
                         mBlankRecovered = true;
                         DebugLogStore.add("WebPlay", "blank page, reload anchor url=" + mAnchorUrl);
                         view.loadUrl(mAnchorUrl);
-                    });
-                    view.postDelayed(mBlankRecheck, 1500);
+                    }
                 });
                 showBars();
             }
@@ -1839,20 +1811,19 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         };
     }
 
-    /** 当前站是不是奇优：站 key 含 qiyou 或站名含「奇优」。 */
+    /** 奇优站内限定：当前站是奇优才拦 gdw.js/xs2.js。站 key 含 qiyou、站名含「奇优」、入口地址 host 含 qiyou，三者任一即认。 */
     private boolean isQiyouSite() {
-        if (!TextUtils.isEmpty(mKey) && mKey.toLowerCase(Locale.US).contains("qiyou")) return true;
-        if (!TextUtils.isEmpty(mTitle) && mTitle.contains("奇优")) return true;
+        String k = mKey == null ? "" : mKey.toLowerCase(Locale.US);
+        if (k.contains("qiyou")) return true;
+        if (mTitle != null && mTitle.contains("奇优")) return true;
+        try {
+            if (!TextUtils.isEmpty(mAnchorUrl)) {
+                String h = Uri.parse(mAnchorUrl).getHost();
+                if (h != null && h.toLowerCase(Locale.US).contains("qiyou")) return true;
+            }
+        } catch (Exception ignored) {
+        }
         return false;
-    }
-
-    /** 奇优广告脚本：gdw.js（广告加载器）/ xs.js / xs2.js（小说推荐卡注入器），只拦文件名，不带 query 串。 */
-    private boolean isQiyouAdScript(String url) {
-        if (TextUtils.isEmpty(url)) return false;
-        String u = url.toLowerCase(Locale.US);
-        // v47 补漏：兄弟插卡器 xs.js（与 xs2.js 同模板）此前未拦——"xs2.js" 子串不含 "xs.js"；
-        // "xs.js" + "xs2.js" 并列覆盖 js_xs.js / js_xs2.js / xs.js / xs2.js 四种写法。
-        return u.contains("gdw.js") || u.contains("xs.js") || u.contains("xs2.js");
     }
 
     /** 广告加载器（混淆 js 拉的远程广告脚本，域名按日期轮换）：按子串拦，通用、不只麦田。 */
@@ -2154,25 +2125,16 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     @Override
     protected void onPause() {
         mBinding.web.onPause();
-        // v56：切后台/切站前把 Cookie 落盘，验证状态不因进程回收而丢。
-        CookieManager.getInstance().flush();
         super.onPause();
     }
 
     @Override
     protected void onDestroy() {
         if (mBinding != null) {
-            if (mBlankRecheck != null) mBinding.web.removeCallbacks(mBlankRecheck);
             mBinding.web.loadUrl("about:blank");
             mBinding.web.destroy();
         }
         super.onDestroy();
     }
 }
-
-
-
-
-
-
 

@@ -232,8 +232,6 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     /** 原版 V()：标题 + Result 清空 + 首页源 key 为空直接返回 + 存当前焦点 + 200ms 后触发首页加载。空 key 时先把首页页切到内容态：否则首次无配置会卡在进度态转圈（返回键那支就是切内容态），功能行出不来、设置进不去。 */
     public void refreshHome() {
         setTitle();
-        // 浏览器入口跟当前站走：站换了功能行也要重建（显/藏浏览器项）。
-        setHomeFunc();
         mResult = Result.empty();
         if (getHome().getKey().isEmpty()) {
             HomePageFragment home = getHomeFragment();
@@ -671,6 +669,5 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         super.onDestroy();
     }
 }
-
 
 

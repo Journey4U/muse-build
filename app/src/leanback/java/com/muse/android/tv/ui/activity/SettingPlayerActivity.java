@@ -1,12 +1,9 @@
 package com.muse.android.tv.ui.activity;
 
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
-import android.widget.Switch;
-import android.widget.TextView;
 
 import androidx.viewbinding.ViewBinding;
 
@@ -53,7 +50,6 @@ public class SettingPlayerActivity extends BaseActivity implements UaListener, B
         mBinding.scaleText.setText((scale = ResUtil.getStringArray(R.array.select_scale))[PlayerSetting.getScale()]);
         mBinding.netInfoText.setText(Setting.getSwitch(PlayerSetting.isNetInfo()));
         mBinding.mediaInfoText.setText(Setting.getSwitch(PlayerSetting.isMediaInfo()));
-        setAutoPlayText();
     }
 
     @Override
@@ -73,7 +69,6 @@ public class SettingPlayerActivity extends BaseActivity implements UaListener, B
         mBinding.ua.setOnClickListener(this::onUa);
         mBinding.netInfo.setOnClickListener(this::setNetInfo);
         mBinding.mediaInfo.setOnClickListener(this::setMediaInfo);
-        mBinding.autoPlay.setOnClickListener(this::setAutoPlay);
     }
 
     private void setVisible() {
@@ -161,41 +156,6 @@ public class SettingPlayerActivity extends BaseActivity implements UaListener, B
     private void setMediaInfo(View view) {
         PlayerSetting.putMediaInfo(!PlayerSetting.isMediaInfo());
         mBinding.mediaInfoText.setText(Setting.getSwitch(PlayerSetting.isMediaInfo()));
-        setAutoPlayText();
-    }
-
-    private void setAutoPlayText() {
-        if (!PlayerSetting.isAutoPlayTv()) mBinding.autoPlayText.setText(Setting.getSwitch(false));
-        else mBinding.autoPlayText.setText(Setting.getSwitch(true) + " · " + ResUtil.getString(R.string.setting_auto_play_delay_seconds, PlayerSetting.getAutoPlayDelay()));
-    }
-
-    /** 自动播放设置（电视默认开）：弹窗内开关 + 0~10 秒延时（−/+ 键逐秒调），改动即时保存。 */
-    private void setAutoPlay(View view) {
-        View dialogView = getLayoutInflater().inflate(R.layout.dialog_auto_play_tv, null);
-        Switch switchView = dialogView.findViewById(R.id.autoPlaySwitch);
-        TextView delayValue = dialogView.findViewById(R.id.autoPlayDelayValue);
-        switchView.setChecked(PlayerSetting.isAutoPlayTv());
-        delayValue.setText(ResUtil.getString(R.string.setting_auto_play_delay_seconds, PlayerSetting.getAutoPlayDelay()));
-        switchView.setOnCheckedChangeListener((button, checked) -> {
-            PlayerSetting.putAutoPlay(checked);
-            setAutoPlayText();
-        });
-        dialogView.findViewById(R.id.autoPlayDelayMinus).setOnClickListener(v -> {
-            int delay = Math.max(0, PlayerSetting.getAutoPlayDelay() - 1);
-            PlayerSetting.putAutoPlayDelay(delay);
-            PlayerSetting.putAutoPlay(switchView.isChecked());
-            delayValue.setText(ResUtil.getString(R.string.setting_auto_play_delay_seconds, delay));
-            setAutoPlayText();
-        });
-        dialogView.findViewById(R.id.autoPlayDelayPlus).setOnClickListener(v -> {
-            int delay = Math.min(10, PlayerSetting.getAutoPlayDelay() + 1);
-            PlayerSetting.putAutoPlayDelay(delay);
-            PlayerSetting.putAutoPlay(switchView.isChecked());
-            delayValue.setText(ResUtil.getString(R.string.setting_auto_play_delay_seconds, delay));
-            setAutoPlayText();
-        });
-        new AlertDialog.Builder(this).setTitle(R.string.setting_auto_play).setView(dialogView).setNegativeButton(R.string.dialog_negative, null).show();
-        switchView.requestFocus();
     }
 
     private void onPreloadSetting(View view) {

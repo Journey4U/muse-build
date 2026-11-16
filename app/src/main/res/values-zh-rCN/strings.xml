@@ -521,6 +521,7 @@
     <string name="type_all_title">全部分类</string>
     <string name="type_search_hint">搜索分类…</string>
     <string name="view_switch_title">切换视图</string>
+    <!-- 本地源移植（VesperTV 手册 76–192 行 + 1.0.3 8 项优化）：local_source_*/site_* 措辞照搬 VesperTV r80，品牌名已按 MuseTV 改；transfer_* 为 1.0.3 资源 id 对应的 MuseTV 新文案。 -->
     <string name="local_source_auto">每次加载源时自动重新扫描</string>
     <string name="local_source_desc">扫描该文件夹（含子目录）里的源文件 → 生成 MuseTV 源文件 → 每次加载源时自动重新扫描并加载。支持 .js/.jar/.json/.txt/.m3u。</string>
     <string name="local_source_dir_hint">文件夹路径，如 /storage/emulated/0/自己整理</string>
@@ -598,11 +599,9 @@
     <string name="site_self_authored">「%1$s」是你自己编写的本地源：自动刷新回填、删除源、移动源三项都不提供，App 不会改动你自己的源文件与 json（要修改请用文件管理器自行操作）</string>
     <string name="transfer_cancel">取消</string>
     <string name="transfer_empty">（空文件夹）</string>
-    <string name="transfer_entry">转存文件</string>
     <string name="transfer_failed">转存失败</string>
     <string name="transfer_hint">选择目标文件夹后点保存，即可把文件转存到本地源扫描目录。</string>
     <string name="transfer_importing">正在转存…</string>
-    <string name="transfer_name_empty">文件名不能为空</string>
     <string name="transfer_name_hint">文件名</string>
     <string name="transfer_new_dir">新建文件夹</string>
     <string name="transfer_new_dir_create">创建</string>
@@ -614,7 +613,6 @@
     <string name="transfer_new_dir_where">在哪里新建文件夹</string>
     <string name="transfer_no_stream">无法读取该文件</string>
     <string name="transfer_open_save_to">选择保存位置</string>
-    <string name="transfer_overwrite">「%1$s」已存在，是否覆盖？</string>
     <string name="transfer_readonly">该文件不可写</string>
     <string name="transfer_save_here">保存到这里</string>
     <string name="transfer_saved">已转存：%1$s</string>
@@ -622,6 +620,9 @@
     <string name="transfer_search_hint">搜索子目录…</string>
     <string name="transfer_title">转存</string>
     <string name="transfer_unsupported">「%1$s」不在本地源扫描类型（%2$s）内</string>
+    <string name="transfer_entry">转存文件</string>
+    <string name="transfer_name_empty">文件名不能为空</string>
+    <string name="transfer_overwrite">「%1$s」已存在，是否覆盖？</string>
     <string name="site_action_new_category">增加/删除分类</string>
     <string name="site_action_rename_folder">重命名分类文件夹</string>
     <string name="site_action_rename_source">重命名源文件</string>
@@ -673,18 +674,6 @@
     <string name="site_share_empty">这些源既没有本地文件也没有接口地址，无法分享</string>
     <string name="site_share_fail">分享失败：没有找到可用的分享目标</string>
     <string name="site_target_title">选定当前目标</string>
-    <string name="site_web_source_add">添加网页源</string>
-    <string name="site_web_source_done">已添加网页源 %1$s</string>
-    <string name="site_web_source_exists">该名称已存在</string>
-    <string name="site_web_source_fail">添加网页源失败</string>
-    <string name="site_web_source_name_hint">名称（留空自动取域名）</string>
-    <string name="site_web_source_network">请切换本地源配置后重试</string>
-    <string name="site_web_source_no_config">当前没有加载配置</string>
-    <string name="site_web_source_title">添加网页源</string>
-    <string name="site_web_source_url_empty">网址不能为空</string>
-    <string name="site_web_source_url_hint">网址，如 https://missav.ai/</string>
-    <string name="site_web_source_url_invalid">网址无效，请填 http/https 地址</string>
-    <string name="local_source_settings_dir_pick">从文件管理器选择文件夹</string>
     <string name="shelf_title">书架</string>
     <string name="shelf_import">导入书籍</string>
     <string name="shelf_recent">最近阅读</string>
@@ -707,7 +696,6 @@
     <string name="shelf_folder_result">文件夹导入完成：新增 %1$d 本，跳过 %2$d 本，失败 %3$d 本</string>
     <string name="shelf_folder_empty">这个文件夹里没有 TXT 或 EPUB 文件。</string>
 </resources>
-
 
 
 

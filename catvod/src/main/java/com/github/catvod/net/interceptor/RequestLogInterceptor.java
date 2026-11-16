@@ -26,6 +26,16 @@ public class RequestLogInterceptor implements Interceptor {
     @Override
     public Response intercept(@NonNull Chain chain) throws IOException {
         Request request = chain.request();
+        // 记蜘蛛实际请求的来源（供重定向模板站点取 jar 解析后的真实域名），与日志开关无关；回环与媒体分片不记。
+        if (!skip(request)) {
+            try {
+                okhttp3.HttpUrl u = request.url();
+                int defPort = okhttp3.HttpUrl.defaultPort(u.scheme());
+                String origin = u.scheme() + "://" + u.host() + (u.port() != defPort ? ":" + u.port() : "");
+                com.github.catvod.crawler.SpiderDebug.recordSpiderOrigin(origin);
+            } catch (Throwable ignored) {
+            }
+        }
         if (!DebugLogStore.isEnabled() || skip(request)) return chain.proceed(request);
         long start = System.nanoTime();
         try {

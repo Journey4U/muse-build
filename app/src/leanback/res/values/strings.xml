@@ -13,10 +13,6 @@
     <string name="home_setting">Setting</string>
     <string name="home_history">History</string>
     <string name="home_recommend">Recommend</string>
-
-    <!-- Nav -->
-    <string name="nav_browser">Browser</string>
-    <string name="nav_browser_empty">No homepage for this site</string>
     <string name="config_refreshed">Config refreshed</string>
     <string name="setting_reset_app">Reset app</string>
     <string name="reset_app_confirm">All data (configs, history, favorites and every setting) will be cleared and the app will restart. Continue?</string>
@@ -31,4 +27,3 @@
     <string name="detail_episode">Episode</string>
 
 </resources>
-

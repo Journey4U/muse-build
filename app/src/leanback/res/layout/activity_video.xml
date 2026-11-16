@@ -70,6 +70,7 @@
             android:layout_height="wrap_content"
             android:layout_gravity="start|top"
             android:layout_margin="8dp"
+            android:background="#80000000"
             android:paddingStart="8dp"
             android:paddingTop="4dp"
             android:paddingEnd="8dp"

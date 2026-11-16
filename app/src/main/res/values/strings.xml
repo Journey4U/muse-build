@@ -287,10 +287,10 @@
 <string name="play_forward_hint">Normal play switched</string>
 <string name="play_invert">Invert</string>
 <string name="play_media_info">Media info</string>
-<string name="play_web">Web play</string>
-<string name="web_back">Back</string>
-<string name="web_refresh">Refresh</string>
-<string name="web_load_fail">Failed to get the play address</string>
+    <string name="play_web">Web play</string>
+    <string name="web_back">Back</string>
+    <string name="web_refresh">Refresh</string>
+    <string name="web_load_fail">Failed to get the play address</string>
 <string name="play_mpv">MPV</string>
 <string name="play_next">Next</string>
 <string name="play_op">OP</string>
@@ -596,7 +596,7 @@
     <string name="type_all_title">All categories</string>
     <string name="type_search_hint">Search categories…</string>
     <string name="view_switch_title">Switch view</string>
-    <string name="file_pick_folder">选择此文件夹</string>
+    <!-- 本地源移植（VesperTV 手册 76–192 行 + 1.0.3 8 项优化）：local_source_*/site_* 措辞照搬 VesperTV r80，品牌名已按 MuseTV 改；transfer_* 为 1.0.3 资源 id 对应的 MuseTV 新文案。 -->
     <string name="local_source_auto">每次加载源时自动重新扫描</string>
     <string name="local_source_desc">扫描该文件夹（含子目录）里的源文件 → 生成 MuseTV 源文件 → 每次加载源时自动重新扫描并加载。支持 .js/.jar/.json/.txt/.m3u。</string>
     <string name="local_source_dir_hint">文件夹路径，如 /storage/emulated/0/自己整理</string>
@@ -619,6 +619,7 @@
     <string name="local_source_settings_clear">清除</string>
     <string name="local_source_settings_dir_add">添加</string>
     <string name="local_source_settings_dir_pick">选择文件夹</string>
+    <string name="file_pick_folder">选择此文件夹</string>
     <string name="local_source_settings_dir_remove">删除</string>
     <string name="local_source_settings_dirs">扫描目录</string>
     <string name="local_source_settings_dirs_empty">（还没有添加目录）</string>
@@ -675,11 +676,9 @@
     <string name="site_self_authored">「%1$s」是你自己编写的本地源：自动刷新回填、删除源、移动源三项都不提供，App 不会改动你自己的源文件与 json（要修改请用文件管理器自行操作）</string>
     <string name="transfer_cancel">取消</string>
     <string name="transfer_empty">（空文件夹）</string>
-    <string name="transfer_entry">转存文件</string>
     <string name="transfer_failed">转存失败</string>
     <string name="transfer_hint">选择目标文件夹后点保存，即可把文件转存到本地源扫描目录。</string>
     <string name="transfer_importing">正在转存…</string>
-    <string name="transfer_name_empty">文件名不能为空</string>
     <string name="transfer_name_hint">文件名</string>
     <string name="transfer_new_dir">新建文件夹</string>
     <string name="transfer_new_dir_create">创建</string>
@@ -691,7 +690,6 @@
     <string name="transfer_new_dir_where">在哪里新建文件夹</string>
     <string name="transfer_no_stream">无法读取该文件</string>
     <string name="transfer_open_save_to">选择保存位置</string>
-    <string name="transfer_overwrite">「%1$s」已存在，是否覆盖？</string>
     <string name="transfer_readonly">该文件不可写</string>
     <string name="transfer_save_here">保存到这里</string>
     <string name="transfer_saved">已转存：%1$s</string>
@@ -699,6 +697,9 @@
     <string name="transfer_search_hint">搜索子目录…</string>
     <string name="transfer_title">转存</string>
     <string name="transfer_unsupported">「%1$s」不在本地源扫描类型（%2$s）内</string>
+    <string name="transfer_entry">转存文件</string>
+    <string name="transfer_name_empty">文件名不能为空</string>
+    <string name="transfer_overwrite">「%1$s」已存在，是否覆盖？</string>
     <string name="site_action_new_category">Add / delete category</string>
     <string name="site_action_rename_folder">Rename category folder</string>
     <string name="site_action_rename_source">Rename source file</string>
@@ -750,17 +751,6 @@
     <string name="site_share_empty">These sources have neither a local file nor an API URL, nothing to share</string>
     <string name="site_share_fail">Share failed: no app available to handle it</string>
     <string name="site_target_title">Act on selection</string>
-    <string name="site_web_source_add">Add web source</string>
-    <string name="site_web_source_done">Web source added: %1$s</string>
-    <string name="site_web_source_exists">That name already exists</string>
-    <string name="site_web_source_fail">Failed to add web source</string>
-    <string name="site_web_source_name_hint">Name (leave empty to use domain)</string>
-    <string name="site_web_source_network">Switch to a local source config and try again</string>
-    <string name="site_web_source_no_config">No config loaded right now</string>
-    <string name="site_web_source_title">Add web source</string>
-    <string name="site_web_source_url_empty">URL cannot be empty</string>
-    <string name="site_web_source_url_hint">URL, e.g. https://missav.ai/</string>
-    <string name="site_web_source_url_invalid">Invalid URL, use an http/https address</string>
     <string name="shelf_title">Bookshelf</string>
     <string name="shelf_import">Import book</string>
     <string name="shelf_recent">Recent reading</string>
@@ -783,7 +773,6 @@
     <string name="shelf_folder_result">Folder import done: %1$d added, %2$d skipped, %3$d failed</string>
     <string name="shelf_folder_empty">No TXT or EPUB files in this folder.</string>
 </resources>
-
 
 
 

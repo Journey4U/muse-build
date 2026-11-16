@@ -20,9 +20,9 @@ import java.util.Map;
  */
 public class Button {
 
-    private static String all = "0,1,2,3,4,5,6,7,8";
+    private static String all = "0,1,2,3,4,5,6,7";
     private static List<Button> buttons = null;
-    private static String homeUiTvbox = "1,2,3,8,4,6,7";
+    private static String homeUiTvbox = "1,2,3,4,6,7";
 
     public int id;
     public int resId;
@@ -47,7 +47,6 @@ public class Button {
         buttons.add(new Button(5, R.string.home_cast));
         buttons.add(new Button(6, R.string.home_history_short));
         buttons.add(new Button(7, R.string.home_setting));
-        buttons.add(new Button(8, R.string.shelf_title));
         return buttons;
     }
 

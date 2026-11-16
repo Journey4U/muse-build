@@ -98,11 +98,6 @@ public class PlayerSetting {
         return Prefers.getBoolean("auto_play", false);
     }
 
-    /** 电视版自动播放：与手机版共用 auto_play 键，但电视默认开（Liu 2026-11-07 定）；仅 leanback 调用。 */
-    public static boolean isAutoPlayTv() {
-        return Prefers.getBoolean("auto_play", true);
-    }
-
     public static void putAutoPlay(boolean autoPlay) {
         Prefers.put("auto_play", autoPlay);
     }

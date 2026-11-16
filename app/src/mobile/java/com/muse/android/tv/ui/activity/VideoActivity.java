@@ -63,7 +63,6 @@ import com.muse.android.tv.db.AppDatabase;
 import com.muse.android.tv.event.CastEvent;
 import com.muse.android.tv.event.RefreshEvent;
 import com.muse.android.tv.impl.CustomTarget;
-import com.muse.android.tv.impl.ParseCallback;
 import com.muse.android.tv.model.VideoViewModel;
 import com.muse.android.tv.playback.PlaybackAction;
 import com.muse.android.tv.playback.PlaybackIntent;
@@ -76,7 +75,6 @@ import com.muse.android.tv.playback.vod.VodPlaybackController;
 import com.muse.android.tv.playback.vod.VodPlaybackHost;
 import com.muse.android.tv.playback.vod.VodPlaybackMedia;
 import com.muse.android.tv.player.media.PlaySpec;
-import com.muse.android.tv.player.parse.ParseJob;
 import com.muse.android.tv.service.PlaybackService;
 import com.muse.android.tv.setting.DanmakuSetting;
 import com.muse.android.tv.setting.PlayerSetting;
@@ -107,9 +105,7 @@ import com.muse.android.tv.utils.Clock;
 import com.muse.android.tv.utils.FileChooser;
 import com.muse.android.tv.utils.FileUtil;
 import com.muse.android.tv.utils.ImgUtil;
-import com.muse.android.tv.utils.DownloadHandoff;
 import com.muse.android.tv.utils.Notify;
-import com.muse.android.tv.utils.Task;
 import com.muse.android.tv.utils.PiP;
 import com.muse.android.tv.utils.ResUtil;
 import com.muse.android.tv.utils.Sniffer;
@@ -127,8 +123,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -161,7 +155,6 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private boolean mMediaInfo;
     /** #104：本详情是否已发起过播放请求（onPlaybackRequested 置位，新详情 renderDetail 时清零）。 */
     private boolean mPlayRequested;
-    private boolean mDownloading;
     private long mInfoTxBytes;
     private long mInfoRxBytes;
     private long mInfoTime;
@@ -396,7 +389,6 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     @SuppressLint("ClickableViewAccessibility")
     protected void initEvent() {
         mBinding.name.setOnClickListener(view -> onName());
-        mBinding.download.setOnClickListener(view -> onDownload());
         mBinding.more.setOnClickListener(view -> onMore());
         mBinding.actor.setOnClickListener(view -> onActor());
         mBinding.content.setOnClickListener(view -> onContent());
@@ -651,94 +643,6 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         player().replay(position);
     }
 
-    /** 下载当前选中的一集:与播放走同一条解析链(playerContent,必要时再走 ParseJob),
-     * 拿到真实播放地址后连同请求头交给 1DM 下载;本 App 不内置下载引擎。 */
-    private void onDownload() {
-        if (mDownloading) return;
-        Flag flag = mFlagAdapter == null || mFlagAdapter.isEmpty() ? null : mFlagAdapter.get(mFlagAdapter.getPosition());
-        Episode episode = null;
-        if (mEpisodeAdapter != null && !mEpisodeAdapter.getItems().isEmpty()) {
-            int pos = Math.min(Math.max(mEpisodeAdapter.getPosition(), 0), mEpisodeAdapter.getItems().size() - 1);
-            episode = mEpisodeAdapter.getItems().get(pos);
-        }
-        if (flag == null || episode == null) {
-            Notify.show("暂无可下载的剧集");
-            return;
-        }
-        mDownloading = true;
-        Notify.show("正在解析下载地址…");
-        String key = getKey();
-        String flagName = flag.getFlag();
-        String episodeUrl = episode.getUrl();
-        String fileName = buildDownloadName(episode);
-        Task.execute(() -> {
-            try {
-                Result result = SiteApi.playerContent(key, flagName, episodeUrl);
-                App.post(() -> onDownloadResult(result, fileName));
-            } catch (Exception e) {
-                App.post(() -> {
-                    mDownloading = false;
-                    Notify.show("解析下载地址失败");
-                });
-            }
-        });
-    }
-
-    private void onDownloadResult(Result result, String fileName) {
-        String url = result == null ? "" : result.getUrl().v();
-        if (url == null || url.isEmpty()) {
-            mDownloading = false;
-            Notify.show("解析下载地址失败");
-            return;
-        }
-        if (url.startsWith("novel://") || url.startsWith("pics://")) {
-            mDownloading = false;
-            Notify.show("这一集不是视频，无法下载");
-            return;
-        }
-        if (result.getDrm() != null) {
-            mDownloading = false;
-            Notify.show("该视频受 DRM 保护，无法下载");
-            return;
-        }
-        if (result.needParse() || result.isUseParse()) {
-            ParseJob.create(new ParseCallback() {
-                @Override
-                public void onParseSuccess(Map<String, String> headers, String parsedUrl, String from) {
-                    mDownloading = false;
-                    Map<String, String> merged = new HashMap<>(result.getHeader());
-                    if (headers != null) merged.putAll(headers);
-                    DownloadHandoff.start(VideoActivity.this, parsedUrl, withExtension(fileName, parsedUrl), merged);
-                }
-
-                @Override
-                public void onParseError() {
-                    mDownloading = false;
-                    Notify.show("解析下载地址失败");
-                }
-            }).start(result, result.isUseParse());
-        } else {
-            mDownloading = false;
-            String realUrl = result.getRealUrl();
-            DownloadHandoff.start(this, realUrl, withExtension(fileName, realUrl), result.getHeader());
-        }
-    }
-
-    private String buildDownloadName(Episode episode) {
-        String name = getName();
-        String ep = episode == null ? "" : Objects.toString(episode.getName(), "");
-        String full = ep.isEmpty() || ep.equals(name) ? name : name + "-" + ep;
-        return full == null ? "" : full.replaceAll("[\\\\/:*?\"<>|]", "_").trim();
-    }
-
-    private static String withExtension(String name, String url) {
-        if (name == null || name.isEmpty() || url == null) return name;
-        String path = url.split("[?#]")[0].toLowerCase();
-        if (path.endsWith(".m3u8")) return name + ".mp4";
-        for (String ext : new String[]{".mp4", ".mkv", ".avi", ".mov", ".flv", ".ts", ".webm", ".rmvb"}) if (path.endsWith(ext)) return name + ext;
-        return name;
-    }
-
     /**
      * novel:// 分支（#58）：蜘蛛 playerContent 返回小说载荷时，组装章节串交给内置小说阅读器，
      * 不再直交播放器（必然失败）。组装完成后结束本页（原设计）：详情页对小说集是自动播放的，
@@ -875,9 +779,9 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private static String resolveHomePageUrl(Site site) {
-        // v60（Liu 2026-11-16 定）：主页取法重排——条目「主页url」> webPage 模板 > 规则里「发布站」/「防丢url」
-        // > 规则里「域名-c」/「域名*」> 详情真实域名 > siteBaseUrl 兜底（所有源）。
-        // v62：siteBaseUrl 不再只限 rule == null——py/js 源的 ext 也可以是行内 JSON，门会误杀。
+        // v91：顶层「主页url」最优先（Liu 2026-11-14 定）——显式配置的永久站永远赢过蜘蛛记的域名。
+        // 蜘蛛记的域名会坏（轮换/镜像挂掉）还一直占着不放（无过期、切源也不失效），主页就被带去坏域名白屏；
+        // 正常站（py/js）不受影响——它们不是重定向站，下面那步对它们本就是空操作。
         if (site != null) {
             String entry = site.getHomePageUrl();
             if (entry != null && !entry.isEmpty() && !entry.contains("[工具:")) {
@@ -892,16 +796,25 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
                 }
             }
         }
+        // 只有重定向型站才用 jar 追踪的真实域名（本站记的，10 分钟内有效；切源即失效——只认本站 key，
+        // 不再用全局最近一次，否则切到别的站还会吃上一个站的域名，v80 的教训）。
+        if (isRedirectSite(site)) {
+            String recorded = site != null ? SpiderDebug.detailOrigin(site.getKey()) : null;
+            if (recorded != null && !recorded.isEmpty()) {
+                String origin = originOf(recorded);
+                if (origin != null) return origin + "/";
+            }
+        }
         String template = webPageTemplate(site);
         if (template != null && !template.isEmpty()) {
             String origin = originOf(template);
             if (origin != null) return origin + "/";
         }
-        JSONObject rule = ruleJsonObject(site);
-        String publish = rulePublishUrl(site, rule);
-        if (publish != null) return publish;
-        String domain = ruleDomainUrl(site, rule);
-        if (domain != null) return domain;
+        String base = siteBaseUrl(site);
+        if (base != null && !base.isEmpty()) {
+            String origin = originOf(base);
+            if (origin != null && !isIpHost(origin)) return origin + "/";
+        }
         // detailOrigin 只对重定向站有意义（v89：非重定向站即使误记了也绝不能用，否则主页被带偏）。
         if (site != null && isRedirectSite(site)) {
             String recorded = SpiderDebug.detailOrigin(site.getKey());
@@ -910,177 +823,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
                 if (origin != null) return origin + "/";
             }
         }
-        // v62：siteBaseUrl 对所有源都当兜底。v60 的 if (rule == null) 门是错的——
-        // py 源（MissAV、老版多域名金牌）的 ext 本身就是行内 JSON（含 site 字段），
-        // ruleJsonObject 会返回非空，被误判成 JSON 规则源，siteBaseUrl 被跳过，
-        // 主页推不出来，浏览器入口就藏起来了。「ext 是 JSON」≠「是 xbpq 规则源」。
-        // 放 detailOrigin 后面：跳转站仍优先真实域名（v58 的顺序）。
-        String base = siteBaseUrl(site);
-        if (base != null && !base.isEmpty()) {
-            String origin = originOf(base);
-            if (origin != null && !isIpHost(origin)) return origin + "/";
-        }
         return null;
-    }
-
-    /** 规则 JSON 对象：行内 JSON ext 直接解析，否则读规则文件（仅 .json）。py/js 脚本没有 JSON 规则，返回 null。 */
-    private static JSONObject ruleJsonObject(Site site) {
-        if (site == null) return null;
-        String ext = site.getExt();
-        if (ext == null || ext.isEmpty()) return null;
-        String rule = ext.trim();
-        if (rule.startsWith("{")) {
-            try {
-                return new JSONObject(rule);
-            } catch (Exception ignored) {
-                return null;
-            }
-        }
-        File file = ruleFile(site, ext);
-        if (file == null || !file.isFile() || !file.getName().toLowerCase().endsWith(".json")) return null;
-        String text = readText(file);
-        if (text == null) return null;
-        try {
-            return new JSONObject(text.trim());
-        } catch (Exception ignored) {
-            return null;
-        }
-    }
-
-    /** v60：规则里「发布站」/「防丢url」。发布站是静态发布页（如 http://hsck.net/），优先于动态域名。 */
-    private static String rulePublishUrl(Site site, JSONObject rule) {
-        if (rule == null) return null;
-        String home = publishUrlFromObject(site, rule);
-        if (home != null) return home;
-        if (rule.has("ext")) {
-            try {
-                JSONObject ext = rule.getJSONObject("ext");
-                home = publishUrlFromObject(site, ext);
-                if (home != null) return home;
-            } catch (Exception ignored) {
-            }
-        }
-        return null;
-    }
-
-    private static String publishUrlFromObject(Site site, JSONObject object) {
-        // 先找「发布站*」（发布站、发布站-b、发布站-s……），再找「防丢url*」。
-        for (String prefix : new String[]{"发布站", "防丢url"}) {
-            java.util.Iterator<String> keys = object.keys();
-            while (keys.hasNext()) {
-                String key = keys.next();
-                if (!key.startsWith(prefix)) continue;
-                String raw = object.optString(key, "");
-                if (raw.isEmpty()) continue;
-                String home = toHomeUrl(site, object, raw);
-                if (home != null) return home;
-            }
-        }
-        return null;
-    }
-
-    /** v60：规则里「域名-c」/「域名*」。「域名-c」优先于其它「域名*」键。 */
-    private static String ruleDomainUrl(Site site, JSONObject rule) {
-        if (rule == null) return null;
-        String home = domainUrlFromObject(site, rule);
-        if (home != null) return home;
-        if (rule.has("ext")) {
-            try {
-                JSONObject ext = rule.getJSONObject("ext");
-                home = domainUrlFromObject(site, ext);
-                if (home != null) return home;
-            } catch (Exception ignored) {
-            }
-        }
-        return null;
-    }
-
-    private static String domainUrlFromObject(Site site, JSONObject object) {
-        String rawC = object.optString("域名-c", "");
-        if (!rawC.isEmpty()) {
-            String home = toHomeUrl(site, object, rawC);
-            if (home != null) return home;
-        }
-        java.util.Iterator<String> keys = object.keys();
-        while (keys.hasNext()) {
-            String key = keys.next();
-            if (!key.contains("域名") || key.equals("域名-c")) continue;
-            String raw = object.optString(key, "");
-            if (raw.isEmpty()) continue;
-            String home = toHomeUrl(site, object, raw);
-            if (home != null) return home;
-        }
-        return null;
-    }
-
-    /** 把规则里的一条网址变成可进 webview 的主页地址。
-     * 含 [工具: 的是重定向模板：展开后返回完整地址（带查询串），不截 origin——
-     * 查询串就是跳转指令，截掉只剩服务根就 404（hsck v60 实证：cktongji.com:8899/ 裸根 404）。
-     * 干净网址取 origin；重定向站 http→https（v91）；IP 跳过。 */
-    private static String toHomeUrl(Site site, JSONObject object, String raw) {
-        boolean isTool = raw.contains("[工具:");
-        String value = resolveDomainTemplate(object, raw);
-        if (!value.startsWith("http://") && !value.startsWith("https://")) return null;
-        if (isTool) {
-            // 重定向工具 URL：原样返回，让 webview 自己跟 302 到真站。
-            return value;
-        }
-        String origin = originOf(value);
-        if (origin == null || isIpHost(origin)) return null;
-        if (isRedirectSite(site) && origin.startsWith("http://")) {
-            origin = "https://" + origin.substring("http://".length());
-        }
-        return origin + "/";
-    }
-    /** v61：主页是发布站/跳转页时返回其 host（供 WebPlayActivity 放行该页上的人工点按跳转）。
-     * 只有「发布站/防丢url」（第 3 步）与「域名-c/域名* 的 [工具:重定向]」（第 4 步工具）算跳转页；
-     * 条目主页url、webPage 模板、干净域名直接就是本站，不算。 */
-    public static String homeJumpHost(Site site) {
-        if (site == null) return null;
-        String entry = site.getHomePageUrl();
-        if (entry != null && !entry.isEmpty() && !entry.contains("[工具:")) {
-            if (originOf(entry) != null) return null;
-        }
-        String template = webPageTemplate(site);
-        if (template != null && !template.isEmpty() && originOf(template) != null) return null;
-        JSONObject rule = ruleJsonObject(site);
-        String publish = rulePublishUrl(site, rule);
-        if (publish != null) return hostOf(publish);
-        String domain = ruleDomainUrl(site, rule);
-        if (domain != null && domainRawIsTool(rule)) return hostOf(domain);
-        return null;
-    }
-
-    /** v61：规则里用于取主页的那条域名值是不是 [工具:重定向] 模板（与 domainUrlFromObject 同顺序）。 */
-    private static boolean domainRawIsTool(JSONObject rule) {
-        if (rule == null) return false;
-        String rawC = rule.optString("域名-c", "");
-        if (!rawC.isEmpty()) return rawC.contains("[工具:");
-        java.util.Iterator<String> keys = rule.keys();
-        while (keys.hasNext()) {
-            String key = keys.next();
-            if (!key.contains("域名") || key.equals("域名-c")) continue;
-            String raw = rule.optString(key, "");
-            if (!raw.isEmpty()) return raw.contains("[工具:");
-        }
-        if (rule.has("ext")) {
-            try {
-                return domainRawIsTool(rule.getJSONObject("ext"));
-            } catch (Exception ignored) {
-            }
-        }
-        return false;
-    }
-
-    /** v61：取 URL 的 host（小写，去端口）；取不到返回 null。 */
-    private static String hostOf(String url) {
-        if (url == null) return null;
-        try {
-            String host = Uri.parse(url).getHost();
-            return TextUtils.isEmpty(host) ? null : host.toLowerCase(Locale.US);
-        } catch (Throwable e) {
-            return null;
-        }
     }
 
     private String siteHomePageUrl() {
@@ -1562,7 +1305,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         // 主页模式：站内搜片、换线路、选集全用网站自己的功能，壳子不传集列表/线路。
         if (TextUtils.isEmpty(click)) click = getSite().getClick();
         player().stop();
-        WebPlayActivity.start(this, getName(), url, header, new ArrayList<>(), new ArrayList<>(), 0, getKey(), "", click, new ArrayList<>(), homeJumpHost(getSite()));
+        WebPlayActivity.start(this, getName(), url, header, new ArrayList<>(), new ArrayList<>(), 0, getKey(), "", click, new ArrayList<>());
     }
 
 
@@ -2861,7 +2604,5 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         super.onDestroy();
     }
 }
-
-
 
 

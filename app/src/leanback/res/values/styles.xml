@@ -46,9 +46,4 @@
         <item name="android:textSize">14sp</item>
     </style>
 
-    <!-- 与手机版同名同义的弹窗主题（解除 windowFixedWidth 钳制），供电视版本地源/源操作弹窗使用。 -->
-    <style name="TaixuAlertDialogTheme" parent="ThemeOverlay.Material3.MaterialAlertDialog">
-        <item name="windowFixedWidthMajor">0dp</item>
-        <item name="windowFixedWidthMinor">0dp</item>
-    </style>
 </resources>
