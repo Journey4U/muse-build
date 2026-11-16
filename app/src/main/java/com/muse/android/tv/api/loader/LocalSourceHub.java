@@ -8,11 +8,13 @@ import com.github.catvod.crawler.DebugLogStore;
 import com.github.catvod.utils.Asset;
 import com.github.catvod.utils.Prefers;
 import com.muse.android.tv.bean.Site;
+import com.muse.android.tv.utils.UrlUtil;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.google.gson.JsonPrimitive;
 
 import android.content.Context;
 import android.util.TypedValue;
@@ -2120,7 +2122,17 @@ public class LocalSourceHub {
         boolean rootRelative = false;
         if (path.startsWith("file:")) {
             path = path.substring(5);
-            rootRelative = !path.startsWith("/") && !path.startsWith("//");
+            // v63：`file://<相对路径>`（双斜杠、非三斜杠）是相对外部存储根的脚本写法
+            // （如 file://123/cca.json → 123/cca.json），与 UrlUtil.convert / configRootDirs 一致；
+            // `file:///<绝对路径>`（三斜杠）才是绝对路径。旧判法在剥掉 "//" 之前就算 rootRelative，
+            // 把 file://123/cca.json 误判成绝对路径 /123/cca.json（根目录，不存在），网页源追加
+            // 找不到配置文件就报「当前没有加载配置」。
+            if (path.startsWith("//") && !path.startsWith("///")) {
+                path = path.substring(2);
+                rootRelative = true;
+            } else {
+                rootRelative = !path.startsWith("/");
+            }
         } else if (path.startsWith("http://") || path.startsWith("https://")) {
             int index = path.indexOf("/file/");
             if (index < 0) return paths;
@@ -2843,6 +2855,292 @@ public class LocalSourceHub {
             DebugLogStore.add(TAG, "写 json 失败：" + file.getAbsolutePath() + "：" + e);
             return false;
         }
+    }
+
+    // ==================== 网页源（v61） ====================
+
+    /** 网页源追加成功。 */
+    public static final int WEB_OK = 1;
+    /** 网页源追加：同名 key 已存在。 */
+    public static final int WEB_EXISTS = -1;
+    /** 网页源追加：当前配置是网络源（须切本地源配置后重试）。 */
+    public static final int WEB_NETWORK = -2;
+    /** 网页源追加：名称/网址无效。 */
+    public static final int WEB_INVALID = -3;
+    /** 网页源追加：当前没有加载配置 / 找不到本地配置文件。 */
+    public static final int WEB_NO_CONFIG = 0;
+    /** 网页源追加：配置里没有 sites 数组 / 解析失败。 */
+    public static final int WEB_NO_SITES = -5;
+    /** 网页源追加：写盘失败。 */
+    public static final int WEB_WRITE_FAIL = -6;
+
+    /**
+     * v61 网页源：把一条网页源追加到当前配置文件的 sites 数组末尾。
+     *
+     * <p>文本级追加，不全盘重写 —— 原文件格式（缩进、换行）原样保留，只在 sites 数组末尾插一条：
+     * 原来最后一条补逗号，新加的最后一条不带逗号；数组为空时直接插一条。
+     * 写前重解析一次校验 JSON 合法，非法就不落盘。
+     *
+     * @param name 名称（可空，空时自动取网址域名）；url 网址（必填，http/https，缺 scheme 时补 https://）
+     * @return {@link #WEB_OK} 成功；其它见各常量
+     */
+    public static int appendWebSource(String name, String url) {
+        String webUrl = normalizeWebSourceUrl(url);
+        if (webUrl == null) return WEB_INVALID;
+        String webName = name == null ? "" : name.trim();
+        if (webName.isEmpty()) webName = deriveWebSourceName(webUrl);
+        if (webName.isEmpty()) return WEB_INVALID;
+        String cfg = getCurrentConfigUrl();
+        if (cfg == null || cfg.trim().isEmpty()) return WEB_NO_CONFIG;
+        if (isNetworkConfigUrl(cfg)) return WEB_NETWORK;
+        File config = currentConfigFile();
+        if (config == null) return WEB_NO_CONFIG;
+        String text = readTextFile(config);
+        if (text == null || text.isEmpty()) return WEB_NO_SITES;
+        JsonObject root;
+        try {
+            root = JsonParser.parseString(text).getAsJsonObject();
+        } catch (Throwable e) {
+            return WEB_NO_SITES;
+        }
+        if (root == null || !root.has("sites") || !root.get("sites").isJsonArray()) return WEB_NO_SITES;
+        for (JsonElement e : root.getAsJsonArray("sites")) {
+            if (!e.isJsonObject()) continue;
+            JsonElement key = e.getAsJsonObject().get("key");
+            if (key != null && key.isJsonPrimitive() && webName.equals(key.getAsString())) return WEB_EXISTS;
+        }
+        int[] span = findSitesArraySpan(text);
+        if (span == null) return WEB_NO_SITES;
+        int[] last = findLastEntrySpan(text, span[0], span[1]);
+        String entry = buildWebSourceEntry(text, span, last, webName, webUrl);
+        if (entry == null) return WEB_NO_SITES;
+        String updated = insertIntoSitesArray(text, span, last, entry);
+        if (updated == null) return WEB_NO_SITES;
+        try {
+            JsonParser.parseString(updated).getAsJsonObject();
+        } catch (Throwable e) {
+            DebugLogStore.add(TAG, "网页源追加后校验失败，不落盘：" + e);
+            return WEB_NO_SITES;
+        }
+        if (!writeTextFile(config, updated)) return WEB_WRITE_FAIL;
+        DebugLogStore.add(TAG, "网页源已追加：" + webName + " -> " + webUrl + "（" + config.getAbsolutePath() + "）");
+        return WEB_OK;
+    }
+
+    /** v61：网址归一化——去空白，缺 scheme 时补 https://；非 http/https 返回 null。 */
+    public static String normalizeWebSourceUrl(String url) {
+        if (url == null) return null;
+        String value = url.trim();
+        if (value.isEmpty()) return null;
+        if (!value.contains("://")) value = "https://" + value;
+        String scheme = UrlUtil.scheme(value);
+        if (!"http".equals(scheme) && !"https".equals(scheme)) return null;
+        try {
+            String host = Uri.parse(value).getHost();
+            if (host == null || host.isEmpty()) return null;
+        } catch (Throwable e) {
+            return null;
+        }
+        return value;
+    }
+
+    /** v61：名称留空时自动取域名——host 小写，去掉开头一个 www.，其余子域与 TLD 保留。 */
+    public static String deriveWebSourceName(String url) {
+        if (url == null) return "";
+        try {
+            String host = Uri.parse(url).getHost();
+            if (host == null || host.isEmpty()) return "";
+            host = host.toLowerCase(Locale.US);
+            if (host.startsWith("www.")) host = host.substring(4);
+            return host;
+        } catch (Throwable e) {
+            return "";
+        }
+    }
+
+    /**
+     * v61：当前配置是不是网络源。file:// 是本地；http(s) 只有是内置服务 /file/ 地址且能定位到
+     * 本机已存在的文件时才算本地，其余一律算网络（不能写，须提示切换本地源配置）。
+     */
+    private static boolean isNetworkConfigUrl(String cfg) {
+        String scheme = UrlUtil.scheme(cfg);
+        if ("http".equals(scheme) || "https".equals(scheme)) {
+            for (String candidate : parseSourcePath(cfg)) {
+                if (candidate != null && candidate.startsWith("/") && new File(candidate).isFile()) return false;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    /** v61：当前加载配置对应的本地文件（取 parseSourcePath 里第一个已存在的文件）；找不到返回 null。 */
+    private static File currentConfigFile() {
+        String cfg = getCurrentConfigUrl();
+        if (cfg == null || cfg.trim().isEmpty()) return null;
+        for (String candidate : parseSourcePath(cfg)) {
+            if (candidate == null || !candidate.startsWith("/")) continue;
+            File file = new File(candidate);
+            if (file.isFile()) return file;
+        }
+        return null;
+    }
+
+    /** v61：按文件里最后一条的格式拼新条目（多行则同缩进多行，单行则单行；空数组返回单行条目）。 */
+    private static String buildWebSourceEntry(String text, int[] span, int[] last, String name, String url) {
+        String qName = new JsonPrimitive(name).toString();
+        String qUrl = new JsonPrimitive(url).toString();
+        if (last == null) {
+            return "{\"key\": " + qName + ", \"name\": " + qName + ", \"主页url\": " + qUrl + "}";
+        }
+        String entryText = text.substring(last[0], last[1] + 1);
+        if (entryText.indexOf('\n') < 0) {
+            return "{\"key\": " + qName + ", \"name\": " + qName + ", \"主页url\": " + qUrl + "}";
+        }
+        String entryIndent = lineIndent(text, last[0]);
+        String fieldIndent = fieldIndentOf(text, last[0], last[1]);
+        return entryIndent + "{\n"
+                + fieldIndent + "\"key\": " + qName + ",\n"
+                + fieldIndent + "\"name\": " + qName + ",\n"
+                + fieldIndent + "\"主页url\": " + qUrl + "\n"
+                + entryIndent + "}";
+    }
+
+    /** v61：把拼好的条目插进 sites 数组（旧末条补逗号，新条不带尾逗号）；失败返回 null。 */
+    private static String insertIntoSitesArray(String text, int[] span, int[] last, String entry) {
+        if (last == null) {
+            return text.substring(0, span[0] + 1) + entry + text.substring(span[1]);
+        }
+        boolean multiLine = entry.indexOf('\n') >= 0;
+        String sep = multiLine ? ",\n" : ",";
+        return text.substring(0, last[1] + 1) + sep + entry + text.substring(last[1] + 1);
+    }
+
+    /** v61：定位顶层 sites 数组的 [ 与 ] 下标；找不到返回 null（字符串内的括号不计）。 */
+    private static int[] findSitesArraySpan(String text) {
+        int len = text.length();
+        int depth = 0;
+        int i = 0;
+        while (i < len) {
+            char c = text.charAt(i);
+            if (c == '"') {
+                int end = skipString(text, i);
+                if (end < 0) return null;
+                String token = text.substring(i + 1, end);
+                if (depth == 1 && "sites".equals(token)) {
+                    int j = end + 1;
+                    while (j < len && Character.isWhitespace(text.charAt(j))) j++;
+                    if (j < len && text.charAt(j) == ':') {
+                        j++;
+                        while (j < len && Character.isWhitespace(text.charAt(j))) j++;
+                        if (j < len && text.charAt(j) == '[') {
+                            int close = matchBracket(text, j);
+                            if (close < 0) return null;
+                            return new int[]{j, close};
+                        }
+                    }
+                }
+                i = end + 1;
+                continue;
+            }
+            if (c == '{' || c == '[') depth++;
+            else if (c == '}' || c == ']') depth--;
+            i++;
+        }
+        return null;
+    }
+
+    /** v61：数组内最后一个对象条目的 [左大括号, 右大括号] 下标；空数组返回 null。 */
+    private static int[] findLastEntrySpan(String text, int arrayOpen, int arrayClose) {
+        int i = arrayOpen + 1;
+        int[] last = null;
+        while (i < arrayClose) {
+            char c = text.charAt(i);
+            if (c == '"') {
+                int end = skipString(text, i);
+                if (end < 0) return null;
+                i = end + 1;
+                continue;
+            }
+            if (c == '{') {
+                int close = matchBracket(text, i);
+                if (close < 0 || close > arrayClose) return null;
+                last = new int[]{i, close};
+                i = close + 1;
+                continue;
+            }
+            i++;
+        }
+        return last;
+    }
+
+    /** v61：跳过一个 JSON 字符串（text.charAt(start) 须为 '"'），返回收尾引号下标；未闭合返回 -1。 */
+    private static int skipString(String text, int start) {
+        int len = text.length();
+        int i = start + 1;
+        while (i < len) {
+            char c = text.charAt(i);
+            if (c == '\\') {
+                i += 2;
+                continue;
+            }
+            if (c == '"') return i;
+            i++;
+        }
+        return -1;
+    }
+
+    /** v61：text.charAt(open) 须为 '[' 或 '{'，返回配对的收尾下标；找不到返回 -1（字符串内括号不计）。 */
+    private static int matchBracket(String text, int open) {
+        char o = text.charAt(open);
+        char c = (o == '[') ? ']' : '}';
+        int len = text.length();
+        int depth = 0;
+        int i = open;
+        while (i < len) {
+            char ch = text.charAt(i);
+            if (ch == '"') {
+                int end = skipString(text, i);
+                if (end < 0) return -1;
+                i = end + 1;
+                continue;
+            }
+            if (ch == o) depth++;
+            else if (ch == c) {
+                depth--;
+                if (depth == 0) return i;
+            }
+            i++;
+        }
+        return -1;
+    }
+
+    /** v61：某下标所在行的行首空白（缩进）。 */
+    private static String lineIndent(String text, int index) {
+        int start = text.lastIndexOf('\n', index - 1) + 1;
+        StringBuilder sb = new StringBuilder();
+        while (start < text.length()) {
+            char ch = text.charAt(start);
+            if (ch != ' ' && ch != '\t') break;
+            sb.append(ch);
+            start++;
+        }
+        return sb.toString();
+    }
+
+    /** v61：条目内第一个字段行的缩进（找不到时退回条目缩进 + 2 空格）。 */
+    private static String fieldIndentOf(String text, int entryOpen, int entryClose) {
+        int nl = text.indexOf('\n', entryOpen);
+        if (nl < 0 || nl >= entryClose) return lineIndent(text, entryOpen) + "  ";
+        int start = nl + 1;
+        StringBuilder sb = new StringBuilder();
+        while (start < text.length()) {
+            char ch = text.charAt(start);
+            if (ch != ' ' && ch != '\t') break;
+            sb.append(ch);
+            start++;
+        }
+        if (sb.length() == 0) return lineIndent(text, entryOpen) + "  ";
+        return sb.toString();
     }
 
     // ==================== 扫描 ====================

@@ -779,9 +779,9 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private static String resolveHomePageUrl(Site site) {
-        // v91：顶层「主页url」最优先（Liu 2026-11-14 定）——显式配置的永久站永远赢过蜘蛛记的域名。
-        // 蜘蛛记的域名会坏（轮换/镜像挂掉）还一直占着不放（无过期、切源也不失效），主页就被带去坏域名白屏；
-        // 正常站（py/js）不受影响——它们不是重定向站，下面那步对它们本就是空操作。
+        // v60（Liu 2026-11-16 定）：主页取法重排——条目「主页url」> webPage 模板 > 规则里「发布站」/「防丢url」
+        // > 规则里「域名-c」/「域名*」> 详情真实域名 > siteBaseUrl 兜底（所有源）。
+        // v62：siteBaseUrl 不再只限 rule == null——py/js 源的 ext 也可以是行内 JSON，门会误杀。
         if (site != null) {
             String entry = site.getHomePageUrl();
             if (entry != null && !entry.isEmpty() && !entry.contains("[工具:")) {
@@ -796,25 +796,16 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
                 }
             }
         }
-        // 只有重定向型站才用 jar 追踪的真实域名（本站记的，10 分钟内有效；切源即失效——只认本站 key，
-        // 不再用全局最近一次，否则切到别的站还会吃上一个站的域名，v80 的教训）。
-        if (isRedirectSite(site)) {
-            String recorded = site != null ? SpiderDebug.detailOrigin(site.getKey()) : null;
-            if (recorded != null && !recorded.isEmpty()) {
-                String origin = originOf(recorded);
-                if (origin != null) return origin + "/";
-            }
-        }
         String template = webPageTemplate(site);
         if (template != null && !template.isEmpty()) {
             String origin = originOf(template);
             if (origin != null) return origin + "/";
         }
-        String base = siteBaseUrl(site);
-        if (base != null && !base.isEmpty()) {
-            String origin = originOf(base);
-            if (origin != null && !isIpHost(origin)) return origin + "/";
-        }
+        JSONObject rule = ruleJsonObject(site);
+        String publish = rulePublishUrl(site, rule);
+        if (publish != null) return publish;
+        String domain = ruleDomainUrl(site, rule);
+        if (domain != null) return domain;
         // detailOrigin 只对重定向站有意义（v89：非重定向站即使误记了也绝不能用，否则主页被带偏）。
         if (site != null && isRedirectSite(site)) {
             String recorded = SpiderDebug.detailOrigin(site.getKey());
@@ -823,7 +814,177 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
                 if (origin != null) return origin + "/";
             }
         }
+        // v62：siteBaseUrl 对所有源都当兜底。v60 的 if (rule == null) 门是错的——
+        // py 源（MissAV、老版多域名金牌）的 ext 本身就是行内 JSON（含 site 字段），
+        // ruleJsonObject 会返回非空，被误判成 JSON 规则源，siteBaseUrl 被跳过，
+        // 主页推不出来，浏览器入口就藏起来了。「ext 是 JSON」≠「是 xbpq 规则源」。
+        // 放 detailOrigin 后面：跳转站仍优先真实域名（v58 的顺序）。
+        String base = siteBaseUrl(site);
+        if (base != null && !base.isEmpty()) {
+            String origin = originOf(base);
+            if (origin != null && !isIpHost(origin)) return origin + "/";
+        }
         return null;
+    }
+
+    /** 规则 JSON 对象：行内 JSON ext 直接解析，否则读规则文件（仅 .json）。py/js 脚本没有 JSON 规则，返回 null。 */
+    private static JSONObject ruleJsonObject(Site site) {
+        if (site == null) return null;
+        String ext = site.getExt();
+        if (ext == null || ext.isEmpty()) return null;
+        String rule = ext.trim();
+        if (rule.startsWith("{")) {
+            try {
+                return new JSONObject(rule);
+            } catch (Exception ignored) {
+                return null;
+            }
+        }
+        File file = ruleFile(site, ext);
+        if (file == null || !file.isFile() || !file.getName().toLowerCase().endsWith(".json")) return null;
+        String text = readText(file);
+        if (text == null) return null;
+        try {
+            return new JSONObject(text.trim());
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    /** v60：规则里「发布站」/「防丢url」。发布站是静态发布页（如 http://hsck.net/），优先于动态域名。 */
+    private static String rulePublishUrl(Site site, JSONObject rule) {
+        if (rule == null) return null;
+        String home = publishUrlFromObject(site, rule);
+        if (home != null) return home;
+        if (rule.has("ext")) {
+            try {
+                JSONObject ext = rule.getJSONObject("ext");
+                home = publishUrlFromObject(site, ext);
+                if (home != null) return home;
+            } catch (Exception ignored) {
+            }
+        }
+        return null;
+    }
+
+    private static String publishUrlFromObject(Site site, JSONObject object) {
+        // 先找「发布站*」（发布站、发布站-b、发布站-s……），再找「防丢url*」。
+        for (String prefix : new String[]{"发布站", "防丢url"}) {
+            java.util.Iterator<String> keys = object.keys();
+            while (keys.hasNext()) {
+                String key = keys.next();
+                if (!key.startsWith(prefix)) continue;
+                String raw = object.optString(key, "");
+                if (raw.isEmpty()) continue;
+                String home = toHomeUrl(site, object, raw);
+                if (home != null) return home;
+            }
+        }
+        return null;
+    }
+
+    /** v60：规则里「域名-c」/「域名*」。「域名-c」优先于其它「域名*」键。 */
+    private static String ruleDomainUrl(Site site, JSONObject rule) {
+        if (rule == null) return null;
+        String home = domainUrlFromObject(site, rule);
+        if (home != null) return home;
+        if (rule.has("ext")) {
+            try {
+                JSONObject ext = rule.getJSONObject("ext");
+                home = domainUrlFromObject(site, ext);
+                if (home != null) return home;
+            } catch (Exception ignored) {
+            }
+        }
+        return null;
+    }
+
+    private static String domainUrlFromObject(Site site, JSONObject object) {
+        String rawC = object.optString("域名-c", "");
+        if (!rawC.isEmpty()) {
+            String home = toHomeUrl(site, object, rawC);
+            if (home != null) return home;
+        }
+        java.util.Iterator<String> keys = object.keys();
+        while (keys.hasNext()) {
+            String key = keys.next();
+            if (!key.contains("域名") || key.equals("域名-c")) continue;
+            String raw = object.optString(key, "");
+            if (raw.isEmpty()) continue;
+            String home = toHomeUrl(site, object, raw);
+            if (home != null) return home;
+        }
+        return null;
+    }
+
+    /** 把规则里的一条网址变成可进 webview 的主页地址。
+     * 含 [工具: 的是重定向模板：展开后返回完整地址（带查询串），不截 origin——
+     * 查询串就是跳转指令，截掉只剩服务根就 404（hsck v60 实证：cktongji.com:8899/ 裸根 404）。
+     * 干净网址取 origin；重定向站 http→https（v91）；IP 跳过。 */
+    private static String toHomeUrl(Site site, JSONObject object, String raw) {
+        boolean isTool = raw.contains("[工具:");
+        String value = resolveDomainTemplate(object, raw);
+        if (!value.startsWith("http://") && !value.startsWith("https://")) return null;
+        if (isTool) {
+            // 重定向工具 URL：原样返回，让 webview 自己跟 302 到真站。
+            return value;
+        }
+        String origin = originOf(value);
+        if (origin == null || isIpHost(origin)) return null;
+        if (isRedirectSite(site) && origin.startsWith("http://")) {
+            origin = "https://" + origin.substring("http://".length());
+        }
+        return origin + "/";
+    }
+    /** v61：主页是发布站/跳转页时返回其 host（供 WebPlayActivity 放行该页上的人工点按跳转）。
+     * 只有「发布站/防丢url」（第 3 步）与「域名-c/域名* 的 [工具:重定向]」（第 4 步工具）算跳转页；
+     * 条目主页url、webPage 模板、干净域名直接就是本站，不算。 */
+    public static String homeJumpHost(Site site) {
+        if (site == null) return null;
+        String entry = site.getHomePageUrl();
+        if (entry != null && !entry.isEmpty() && !entry.contains("[工具:")) {
+            if (originOf(entry) != null) return null;
+        }
+        String template = webPageTemplate(site);
+        if (template != null && !template.isEmpty() && originOf(template) != null) return null;
+        JSONObject rule = ruleJsonObject(site);
+        String publish = rulePublishUrl(site, rule);
+        if (publish != null) return hostOf(publish);
+        String domain = ruleDomainUrl(site, rule);
+        if (domain != null && domainRawIsTool(rule)) return hostOf(domain);
+        return null;
+    }
+
+    /** v61：规则里用于取主页的那条域名值是不是 [工具:重定向] 模板（与 domainUrlFromObject 同顺序）。 */
+    private static boolean domainRawIsTool(JSONObject rule) {
+        if (rule == null) return false;
+        String rawC = rule.optString("域名-c", "");
+        if (!rawC.isEmpty()) return rawC.contains("[工具:");
+        java.util.Iterator<String> keys = rule.keys();
+        while (keys.hasNext()) {
+            String key = keys.next();
+            if (!key.contains("域名") || key.equals("域名-c")) continue;
+            String raw = rule.optString(key, "");
+            if (!raw.isEmpty()) return raw.contains("[工具:");
+        }
+        if (rule.has("ext")) {
+            try {
+                return domainRawIsTool(rule.getJSONObject("ext"));
+            } catch (Exception ignored) {
+            }
+        }
+        return false;
+    }
+
+    /** v61：取 URL 的 host（小写，去端口）；取不到返回 null。 */
+    private static String hostOf(String url) {
+        if (url == null) return null;
+        try {
+            String host = Uri.parse(url).getHost();
+            return TextUtils.isEmpty(host) ? null : host.toLowerCase(Locale.US);
+        } catch (Throwable e) {
+            return null;
+        }
     }
 
     private String siteHomePageUrl() {
@@ -1305,7 +1466,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         // 主页模式：站内搜片、换线路、选集全用网站自己的功能，壳子不传集列表/线路。
         if (TextUtils.isEmpty(click)) click = getSite().getClick();
         player().stop();
-        WebPlayActivity.start(this, getName(), url, header, new ArrayList<>(), new ArrayList<>(), 0, getKey(), "", click, new ArrayList<>());
+        WebPlayActivity.start(this, getName(), url, header, new ArrayList<>(), new ArrayList<>(), 0, getKey(), "", click, new ArrayList<>(), homeJumpHost(getSite()));
     }
 
 

@@ -37,6 +37,7 @@ import com.muse.android.tv.ui.dialog.LiveDialog;
 import com.muse.android.tv.ui.dialog.RestoreDialog;
 import com.muse.android.tv.api.loader.LocalSourceHub;
 import com.muse.android.tv.ui.dialog.LocalSourceDialog;
+import com.muse.android.tv.ui.dialog.WebSourceDialog;
 import com.muse.android.tv.ui.dialog.SiteDialog;
 import com.muse.android.tv.utils.AppReset;
 import com.muse.android.tv.utils.FileUtil;
@@ -138,6 +139,7 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
     protected void initEvent() {
         mBinding.vod.setOnClickListener(this::onVod);
         mBinding.localSource.setOnClickListener(v -> LocalSourceDialog.show(this, this::setLocalSourceText));
+        mBinding.webSource.setOnClickListener(v -> WebSourceDialog.show(getContext()));
         mBinding.doh.setOnClickListener(this::setDoh);
         mBinding.live.setOnClickListener(this::onLive);
         mBinding.wall.setOnClickListener(this::onWall);

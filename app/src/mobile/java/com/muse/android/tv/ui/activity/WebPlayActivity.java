@@ -1345,6 +1345,8 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     private String mFlag = "";
     private String mClick = "";
     private String mAnchorUrl = "";
+    /** v61：主页是发布站/跳转页时其 host（VideoActivity 传进来）；该页上的人工点按跳转放行。 */
+    private String mJumpHost = "";
     private boolean mBlankRecovered = false;
     private int mValidatorLogs = 0;
     private int mPosition;
@@ -1364,6 +1366,11 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     }
 
     public static void start(Activity activity, String title, String url, Map<String, String> header, ArrayList<String> names, ArrayList<String> ids, int position, String key, String flag, String click, ArrayList<String> flags) {
+        start(activity, title, url, header, names, ids, position, key, flag, click, flags, "");
+    }
+
+    /** v61：带跳转页 host 的重载——主页是发布站/跳转页时，把其 host 传进来放行该页上的人工点按跳转。 */
+    public static void start(Activity activity, String title, String url, Map<String, String> header, ArrayList<String> names, ArrayList<String> ids, int position, String key, String flag, String click, ArrayList<String> flags, String jumpHost) {
         Intent intent = new Intent(activity, WebPlayActivity.class);
         // v91：切源进新浏览器时，先关掉已在栈里的旧浏览器页（只留一个 webview 在跑；否则换 20 条站源就攒 20 个 webview，内存先爆）。
         // standard 模式 + CLEAR_TOP = 旧实例 finish（onDestroy 里 web.destroy()）再建新实例；正常流程（已按返回关掉旧页）下是空操作。
@@ -1378,6 +1385,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         intent.putExtra("flag", flag == null ? "" : flag);
         intent.putExtra("click", click == null ? "" : click);
         intent.putStringArrayListExtra("flags", flags == null ? new ArrayList<>() : flags);
+        intent.putExtra("jumpHost", jumpHost == null ? "" : jumpHost);
         activity.startActivity(intent);
     }
 
@@ -1403,6 +1411,8 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         if (mFlag == null) mFlag = "";
         mClick = intent.getStringExtra("click");
         if (mClick == null) mClick = "";
+        mJumpHost = intent.getStringExtra("jumpHost");
+        if (mJumpHost == null) mJumpHost = "";
         ArrayList<String> names = intent.getStringArrayListExtra("names");
         if (names != null) mNames = names;
         ArrayList<String> ids = intent.getStringArrayListExtra("ids");
@@ -1622,6 +1632,15 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 // /pop 本身空白且立即跳广告域名，不是正片/分类内容。
                 if (isPopunderPath(request.getUrl().getPath())) {
                     return true;
+                }
+                // v61：发布站/跳转页上的人工点按放行——主页本身就是发布站/防丢url 或 [工具:重定向] 跳转页时，
+                // 用户在该页上点按进真实站是正常操作（有些发布站不自动跳，必须人工点）。只放行「当前页就是跳转页」
+                // 且带手势的点按；目标是已知广告域名时照样拦。一旦落到真实站，currentHost 变了，这里不再生效，
+                // 防广告劫持的规矩照旧。
+                if (request.hasGesture() && !TextUtils.isEmpty(mJumpHost)
+                        && !TextUtils.isEmpty(currentHost) && mJumpHost.equalsIgnoreCase(currentHost)
+                        && (TextUtils.isEmpty(targetHost) || !isAd(targetHost))) {
+                    return false;
                 }
                 if (!TextUtils.isEmpty(targetHost) && !TextUtils.isEmpty(currentHost)
                         && !sameSite(targetHost, currentHost)) {

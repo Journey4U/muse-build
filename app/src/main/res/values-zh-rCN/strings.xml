@@ -674,6 +674,17 @@
     <string name="site_share_empty">这些源既没有本地文件也没有接口地址，无法分享</string>
     <string name="site_share_fail">分享失败：没有找到可用的分享目标</string>
     <string name="site_target_title">选定当前目标</string>
+    <string name="site_web_source_add">添加网页源</string>
+    <string name="site_web_source_done">已添加网页源 %1$s</string>
+    <string name="site_web_source_exists">该名称已存在</string>
+    <string name="site_web_source_fail">添加网页源失败</string>
+    <string name="site_web_source_name_hint">名称（留空自动取域名）</string>
+    <string name="site_web_source_network">请切换本地源配置后重试</string>
+    <string name="site_web_source_no_config">当前没有加载配置</string>
+    <string name="site_web_source_title">添加网页源</string>
+    <string name="site_web_source_url_empty">网址不能为空</string>
+    <string name="site_web_source_url_hint">网址，如 https://missav.ai/</string>
+    <string name="site_web_source_url_invalid">网址无效，请填 http/https 地址</string>
     <string name="shelf_title">书架</string>
     <string name="shelf_import">导入书籍</string>
     <string name="shelf_recent">最近阅读</string>

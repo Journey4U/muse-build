@@ -751,6 +751,17 @@
     <string name="site_share_empty">These sources have neither a local file nor an API URL, nothing to share</string>
     <string name="site_share_fail">Share failed: no app available to handle it</string>
     <string name="site_target_title">Act on selection</string>
+    <string name="site_web_source_add">Add web source</string>
+    <string name="site_web_source_done">Web source added: %1$s</string>
+    <string name="site_web_source_exists">That name already exists</string>
+    <string name="site_web_source_fail">Failed to add web source</string>
+    <string name="site_web_source_name_hint">Name (leave empty to use domain)</string>
+    <string name="site_web_source_network">Switch to a local source config and try again</string>
+    <string name="site_web_source_no_config">No config loaded right now</string>
+    <string name="site_web_source_title">Add web source</string>
+    <string name="site_web_source_url_empty">URL cannot be empty</string>
+    <string name="site_web_source_url_hint">URL, e.g. https://missav.ai/</string>
+    <string name="site_web_source_url_invalid">Invalid URL, use an http/https address</string>
     <string name="shelf_title">Bookshelf</string>
     <string name="shelf_import">Import book</string>
     <string name="shelf_recent">Recent reading</string>
