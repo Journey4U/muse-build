@@ -1315,6 +1315,8 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     }
     private ActivityWebPlayBinding mBinding;
     private WebResourceResponse mEmpty;
+    // 1080 视口：本页是否已注过 width=1920（onPageStarted 重置，onPageCommitVisible 只注一次）。
+    private boolean mViewportInjected;
     private HashSet<String> mBlockedHosts = new HashSet<>();
     private HashSet<String> mResErrUrls = new HashSet<>();
     private HashSet<String> mConsoleErrSeen = new HashSet<>();
@@ -1701,6 +1703,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 if (url == null || url.equals("about:blank")) return;
                 // v96：先藏 webview，等 CLEAN_JS 首扫跑完再显示——hsck 首页顶部 58 条赌博横幅在首扫前会闪约 0.25 秒。
                 mBlankRecovered = false;
+                mViewportInjected = false;
                 view.setVisibility(View.INVISIBLE);
                 if (mForceShowWeb != null) view.removeCallbacks(mForceShowWeb);
                 mForceShowWeb = () -> view.setVisibility(View.VISIBLE);
@@ -1711,6 +1714,11 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
             public void onPageCommitVisible(WebView view, String url) {
                 super.onPageCommitVisible(view, url);
                 if (url == null || url.equals("about:blank")) return;
+                // 1080 视口：页面提交时定一次 1920px；onPageFinished 会因子 frame 多次触发，反复注会多次重排、肉眼可见多次缩放。
+                if (!mViewportInjected) {
+                    mViewportInjected = true;
+                    view.evaluateJavascript(VIEWPORT_JS, null);
+                }
                 view.evaluateJavascript(CLEAN_JS, value -> view.setVisibility(View.VISIBLE));
             }
 
@@ -1722,8 +1730,6 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 mJumpAnchorHost = null;
                 mJumpRelayHost = null;
                 mJumpChainUntil = 0;
-                // 1080 视口：先定 1920px 布局再跑站内脚本与去广告，避免几何判据量到窄视口。
-                view.evaluateJavascript(VIEWPORT_JS, null);
                 evaluate(getScript(url), 0);
                 // v97：不再立即显示——等 CLEAN_JS 回调再显示，否则分类页加载快会抢在首扫前闪出横幅墙（同 onPageCommitVisible）。
                 view.evaluateJavascript(CLEAN_JS, value -> view.setVisibility(View.VISIBLE));
