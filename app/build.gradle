@@ -41,6 +41,20 @@ android {
         }
     }
 
+    // ABI splits declared here (standard android{} location) so AGP 9 creates
+    // both arm64-v8a and armeabi-v7a variant outputs. Previously set
+    // programmatically via buildSrc AbiApkPackaging.configureAbis (outside
+    // android{}), which AGP 9.3.1 did not propagate to variant-output
+    // creation — only the arm64 split was produced (TV 32-bit missing).
+    splits {
+        abi {
+            enable true
+            reset()
+            include 'arm64-v8a', 'armeabi-v7a'
+            universalApk false
+        }
+    }
+
     buildFeatures {
         buildConfig = true
         viewBinding = true
