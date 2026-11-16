@@ -1,0 +1,601 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  小说主题 / 设置面板。
+  同一份布局服务两个入口（见 NovelSettingsDialog 的 MODE_THEME / MODE_SETTINGS）：
+    主题入口 → 主题（背景色/文字色）、字体（加粗/字体族）
+    设置入口 → 字号、排版（行距/字间距/段间距/边距）、显示（亮度）、行为（屏幕常亮/自动滚动/翻页模式）
+  Tab 文案与可见性、各分组可见性均由 Java 按模式设置，互不影响。
+  r44 令牌化：弹窗壳（底色/标题/Tab/分隔线/分组标签/数值/复位按钮）改用 hh_* 令牌；
+  文本为「亮色纸面」时代的硬编码灰值，现统一到暖炭黑+暖金色板（浅色模式由 values/colors_hh.xml 提供）。
+  #60：sheet 高度改由内容决定（NovelSettingsDialog.getMaxHeight 返回 0，基类不再写死高度），
+  本布局同步收紧各处垂直留白；Tab 改挂 bg_hh_pill 胶囊底（selected 态与底栏 chip 同一语言）。
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/dialogRoot"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@color/hh_bg_card"
+    android:orientation="vertical"
+    android:paddingBottom="@dimen/hh_space_2">
+
+    <!-- 拖拽把手（40dp 宽为抓取区，无对应尺寸令牌，保持原值） -->
+    <View
+        android:layout_width="40dp"
+        android:layout_height="@dimen/hh_space_1"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="@dimen/hh_space_1"
+        android:layout_marginBottom="@dimen/hh_space_1"
+        android:background="@color/hh_stroke_strong" />
+
+    <TextView
+        android:id="@+id/dialogTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="@dimen/hh_space_4"
+        android:paddingEnd="@dimen/hh_space_4"
+        android:paddingBottom="@dimen/hh_space_1"
+        android:text="阅读设置"
+        android:textColor="@color/hh_text_primary"
+        android:textSize="@dimen/hh_text_t1"
+        android:textStyle="bold" />
+
+    <!-- Tab 行（#60：胶囊底 bg_hh_pill，selected 态由 Java setSelected 驱动，与底栏 chip 同一语言） -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingStart="@dimen/hh_space_4"
+        android:paddingTop="@dimen/hh_space_1"
+        android:paddingEnd="@dimen/hh_space_4"
+        android:paddingBottom="@dimen/hh_space_1">
+
+        <TextView
+            android:id="@+id/tabOne"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="@drawable/bg_hh_pill"
+            android:gravity="center"
+            android:paddingTop="@dimen/hh_space_2"
+            android:paddingBottom="@dimen/hh_space_2"
+            android:text="主题"
+            android:textColor="@color/hh_text_secondary"
+            android:textSize="@dimen/hh_text_t3" />
+
+        <TextView
+            android:id="@+id/tabTwo"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/hh_space_1"
+            android:layout_weight="1"
+            android:background="@drawable/bg_hh_pill"
+            android:gravity="center"
+            android:paddingTop="@dimen/hh_space_2"
+            android:paddingBottom="@dimen/hh_space_2"
+            android:text="字体"
+            android:textColor="@color/hh_text_secondary"
+            android:textSize="@dimen/hh_text_t3" />
+
+        <TextView
+            android:id="@+id/tabThree"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/hh_space_1"
+            android:layout_weight="1"
+            android:background="@drawable/bg_hh_pill"
+            android:gravity="center"
+            android:paddingTop="@dimen/hh_space_2"
+            android:paddingBottom="@dimen/hh_space_2"
+            android:text="显示"
+            android:textColor="@color/hh_text_secondary"
+            android:textSize="@dimen/hh_text_t3"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/tabFour"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/hh_space_1"
+            android:layout_weight="1"
+            android:background="@drawable/bg_hh_pill"
+            android:gravity="center"
+            android:paddingTop="@dimen/hh_space_2"
+            android:paddingBottom="@dimen/hh_space_2"
+            android:text="行为"
+            android:textColor="@color/hh_text_secondary"
+            android:textSize="@dimen/hh_text_t3"
+            android:visibility="gone" />
+
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/hh_stroke_hairline" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:maxHeight="400dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="@dimen/hh_space_4"
+            android:paddingTop="@dimen/hh_space_3"
+            android:paddingEnd="@dimen/hh_space_4"
+            android:paddingBottom="@dimen/hh_space_2">
+
+            <!-- 主题（外观）：8 套预设配色 -->
+            <LinearLayout
+                android:id="@+id/groupTheme"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingTop="@dimen/hh_space_1"
+                    android:paddingBottom="@dimen/hh_space_1"
+                    android:text="预设主题（背景色 / 文字色）"
+                    android:textColor="@color/hh_text_secondary"
+                    android:textSize="@dimen/hh_text_t2" />
+
+                <GridLayout
+                    android:id="@+id/themeGrid"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:columnCount="4" />
+
+            </LinearLayout>
+
+            <!-- 字体（外观）：加粗 + 字体族 -->
+            <LinearLayout
+                android:id="@+id/groupFont"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingTop="@dimen/hh_space_1"
+                    android:paddingBottom="@dimen/hh_space_1">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="加粗"
+                        android:textColor="@color/hh_text_secondary"
+                        android:textSize="@dimen/hh_text_t2" />
+
+                    <Switch
+                        android:id="@+id/switchBold"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" />
+
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingTop="@dimen/hh_space_1"
+                    android:paddingBottom="@dimen/hh_space_1"
+                    android:text="阅读字体"
+                    android:textColor="@color/hh_text_secondary"
+                    android:textSize="@dimen/hh_text_t2" />
+
+                <LinearLayout
+                    android:id="@+id/fontList"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+
+            </LinearLayout>
+
+            <!-- 字号（行为）：字号增减 -->
+            <LinearLayout
+                android:id="@+id/groupSize"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingTop="@dimen/hh_space_1"
+                    android:paddingBottom="@dimen/hh_space_1">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="字号"
+                        android:textColor="@color/hh_text_secondary"
+                        android:textSize="@dimen/hh_text_t2" />
+
+                    <!-- 加减按钮补足到 hh_touch(44dp) 触控目标；⊖/⊕ 字形无对应字阶令牌，保留 24sp -->
+                    <TextView
+                        android:id="@+id/btnFontMinus"
+                        android:layout_width="@dimen/hh_touch"
+                        android:layout_height="@dimen/hh_touch"
+                        android:gravity="center"
+                        android:text="⊖"
+                        android:textSize="24sp" />
+
+                    <TextView
+                        android:id="@+id/fontSizeValue"
+                        android:layout_width="40dp"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:text="18"
+                        android:textSize="@dimen/hh_text_t3" />
+
+                    <TextView
+                        android:id="@+id/btnFontPlus"
+                        android:layout_width="@dimen/hh_touch"
+                        android:layout_height="@dimen/hh_touch"
+                        android:gravity="center"
+                        android:text="⊕"
+                        android:textSize="24sp" />
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <!-- 排版（行为）：行距 / 字间距 / 段间距 / 边距 -->
+            <LinearLayout
+                android:id="@+id/groupLayout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingTop="@dimen/hh_space_1"
+                    android:paddingBottom="@dimen/hh_space_1">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="排版设置"
+                        android:textColor="@color/hh_text_hint"
+                        android:textSize="@dimen/hh_text_t4" />
+
+                    <!-- 复位按钮：底色沿用既有 bg_hh_pill（租约外 drawable，见待办） -->
+                    <TextView
+                        android:id="@+id/btnResetLayout"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_hh_pill"
+                        android:paddingStart="@dimen/hh_space_4"
+                        android:paddingTop="@dimen/hh_space_2"
+                        android:paddingEnd="@dimen/hh_space_4"
+                        android:paddingBottom="@dimen/hh_space_2"
+                        android:text="复位"
+                        android:textColor="@color/hh_text_accent"
+                        android:textSize="@dimen/hh_text_t2" />
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:paddingTop="@dimen/hh_space_1">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="行距"
+                        android:textColor="@color/hh_text_secondary"
+                        android:textSize="@dimen/hh_text_t2" />
+
+                    <TextView
+                        android:id="@+id/valueLineSpacing"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="1.8"
+                        android:textColor="@color/hh_text_secondary"
+                        android:textSize="@dimen/hh_text_t2" />
+
+                </LinearLayout>
+
+                <SeekBar
+                    android:id="@+id/seekLineSpacing"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:paddingTop="@dimen/hh_space_1">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="字间距"
+                        android:textColor="@color/hh_text_secondary"
+                        android:textSize="@dimen/hh_text_t2" />
+
+                    <TextView
+                        android:id="@+id/valueLetterSpacing"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0.5"
+                        android:textColor="@color/hh_text_secondary"
+                        android:textSize="@dimen/hh_text_t2" />
+
+                </LinearLayout>
+
+                <SeekBar
+                    android:id="@+id/seekLetterSpacing"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:paddingTop="@dimen/hh_space_1">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="段间距"
+                        android:textColor="@color/hh_text_secondary"
+                        android:textSize="@dimen/hh_text_t2" />
+
+                    <TextView
+                        android:id="@+id/valueParaSpacing"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="1.0"
+                        android:textColor="@color/hh_text_secondary"
+                        android:textSize="@dimen/hh_text_t2" />
+
+                </LinearLayout>
+
+                <SeekBar
+                    android:id="@+id/seekParaSpacing"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:paddingTop="@dimen/hh_space_1">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="左右边距"
+                        android:textColor="@color/hh_text_secondary"
+                        android:textSize="@dimen/hh_text_t2" />
+
+                    <TextView
+                        android:id="@+id/valuePaddingH"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="20"
+                        android:textColor="@color/hh_text_secondary"
+                        android:textSize="@dimen/hh_text_t2" />
+
+                </LinearLayout>
+
+                <SeekBar
+                    android:id="@+id/seekPaddingH"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:paddingTop="@dimen/hh_space_1">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="上边距"
+                        android:textColor="@color/hh_text_secondary"
+                        android:textSize="@dimen/hh_text_t2" />
+
+                    <TextView
+                        android:id="@+id/valuePaddingTop"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="16"
+                        android:textColor="@color/hh_text_secondary"
+                        android:textSize="@dimen/hh_text_t2" />
+
+                </LinearLayout>
+
+                <SeekBar
+                    android:id="@+id/seekPaddingTop"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:paddingTop="@dimen/hh_space_1">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="下边距"
+                        android:textColor="@color/hh_text_secondary"
+                        android:textSize="@dimen/hh_text_t2" />
+
+                    <TextView
+                        android:id="@+id/valuePaddingBottom"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="16"
+                        android:textColor="@color/hh_text_secondary"
+                        android:textSize="@dimen/hh_text_t2" />
+
+                </LinearLayout>
+
+                <SeekBar
+                    android:id="@+id/seekPaddingBottom"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content" />
+
+            </LinearLayout>
+
+            <!-- 显示（行为）：屏幕亮度 -->
+            <LinearLayout
+                android:id="@+id/groupDisplay"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:paddingTop="@dimen/hh_space_1">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="屏幕亮度"
+                        android:textColor="@color/hh_text_secondary"
+                        android:textSize="@dimen/hh_text_t2" />
+
+                    <TextView
+                        android:id="@+id/valueBrightness"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="50"
+                        android:textColor="@color/hh_text_secondary"
+                        android:textSize="@dimen/hh_text_t2" />
+
+                </LinearLayout>
+
+                <SeekBar
+                    android:id="@+id/seekBrightness"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content" />
+
+            </LinearLayout>
+
+            <!-- 行为：屏幕常亮 / 自动滚动 / 翻页模式 -->
+            <LinearLayout
+                android:id="@+id/groupBehavior"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingTop="@dimen/hh_space_1"
+                    android:paddingBottom="@dimen/hh_space_1">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="屏幕常亮"
+                        android:textColor="@color/hh_text_secondary"
+                        android:textSize="@dimen/hh_text_t2" />
+
+                    <Switch
+                        android:id="@+id/switchKeepScreen"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" />
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingTop="@dimen/hh_space_1"
+                    android:paddingBottom="@dimen/hh_space_1">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="自动滚动"
+                        android:textColor="@color/hh_text_secondary"
+                        android:textSize="@dimen/hh_text_t2" />
+
+                    <Switch
+                        android:id="@+id/switchAutoScroll"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" />
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:paddingTop="@dimen/hh_space_1">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="自动滚动速度"
+                        android:textColor="@color/hh_text_secondary"
+                        android:textSize="@dimen/hh_text_t2" />
+
+                    <TextView
+                        android:id="@+id/valueAutoScroll"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="50"
+                        android:textColor="@color/hh_text_secondary"
+                        android:textSize="@dimen/hh_text_t2" />
+
+                </LinearLayout>
+
+                <SeekBar
+                    android:id="@+id/seekAutoScroll"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </ScrollView>
+
+</LinearLayout>

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  主题预览项（NovelSettingsDialog.bindThemeGroup 里 inflate）。
+  【刻意保持原样】themePreview 的 48dp×48dp 与背景 #fff5f0e1 —— 它是 8 套预设主题的
+  颜色方块，运行时由 Java 逐个 setBackgroundColor(THEME_COLORS[i][0]) 覆盖，
+  改成令牌会丢掉预览语义。
+  r44 令牌化：仅把项内边距/间距、主题名字色与字号换成 hh_* 令牌。
+  注意：根布局 background 仍是租约外的 @drawable/bg_novel_theme_item（内含硬编码
+  白底 #ffffffff / 选中蓝 #2196f3 / 8dp 圆角），需另行令牌化才能与暖炭黑+暖金体系完全一致。
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="80dp"
+    android:layout_height="100dp"
+    android:background="@drawable/bg_novel_theme_item"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="@dimen/hh_space_1">
+
+    <View
+        android:id="@+id/themePreview"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="#fff5f0e1" />
+
+    <TextView
+        android:id="@+id/themeName"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/hh_space_1"
+        android:text="羊皮纸"
+        android:textColor="@color/hh_text_secondary"
+        android:textSize="@dimen/hh_text_t4" />
+
+</LinearLayout>

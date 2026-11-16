@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.appcompat.widget.LinearLayoutCompat xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="center_vertical"
+    android:orientation="horizontal">
+
+    <View
+        android:id="@+id/health"
+        android:layout_width="8dp"
+        android:layout_height="8dp"
+        android:layout_marginEnd="@dimen/hh_space_2"
+        android:background="@drawable/shape_site_health" />
+
+    <!-- 源名框：占满剩余宽度，超长跑马灯滚动 -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/text"
+        style="?attr/materialButtonOutlinedStyle"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:ellipsize="marquee"
+        android:insetBottom="0dp"
+        android:insetLeft="0dp"
+        android:insetRight="0dp"
+        android:insetTop="0dp"
+        android:marqueeRepeatLimit="marquee_forever"
+        android:minHeight="0dp"
+        android:minWidth="0dp"
+        android:paddingStart="@dimen/hh_space_3"
+        android:paddingEnd="@dimen/hh_space_3"
+        android:singleLine="true"
+        android:textColor="@color/hh_text_accent"
+        android:textSize="@dimen/hh_text_t2"
+        app:backgroundTint="@color/hh_bg_card"
+        app:cornerRadius="@dimen/hh_radius_chip"
+        app:strokeColor="@color/hh_stroke_hairline"
+        tools:text="泥巴" />
+
+    <androidx.appcompat.widget.AppCompatImageView
+        android:id="@+id/search"
+        android:layout_width="@dimen/hh_icon_md"
+        android:layout_height="@dimen/hh_icon_md"
+        android:layout_marginStart="@dimen/hh_space_2"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:scaleType="centerInside"
+        android:src="@drawable/ic_site_search"
+        app:tint="@color/hh_accent" />
+
+    <androidx.appcompat.widget.AppCompatImageView
+        android:id="@+id/change"
+        android:layout_width="@dimen/hh_icon_md"
+        android:layout_height="@dimen/hh_icon_md"
+        android:layout_marginStart="@dimen/hh_space_2"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:scaleType="centerInside"
+        android:src="@drawable/ic_site_change"
+        app:tint="@color/hh_accent" />
+
+</androidx.appcompat.widget.LinearLayoutCompat>

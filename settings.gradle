@@ -1,0 +1,29 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+    }
+}
+
+// Removed foojay-resolver-convention (not needed, JDK 17 already configured via JAVA_HOME)
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
+    repositories {
+        google()
+        mavenLocal()
+        mavenCentral()
+        maven { url = 'https://jitpack.io' }
+        // FongMi private Media3 fork (1.11.0-alpha01-fongmi): local maven repo
+        // (15 AARs from official FongMi/media branch release-1.11.0-fongmi via webhtv mirror)
+        maven { url = uri("third_party") }
+        flatDir { dirs "$rootDir/app/libs" }
+    }
+}
+
+include ':app'
+include ':catvod'
+include ':chaquo'
+include ':quickjs'
+include ':hook'
+rootProject.name = "TV"

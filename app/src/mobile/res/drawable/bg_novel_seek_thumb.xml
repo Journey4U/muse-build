@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 阅读器进度滑杆圆点（图 1 样式）：暖金小圆 + 白描边 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <size
+        android:width="14dp"
+        android:height="14dp" />
+    <solid android:color="@color/hh_accent" />
+    <stroke
+        android:width="2dp"
+        android:color="#FFFFFFFF" />
+</shape>

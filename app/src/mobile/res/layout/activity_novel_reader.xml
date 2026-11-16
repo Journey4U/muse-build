@@ -1,0 +1,433 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  小说阅读器（#58 按图 1 改版 + 精修；#60 自适应精修）：
+  顶栏 = 返回 | 章名（居中）| 书签 | 收藏☆ | 音量（均为圆钮；目录已移出顶栏，改由底栏章节指示点选打开）；
+  顶栏在 Java 侧吃状态栏 inset 作顶部 padding 再叠加 1dp 余量（#60：按键区上移、下侧 padding 同步收窄），
+  整行仍落在状态栏下方；
+  正文区 = ScrollView（上下模式）/ PageSlideView（平移模式）/ PageCurlView（仿真卷页模式）三层切换；
+  底栏自上而下 = 细滑杆 / 上一章·章节指示（可点开目录）·下一章 /
+  上一页·翻页 chips（上下翻页/平移翻页/仿真翻页）·下一页 合并行 / 自动阅读·朗读·主题·更多设置。
+  #60 起合并行与动作行全部改为 0dp+权重弹性排布，任何屏宽下不得裁切（旧 wrap 固定宽总宽超屏曾切掉「下一页」）。
+  正文 content/chapterTitle 的文字色与 root 背景仍由 NovelReaderActivity.applyTheme() 动态下发。
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/hh_bg_base"
+    android:orientation="vertical">
+
+    <!-- 顶栏：高度随状态栏 inset 增长（Java 侧 setPadding），按钮可点区域不被状态栏吞 -->
+    <LinearLayout
+        android:id="@+id/topBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="56dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="@dimen/hh_space_2"
+        android:paddingTop="1dp"
+        android:paddingEnd="@dimen/hh_space_2"
+        android:paddingBottom="1dp">
+
+        <ImageButton
+            android:id="@+id/back"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="@drawable/bg_hh_pill"
+            android:contentDescription="返回"
+            android:padding="8dp"
+            android:src="@drawable/ic_arrow_back" />
+
+        <TextView
+            android:id="@+id/title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/hh_space_2"
+            android:layout_marginEnd="@dimen/hh_space_2"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:gravity="center"
+            android:maxLines="1"
+            android:textColor="@color/hh_text_primary"
+            android:textSize="@dimen/hh_text_t1"
+            android:textStyle="bold" />
+
+        <ImageButton
+            android:id="@+id/btnBookmarkTop"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="@drawable/bg_hh_pill"
+            android:contentDescription="书签"
+            android:padding="8dp"
+            android:src="@drawable/ic_bookmark" />
+
+        <ImageButton
+            android:id="@+id/btnKeep"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="@dimen/hh_space_2"
+            android:background="@drawable/bg_hh_pill"
+            android:contentDescription="收藏"
+            android:padding="8dp"
+            android:src="@drawable/ic_star" />
+
+        <ImageButton
+            android:id="@+id/btnVolume"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="@dimen/hh_space_2"
+            android:background="@drawable/bg_hh_pill"
+            android:contentDescription="音量"
+            android:padding="8dp"
+            android:src="@drawable/ic_tts" />
+
+    </LinearLayout>
+
+    <!-- 正文区：上下（滚动）/ 平移 / 仿真（卷页）三模式同框切换 -->
+    <FrameLayout
+        android:id="@+id/readerFrame"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <ScrollView
+            android:id="@+id/scrollView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:paddingStart="@dimen/hh_space_5"
+            android:paddingTop="0dp"
+            android:paddingEnd="@dimen/hh_space_5"
+            android:paddingBottom="0dp"
+            android:scrollbarStyle="outsideOverlay">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/chapterTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:paddingBottom="@dimen/hh_space_3"
+                    android:textColor="#ff333333"
+                    android:textSize="20sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/content"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:lineSpacingExtra="8dp"
+                    android:textColor="#ff333333"
+                    android:textSize="18sp" />
+
+            </LinearLayout>
+
+        </ScrollView>
+
+        <com.muse.android.tv.ui.novel.PageCurlView
+            android:id="@+id/curlView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone" />
+
+        <com.muse.android.tv.ui.novel.PageSlideView
+            android:id="@+id/slideView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone" />
+
+    </FrameLayout>
+
+    <!-- 进度细滑杆（独立一行，位于章节行之上） -->
+    <SeekBar
+        android:id="@+id/seekBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/hh_space_4"
+        android:layout_marginEnd="@dimen/hh_space_4"
+        android:max="100"
+        android:progressDrawable="@drawable/bg_novel_seek_progress"
+        android:thumb="@drawable/bg_novel_seek_thumb" />
+
+    <!-- 上一章 | 章节指示（当前章/总章数，点选打开目录） | 下一章 -->
+    <LinearLayout
+        android:id="@+id/chapterBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/hh_space_1"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="@dimen/hh_space_4"
+        android:paddingEnd="@dimen/hh_space_4">
+
+        <TextView
+            android:id="@+id/prevChapter"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_hh_pill"
+            android:paddingStart="@dimen/hh_space_5"
+            android:paddingTop="@dimen/hh_space_2"
+            android:paddingEnd="@dimen/hh_space_5"
+            android:paddingBottom="@dimen/hh_space_2"
+            android:singleLine="true"
+            android:text="上一章"
+            android:textColor="@color/hh_text_secondary"
+            android:textSize="@dimen/hh_text_t2" />
+
+        <TextView
+            android:id="@+id/chapterIndicator"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:paddingTop="@dimen/hh_space_2"
+            android:paddingBottom="@dimen/hh_space_2"
+            android:text="1 / 1"
+            android:textColor="@color/hh_text_secondary"
+            android:textSize="@dimen/hh_text_t2" />
+
+        <TextView
+            android:id="@+id/nextChapter"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_hh_pill"
+            android:paddingStart="@dimen/hh_space_5"
+            android:paddingTop="@dimen/hh_space_2"
+            android:paddingEnd="@dimen/hh_space_5"
+            android:paddingBottom="@dimen/hh_space_2"
+            android:singleLine="true"
+            android:text="下一章"
+            android:textColor="@color/hh_text_secondary"
+            android:textSize="@dimen/hh_text_t2" />
+
+    </LinearLayout>
+
+    <!-- 合并行：上一页 | 翻页 chips（上下翻页/平移翻页/仿真翻页） | 下一页。
+         #60 弹性化、#87 五元素化：全部 0dp+权重（页钮 0.85 / chips 1.05，按文案长度配权），
+         文案居中、单行，窄屏靠权重收缩而非溢出裁切；旧 wrap 固定宽在窄屏曾把「下一页」切掉大半。 -->
+    <LinearLayout
+        android:id="@+id/pageFlipBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/hh_space_2"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="@dimen/hh_space_4"
+        android:paddingEnd="@dimen/hh_space_4">
+
+        <TextView
+            android:id="@+id/prevPage"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="0.85"
+            android:background="@drawable/bg_hh_pill"
+            android:ellipsize="end"
+            android:gravity="center"
+            android:paddingStart="@dimen/hh_space_1"
+            android:paddingTop="@dimen/hh_space_2"
+            android:paddingEnd="@dimen/hh_space_1"
+            android:paddingBottom="@dimen/hh_space_2"
+            android:singleLine="true"
+            android:text="上一页"
+            android:textColor="@color/hh_text_secondary"
+            android:textSize="@dimen/hh_text_t2" />
+
+        <TextView
+            android:id="@+id/chipScroll"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/hh_space_2"
+            android:layout_weight="1.05"
+            android:background="@drawable/bg_hh_pill"
+            android:ellipsize="end"
+            android:gravity="center"
+            android:paddingStart="@dimen/hh_space_1"
+            android:paddingTop="@dimen/hh_space_2"
+            android:paddingEnd="@dimen/hh_space_1"
+            android:paddingBottom="@dimen/hh_space_2"
+            android:singleLine="true"
+            android:text="上下翻页"
+            android:textColor="@color/hh_text_secondary"
+            android:textSize="@dimen/hh_text_t2" />
+
+        <TextView
+            android:id="@+id/chipSlide"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/hh_space_2"
+            android:layout_weight="1.05"
+            android:background="@drawable/bg_hh_pill"
+            android:ellipsize="end"
+            android:gravity="center"
+            android:paddingStart="@dimen/hh_space_1"
+            android:paddingTop="@dimen/hh_space_2"
+            android:paddingEnd="@dimen/hh_space_1"
+            android:paddingBottom="@dimen/hh_space_2"
+            android:singleLine="true"
+            android:text="平移翻页"
+            android:textColor="@color/hh_text_secondary"
+            android:textSize="@dimen/hh_text_t2" />
+
+        <TextView
+            android:id="@+id/chipCurl"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/hh_space_2"
+            android:layout_weight="1.05"
+            android:background="@drawable/bg_hh_pill"
+            android:ellipsize="end"
+            android:gravity="center"
+            android:paddingStart="@dimen/hh_space_1"
+            android:paddingTop="@dimen/hh_space_2"
+            android:paddingEnd="@dimen/hh_space_1"
+            android:paddingBottom="@dimen/hh_space_2"
+            android:singleLine="true"
+            android:text="仿真翻页"
+            android:textColor="@color/hh_text_secondary"
+            android:textSize="@dimen/hh_text_t2" />
+
+        <TextView
+            android:id="@+id/nextPage"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/hh_space_2"
+            android:layout_weight="0.85"
+            android:background="@drawable/bg_hh_pill"
+            android:ellipsize="end"
+            android:gravity="center"
+            android:paddingStart="@dimen/hh_space_1"
+            android:paddingTop="@dimen/hh_space_2"
+            android:paddingEnd="@dimen/hh_space_1"
+            android:paddingBottom="@dimen/hh_space_2"
+            android:singleLine="true"
+            android:text="下一页"
+            android:textColor="@color/hh_text_secondary"
+            android:textSize="@dimen/hh_text_t2" />
+
+    </LinearLayout>
+
+    <!-- 自动阅读 | 朗读 | 主题（精修 3 新增，直达主题点选） | 更多设置 -->
+    <LinearLayout
+        android:id="@+id/actionBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/hh_space_2"
+        android:orientation="horizontal"
+        android:paddingStart="@dimen/hh_space_4"
+        android:paddingEnd="@dimen/hh_space_4"
+        android:paddingBottom="@dimen/hh_space_3">
+
+        <LinearLayout
+            android:id="@+id/btnAuto"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1.15"
+            android:background="@drawable/bg_hh_pill"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:paddingTop="@dimen/hh_space_2"
+            android:paddingBottom="@dimen/hh_space_2">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="▶ 自动阅读"
+                android:textColor="@color/hh_text_secondary"
+                android:textSize="@dimen/hh_text_t2" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/btnTts"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/hh_space_2"
+            android:layout_weight="0.9"
+            android:background="@drawable/bg_hh_pill"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:paddingTop="@dimen/hh_space_2"
+            android:paddingBottom="@dimen/hh_space_2">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:src="@drawable/ic_tts" />
+
+            <TextView
+                android:id="@+id/btnTtsLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="@dimen/hh_space_1"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="@string/novel_tts"
+                android:textColor="@color/hh_text_secondary"
+                android:textSize="@dimen/hh_text_t2" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/btnTheme"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/hh_space_2"
+            android:layout_weight="0.7"
+            android:background="@drawable/bg_hh_pill"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:paddingTop="@dimen/hh_space_2"
+            android:paddingBottom="@dimen/hh_space_2">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="主题"
+                android:textColor="@color/hh_text_secondary"
+                android:textSize="@dimen/hh_text_t2" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/btnMore"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/hh_space_2"
+            android:layout_weight="1.25"
+            android:background="@drawable/bg_hh_pill"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:paddingTop="@dimen/hh_space_2"
+            android:paddingBottom="@dimen/hh_space_2">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:src="@drawable/ic_settings" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="@dimen/hh_space_1"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="更多设置"
+                android:textColor="@color/hh_text_secondary"
+                android:textSize="@dimen/hh_text_t2" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</LinearLayout>

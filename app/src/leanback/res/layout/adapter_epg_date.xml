@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.muse.android.tv.ui.custom.CustomLeftRightLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:background="@drawable/selector_live"
+    android:focusable="true"
+    android:focusableInTouchMode="true"
+    android:orientation="vertical">
+
+    <com.google.android.material.textview.MaterialTextView
+        android:id="@+id/text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:duplicateParentState="true"
+        android:ellipsize="marquee"
+        android:singleLine="true"
+        android:textColor="@color/text"
+        android:textSize="16sp"
+        tools:text="昨天 11-08" />
+
+</com.muse.android.tv.ui.custom.CustomLeftRightLayout>

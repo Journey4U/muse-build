@@ -1,0 +1,166 @@
+import com.android.build.api.artifact.SingleArtifact
+import com.muse.gradle.AbiApkPackaging
+
+apply plugin: 'com.android.application'
+
+def localProps = new Properties()
+rootProject.file('local.properties').withInputStream {
+    localProps.load(it)
+}
+
+android {
+    namespace = 'com.muse.android.tv'
+
+    compileSdk libs.versions.compileSdk.get().toInteger()
+    buildToolsVersion "34.0.0"
+
+    defaultConfig {
+        applicationId "com.muse.android.tv"
+        minSdk libs.versions.minSdk.get().toInteger()
+        targetSdk libs.versions.targetSdk.get().toInteger()
+        versionCode 1
+        versionName "1.2.6"
+        // MPV native source revisions of the bundled webhtv mpv-libs asset set
+        // (mirrors webhtv app/build.gradle; value from webhtv third_party/mpv-native-lock.json)
+        buildConfigField "String", "MPV_NATIVE_SOURCES", "\"mpv=cca559b41ceb0bb7731cf6ef2e1f33276cd30c42 ffmpeg=177f090e0503b7e013922ca903bde14b1c375f18 libplacebo=b694a21bf2dc176c1e98b8a13c6421a0de5f3da5 framework=99a60ad2141d5ace94453590903c2c6b9a0a2443\""
+        javaCompileOptions {
+            annotationProcessorOptions {
+                arguments = ["room.schemaLocation": "$projectDir/schemas".toString(), "eventBusIndex": "com.muse.android.tv.event.EventIndex"]
+            }
+        }
+    }
+
+    flavorDimensions = ["device"]
+
+    productFlavors {
+        leanback {
+            dimension "device"
+        }
+        mobile {
+            dimension "device"
+        }
+    }
+
+    buildFeatures {
+        buildConfig = true
+        viewBinding = true
+        aidl = true
+    }
+
+    signingConfigs {
+        release {
+            storeFile file(localProps['storeFile'])
+            keyAlias localProps['keyAlias']
+            keyPassword localProps['storePassword']
+            storePassword localProps['storePassword']
+            enableV1Signing true
+            enableV2Signing true
+            enableV3Signing true
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled = true
+            shrinkResources = true
+            signingConfig = signingConfigs.release
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro', 'proguard-rules-media.pro'
+        }
+    }
+
+    configurations.configureEach {
+        exclude group: 'stax', module: 'stax-api'
+        exclude group: 'xpp3', module: 'xpp3'
+        exclude group: 'com.android.support'
+        resolutionStrategy {
+            force libs.okhttp
+        }
+    }
+
+    lint {
+        disable 'UnsafeOptInUsageError'
+        disable 'ExpiredTargetSdkVersion'
+    }
+
+    compileOptions {
+        coreLibraryDesugaringEnabled = true
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
+    }
+}
+
+AbiApkPackaging.configure(project, SingleArtifact.APK.INSTANCE)
+
+dependencies {
+    // Media3: FongMi private fork. The published branch release-1.11.0-fongmi
+    // (2026-08) is OLDER than the player code (5.6.3+): it lacks fork APIs the
+    // code needs (DanmakuConfig fields, ExoPlayer video/audio-effect + skip-silence
+    // APIs, PlayerView debug view, DefaultRenderersFactory.setDolbyVisionOutputPolicy,
+    // CaptionStyleCompat ctor, MpvPlayer/MpvSubtitleOptions, ...).
+    // Full FongMi media3 AARs (1.11.0-alpha01-fongmi) from third_party local maven repo
+    // (webhtv mirror of FongMi/media release-1.11.0-fongmi). Classes + resources included.
+    // MPV: mpvplayer module sources live under app/src/main/java/androidx/media3/mpvplayer/
+    // plus is/xyz/mpv JNI bridge; native libs bundled as assets/mpv-libs/<abi>/ (webhtv set), extracted at runtime by MPVLib.
+    // media3: full source merge under app/src/main/java/androidx/media3/ (FongMi/media release-1.11.0-fongmi tip)
+    implementation fileTree(dir: "libs", include: ["customactivityoncrash-2.4.0.aar"])
+    implementation project(':catvod')
+    implementation project(':chaquo')
+    implementation project(':quickjs')
+    implementation project(':hook')
+    implementation libs.appcompat
+    implementation libs.lifecycle.service
+    implementation libs.media
+    implementation libs.palette
+    implementation libs.recyclerview
+    implementation libs.room.runtime
+    implementation libs.splashscreen
+    implementation libs.swiperefreshlayout
+    implementation libs.viewpager2
+    leanbackImplementation libs.androidx.viewpager
+    implementation libs.android.gif.drawable
+    implementation libs.bundles.glide
+    implementation libs.bundles.jupnp
+    // implementation libs.customactivityoncrash // using local AAR instead
+    implementation libs.eventbus
+    implementation libs.flexbox
+    implementation libs.rtmp.client
+    implementation libs.lottie
+    implementation libs.material
+    implementation libs.materialdesigncolors
+    implementation libs.nanohttpd
+    implementation libs.newpipeextractor
+    implementation libs.permissionx
+    implementation libs.simple.xml
+    // checker-qual: nullness annotations (@EnsuresNonNullIf etc.) used by the
+    // FongMi/media SOURCE files under app/src/main/java/androidx/media3/ui/
+    // (PlayerView.java, PlayerSeekView.java). Compile-time only.
+    compileOnly "org.checkerframework:checker-qual:3.42.0"
+    // media3 source-merge transitive deps (formerly via AAR poms)
+    // jsr305: javax.annotation(.meta) nullness annotations used by merged media3 sources
+    implementation "com.google.code.findbugs:jsr305:3.0.2"
+    // kotlin-annotations-jvm: kotlin.annotations.jvm (MigrationStatus/UnderMigration) used by merged media3 sources
+    implementation "org.jetbrains.kotlin:kotlin-annotations-jvm:2.2.10"
+    implementation "com.google.guava:guava:33.3.1-android"
+    implementation "androidx.annotation:annotation:1.6.0"
+    implementation "androidx.annotation:annotation-experimental:1.3.1"
+    implementation "androidx.collection:collection:1.2.0"
+    implementation "androidx.concurrent:concurrent-futures:1.2.0"
+    implementation "androidx.exifinterface:exifinterface:1.3.6"
+    implementation "com.googlecode.juniversalchardet:juniversalchardet:1.0.3"
+    implementation "org.brotli:dec:0.1.2"
+    implementation "com.squareup.okhttp3:okhttp:4.12.0"
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:2.2.10"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.9.0"
+    implementation libs.textdrawable
+    leanbackImplementation libs.leanback
+    leanbackImplementation libs.androidautosize
+    mobileImplementation libs.biometric
+    mobileImplementation libs.zxing.android.embedded
+    annotationProcessor libs.room.compiler
+    annotationProcessor libs.eventbus.annotation.processor
+    annotationProcessor libs.glide.compiler
+    coreLibraryDesugaring libs.desugar
+}
+
+
