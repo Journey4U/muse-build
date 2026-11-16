@@ -761,6 +761,10 @@
     <string name="site_web_source_url_empty">URL cannot be empty</string>
     <string name="site_web_source_url_hint">URL, e.g. https://missav.ai/</string>
     <string name="site_web_source_url_invalid">Invalid URL, use an http/https address</string>
+    <!-- v67 权限统一 -->
+    <string name="config_storage_permission_required">需要存储权限才能读取本地配置文件</string>
+    <string name="websource_storage_permission_required">需要存储权限才能保存网页源</string>
+    <string name="permission_open_settings">去设置</string>
     <string name="shelf_title">Bookshelf</string>
     <string name="shelf_import">Import book</string>
     <string name="shelf_recent">Recent reading</string>

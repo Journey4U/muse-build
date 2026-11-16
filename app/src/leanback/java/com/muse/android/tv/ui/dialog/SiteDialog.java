@@ -254,8 +254,9 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
             showSelfAuthoredHint(getString(R.string.site_self_authored, item.getName()));
             return;
         }
-        // 只对本地源文件生效；远程源长按不进勾选模式（与手机版同一口径）。
-        if (LocalSourceHub.sourceFilePathOf(item.getApi(), item.getExt(), null) == null) return;
+        // v25：网页源没有本地源文件，但允许进勾选模式走配置条目删除（只删配置条目，不删文件）；
+        // 远程源长按仍不进勾选模式（与手机版同一口径）。
+        if (!item.isWebSource() && LocalSourceHub.sourceFilePathOf(item.getApi(), item.getExt(), null) == null) return;
         ops = true;
         binding.selectBar.setVisibility(View.VISIBLE);
         adapter.enterOps(item);
@@ -696,9 +697,17 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
         new Thread(() -> {
             int removed = 0;
             String selfName = null;
+            boolean noPermission = false;
             try {
                 LocalSourceHub.beginBatch();
                 for (Site site : snapshot) {
+                    if (site.isWebSource()) {
+                        // v25：网页源只删当前配置里的条目，不删文件；删完重载后列表里即消失。
+                        int webResult = LocalSourceHub.deleteWebSource(site.getKey());
+                        if (webResult == LocalSourceHub.WEB_OK || webResult == LocalSourceHub.WEB_NOT_FOUND) removed++;
+                        else if (webResult == LocalSourceHub.WEB_NO_PERMISSION) noPermission = true;
+                        continue;
+                    }
                     int result = LocalSourceHub.deleteSiteFile(site.getApi(), site.getExt(), null);
                     if (result > 0) removed++;
                     else if (result == LocalSourceHub.BLOCK_SELF_AUTHORED) selfName = site.getName();
@@ -709,11 +718,13 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
             }
             final int removedCount = removed;
             final String blockedName = selfName;
+            final boolean denied = noPermission;
             post(() -> {
                 if (!isAdded()) return;
                 if (blockedName != null) showSelfAuthoredHint(getString(R.string.site_self_authored, blockedName));
+                if (denied) Notify.show(R.string.websource_storage_permission_required);
                 if (removedCount == 0) {
-                    Notify.show(R.string.site_del_fail);
+                    if (!denied) Notify.show(R.string.site_del_fail);
                     return;
                 }
                 Notify.show(getString(R.string.site_del_done_multi, removedCount));

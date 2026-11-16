@@ -11,6 +11,7 @@ import com.muse.android.tv.api.loader.LocalSourceHub;
 import com.muse.android.tv.databinding.DialogWebSourceBinding;
 import com.muse.android.tv.impl.Callback;
 import com.muse.android.tv.utils.Notify;
+import com.muse.android.tv.utils.PermissionUtil;
 
 /**
  * v22 网页源（电视版，移植自主线手机 v61/v62）：设置页「本地源」行下的「添加网页源」入口。
@@ -18,6 +19,8 @@ import com.muse.android.tv.utils.Notify;
  * 写完重载配置，新站立刻出现在切站列表里。
  * 电视写法：BaseAlertDialog + dialog_web_source.xml（CustomEditText 行式输入 + 底部确认/取消，
  * 与电视版 ConfigDialog 同款），不用手机版程序拼 AlertDialog 的写法。
+ * v25：点确定先走权限统一门（同步主线手机 v67）；通过后自动重试本次添加，拒绝弹
+ * 权限提示 +「去设置」。
  */
 public class WebSourceDialog extends BaseAlertDialog {
 
@@ -63,8 +66,13 @@ public class WebSourceDialog extends BaseAlertDialog {
             return;
         }
         String done = getString(R.string.site_web_source_done, webName);
-        dismiss();
-        addWebSource(webName, webUrl, done);
+        // v25：先走权限门；已授予直接加，未授予弹系统申请，通过后自动重试本次添加
+        PermissionUtil.ensureStoragePermission(this,
+                () -> {
+                    dismiss();
+                    addWebSource(webName, webUrl, done);
+                },
+                this::showPermissionDenied);
     }
 
     private void addWebSource(String name, String url, String done) {
@@ -86,9 +94,24 @@ public class WebSourceDialog extends BaseAlertDialog {
                 } else if (result == LocalSourceHub.WEB_EXISTS) Notify.show(R.string.site_web_source_exists);
                 else if (result == LocalSourceHub.WEB_NETWORK) Notify.show(R.string.site_web_source_network);
                 else if (result == LocalSourceHub.WEB_NO_CONFIG) Notify.show(R.string.site_web_source_no_config);
+                else if (result == LocalSourceHub.WEB_NO_PERMISSION) showPermissionDenied();
                 else Notify.show(R.string.site_web_source_fail);
             });
         }, "local-source-websource").start();
+    }
+
+    /** v25：拒绝 / 写盘时才发现没权限：弹权限提示 +「去设置」；弹窗已不在时退回 Toast。 */
+    private void showPermissionDenied() {
+        if (!isAdded()) {
+            Notify.show(R.string.websource_storage_permission_required);
+            return;
+        }
+        FragmentActivity activity = requireActivity();
+        new MaterialAlertDialogBuilder(activity)
+                .setMessage(R.string.websource_storage_permission_required)
+                .setPositiveButton(R.string.permission_open_settings, (dialog, which) -> PermissionUtil.openAppSettings(activity))
+                .setNegativeButton(R.string.dialog_negative, null)
+                .show();
     }
 
     private static boolean isBlank(String value) {
