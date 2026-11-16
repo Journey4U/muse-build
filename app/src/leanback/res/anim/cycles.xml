@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 原版 OK 5.1.6 大屏版 res/anim/cycles.xml 原样复制（shake.xml 的 interpolator 依赖）。 -->
+<cycleInterpolator xmlns:android="http://schemas.android.com/apk/res/android"
+    android:cycles="3.0" />

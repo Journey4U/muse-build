@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  #61 漫画/图片播放器布局（自 VesperTV r60 整搬后按本壳设计语言重排）：
+  黑底沉浸看图，点图显隐控制层。顶栏 = 返回 | 章节名 | 模式切换（横翻/条漫），
+  吃状态栏 inset（代码侧 applyBarInsets，同阅读器机制）；底栏三行自上而下 =
+  跳页 SeekBar（两端页码即页码指示）/ 选话行（上一话·目录·下一话，等权弹性）/ 缩放行。
+  控件统一深色蒙层 hh_scrim + 深色胶囊 bg_image_pill（选中态暖金）；全部弹性排布，
+  320dp 窄屏验算：顶栏固定件约 148dp、标题弹性；选话行每钮约 93dp；缩放行约 272dp，均不裁切。
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/black">
+
+    <androidx.viewpager2.widget.ViewPager2
+        android:id="@+id/pager"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/list"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone" />
+
+    <LinearLayout
+        android:id="@+id/topBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:background="@color/hh_scrim"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="@dimen/hh_space_3"
+        android:paddingTop="@dimen/hh_space_2"
+        android:paddingEnd="@dimen/hh_space_3"
+        android:paddingBottom="@dimen/hh_space_2">
+
+        <ImageView
+            android:id="@+id/back"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="@drawable/bg_image_pill"
+            android:contentDescription="返回"
+            android:padding="8dp"
+            android:src="@drawable/ic_arrow_back"
+            android:tint="@android:color/white" />
+
+        <TextView
+            android:id="@+id/title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/hh_space_2"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:singleLine="true"
+            android:textColor="@android:color/white"
+            android:textSize="@dimen/hh_text_t3"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/modeToggle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/hh_space_2"
+            android:background="@drawable/bg_image_pill"
+            android:gravity="center"
+            android:minHeight="@dimen/hh_touch"
+            android:paddingStart="@dimen/hh_space_4"
+            android:paddingEnd="@dimen/hh_space_4"
+            android:singleLine="true"
+            android:text="横翻"
+            android:textColor="@android:color/white"
+            android:textSize="@dimen/hh_text_t2" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/controls"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:background="@color/hh_scrim"
+        android:orientation="vertical"
+        android:paddingStart="@dimen/hh_space_3"
+        android:paddingTop="@dimen/hh_space_3"
+        android:paddingEnd="@dimen/hh_space_3"
+        android:paddingBottom="@dimen/hh_space_3">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/pageCurrent"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:minWidth="36dp"
+                android:text="1"
+                android:textColor="@android:color/white"
+                android:textSize="@dimen/hh_text_t2" />
+
+            <SeekBar
+                android:id="@+id/pageSeek"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="@dimen/hh_space_2"
+                android:layout_marginEnd="@dimen/hh_space_2"
+                android:layout_weight="1"
+                android:progressBackgroundTint="#4DFFFFFF"
+                android:progressTint="@color/hh_accent"
+                android:thumbTint="@color/hh_accent" />
+
+            <TextView
+                android:id="@+id/pageTotal"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:minWidth="36dp"
+                android:textColor="@android:color/white"
+                android:textSize="@dimen/hh_text_t2" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/hh_space_2"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/prevEpisode"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:background="@drawable/bg_image_pill"
+                android:gravity="center"
+                android:minHeight="@dimen/hh_touch"
+                android:singleLine="true"
+                android:text="上一话"
+                android:textColor="@android:color/white"
+                android:textSize="@dimen/hh_text_t2" />
+
+            <TextView
+                android:id="@+id/episodeList"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="@dimen/hh_space_2"
+                android:layout_weight="1"
+                android:background="@drawable/bg_image_pill"
+                android:gravity="center"
+                android:minHeight="@dimen/hh_touch"
+                android:singleLine="true"
+                android:text="目录"
+                android:textColor="@android:color/white"
+                android:textSize="@dimen/hh_text_t2" />
+
+            <TextView
+                android:id="@+id/nextEpisode"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="@dimen/hh_space_2"
+                android:layout_weight="1"
+                android:background="@drawable/bg_image_pill"
+                android:gravity="center"
+                android:minHeight="@dimen/hh_touch"
+                android:singleLine="true"
+                android:text="下一话"
+                android:textColor="@android:color/white"
+                android:textSize="@dimen/hh_text_t2" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/hh_space_2"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:alpha="0.7"
+                android:paddingEnd="@dimen/hh_space_3"
+                android:text="缩放"
+                android:textColor="@android:color/white"
+                android:textSize="@dimen/hh_text_t2" />
+
+            <TextView
+                android:id="@+id/zoomOut"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:background="@drawable/bg_image_pill"
+                android:gravity="center"
+                android:text="−"
+                android:textColor="@android:color/white"
+                android:textSize="20sp" />
+
+            <TextView
+                android:id="@+id/zoomText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="@dimen/hh_space_1"
+                android:layout_marginEnd="@dimen/hh_space_1"
+                android:gravity="center"
+                android:minWidth="56dp"
+                android:text="100%"
+                android:textColor="@android:color/white"
+                android:textSize="@dimen/hh_text_t2" />
+
+            <TextView
+                android:id="@+id/zoomIn"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:background="@drawable/bg_image_pill"
+                android:gravity="center"
+                android:text="+"
+                android:textColor="@android:color/white"
+                android:textSize="20sp" />
+
+            <TextView
+                android:id="@+id/zoomReset"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="@dimen/hh_space_3"
+                android:background="@drawable/bg_image_pill"
+                android:gravity="center"
+                android:minHeight="@dimen/hh_touch"
+                android:paddingStart="@dimen/hh_space_4"
+                android:paddingEnd="@dimen/hh_space_4"
+                android:singleLine="true"
+                android:text="重置"
+                android:textColor="@android:color/white"
+                android:textSize="@dimen/hh_text_t2" />
+        </LinearLayout>
+    </LinearLayout>
+</FrameLayout>

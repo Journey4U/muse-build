@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 原版 OK 5.1.6 大屏版 res/anim/shake.xml 原样复制。注意它引用 @anim/cycles，本次一并补上 cycles.xml。 -->
+<translate xmlns:android="http://schemas.android.com/apk/res/android"
+    android:duration="500"
+    android:fromXDelta="0.0"
+    android:interpolator="@anim/cycles"
+    android:toXDelta="4.0" />

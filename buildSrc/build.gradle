@@ -1,0 +1,25 @@
+plugins {
+    id 'groovy'
+}
+
+repositories {
+    flatDir { dirs 'libs' }
+}
+
+dependencies {
+    implementation gradleApi()
+    implementation localGroovy()
+    implementation ':commons-compress:1.28.0'
+    // commons-compress 1.28.0 needs commons-io at runtime (e.g. BoundedInputStream
+    // used by ZipFile/ZipArchiveOutputStream). flatDir repos carry no transitive
+    // metadata, so declare it explicitly; without it finalize*Apks fails with
+    // NoClassDefFoundError: org/apache/commons/io/input/BoundedInputStream.
+    // Version 2.20.0 matches what commons-compress 1.28.0 declares.
+    implementation ':commons-io:2.20.0'
+    // commons-compress 1.28.0 also needs commons-lang3 (e.g. ArrayUtils in the
+    // zip archiver classes) and commons-codec at runtime. flatDir carries no
+    // transitive metadata, so vendor + declare them explicitly (versions match
+    // the commons-compress 1.28.0 POM).
+    implementation ':commons-lang3:3.17.0'
+    implementation ':commons-codec:1.17.2'
+}

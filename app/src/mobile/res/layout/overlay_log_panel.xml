@@ -1,0 +1,233 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        android:id="@+id/logPanel"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/shape_log_window"
+        android:orientation="vertical">
+
+        <LinearLayout
+            android:id="@+id/logHeader"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="16dp"
+            android:paddingTop="10dp"
+            android:paddingEnd="8dp"
+            android:paddingBottom="10dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/log_title"
+                android:textColor="#212121"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <ImageView
+                android:id="@+id/logSearch"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/log_search"
+                android:padding="7dp"
+                android:src="@drawable/ic_log_search" />
+
+            <ImageView
+                android:id="@+id/logMinimize"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/log_minimize"
+                android:padding="7dp"
+                android:src="@drawable/ic_log_minimize" />
+
+            <ImageView
+                android:id="@+id/logClose"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/log_close"
+                android:padding="7dp"
+                android:src="@drawable/ic_log_close" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/logSearchBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="8dp"
+            android:visibility="gone">
+
+            <EditText
+                android:id="@+id/logSearchInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/shape_log_input"
+                android:hint="@string/search_keyword"
+                android:imeOptions="actionSearch"
+                android:inputType="text"
+                android:maxLines="1"
+                android:paddingStart="12dp"
+                android:paddingTop="8dp"
+                android:paddingEnd="12dp"
+                android:paddingBottom="8dp"
+                android:textColor="#212121"
+                android:textColorHint="#9E9E9E"
+                android:textSize="14sp" />
+
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/logCount"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="4dp"
+            android:textColor="#757575"
+            android:textSize="12sp" />
+
+        <LinearLayout
+            android:id="@+id/logCategories"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingStart="13dp"
+            android:paddingEnd="13dp"
+            android:paddingBottom="6dp">
+
+            <TextView
+                android:id="@+id/logCatAll"
+                style="@style/LogPanelButton"
+                android:text="@string/log_cat_all" />
+
+            <TextView
+                android:id="@+id/logCatRun"
+                style="@style/LogPanelButton"
+                android:text="@string/log_cat_run" />
+
+            <TextView
+                android:id="@+id/logCatFile"
+                style="@style/LogPanelButton"
+                android:text="@string/log_cat_file" />
+
+            <TextView
+                android:id="@+id/logCatMedia"
+                style="@style/LogPanelButton"
+                android:text="@string/log_cat_media" />
+
+            <TextView
+                android:id="@+id/logCatPlay"
+                style="@style/LogPanelButton"
+                android:text="@string/log_cat_play" />
+
+            <TextView
+                android:id="@+id/logCatSpider"
+                style="@style/LogPanelButton"
+                android:text="@string/log_cat_spider" />
+
+        </LinearLayout>
+
+        <FrameLayout
+            android:id="@+id/logBody"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1">
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/logList"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:overScrollMode="never" />
+
+            <TextView
+                android:id="@+id/logEmpty"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:padding="24dp"
+                android:textColor="#9E9E9E"
+                android:textSize="13sp"
+                android:visibility="gone" />
+
+        </FrameLayout>
+
+        <LinearLayout
+            android:id="@+id/logButtons"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingStart="13dp"
+            android:paddingTop="2dp"
+            android:paddingEnd="52dp"
+            android:paddingBottom="6dp">
+
+            <TextView
+                android:id="@+id/logRefresh"
+                style="@style/LogPanelButton"
+                android:text="@string/log_refresh" />
+
+            <TextView
+                android:id="@+id/logCopy"
+                style="@style/LogPanelButton"
+                android:text="@string/log_copy" />
+
+            <TextView
+                android:id="@+id/logClear"
+                style="@style/LogPanelButton"
+                android:text="@string/log_clear" />
+
+            <TextView
+                android:id="@+id/logJump"
+                style="@style/LogPanelButton"
+                android:text="@string/log_jump" />
+
+            <TextView
+                android:id="@+id/logExport"
+                style="@style/LogPanelButton"
+                android:text="@string/log_export" />
+
+            <TextView
+                android:id="@+id/logCopyAddress"
+                style="@style/LogPanelButton"
+                android:text="@string/log_copy_address" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/logResize"
+        android:layout_width="48dp"
+        android:layout_height="40dp"
+        android:layout_gravity="bottom|end"
+        android:gravity="center"
+        android:text="◢"
+        android:textColor="#BDBDBD"
+        android:textSize="16sp" />
+
+    <TextView
+        android:id="@+id/logBubble"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/shape_log_bubble"
+        android:gravity="center"
+        android:text="@string/log_ball"
+        android:textColor="#FFFFFF"
+        android:textSize="13sp"
+        android:visibility="gone" />
+
+</FrameLayout>
+
+

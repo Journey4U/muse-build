@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 原版 OK 5.1.6 大屏版 fragment_home.xml 的移植（本文件不在任务原定的 13 项内，但旧版布局是裸 VerticalGridView，
+     没有原版的 ProgressLayout 包裹，首页页的进度/内容态无处挂，故一并补上；binding 类名不变，仍为 FragmentHomePageBinding）。 -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <com.muse.android.tv.ui.custom.ProgressLayout
+        android:id="@+id/progressLayout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <androidx.leanback.widget.VerticalGridView
+            android:id="@+id/recycler"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipChildren="false"
+            android:clipToPadding="false"
+            android:paddingStart="26dp"
+            android:paddingTop="12dp"
+            android:paddingEnd="26dp"
+            android:paddingBottom="24dp"
+            app:focusOutEnd="true"
+            app:focusOutFront="true" />
+
+    </com.muse.android.tv.ui.custom.ProgressLayout>
+
+</FrameLayout>
