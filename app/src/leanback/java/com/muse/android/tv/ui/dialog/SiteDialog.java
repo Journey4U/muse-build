@@ -147,6 +147,11 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
         if (action) binding.action.setVisibility(View.VISIBLE);
         setType(type);
         setRecyclerView();
+        // 修复已写坏的 site_mode：旧版 setMode 在条目 <10 时自动写 0，钉死单列；清掉一次，之后只认用户手动切换。
+        if (!Prefers.getPrefers().contains("site_mode_fixed")) {
+            Prefers.remove("site_mode");
+            Prefers.put("site_mode_fixed", true);
+        }
         setMode();
         binding.keywordLayout.setVisibility(keyword ? View.VISIBLE : View.GONE);
         if (keyword) {
@@ -199,7 +204,7 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
     }
 
     private void setMode() {
-        if (adapter.getItemCount() < GRID_COUNT) Setting.putSiteMode(0);
+        // 旧版这里在条目 <10 时自动写 site_mode=0，永久钉死单列（多列变 1 列的根因）；<10 显示单列由 list() 按当前条数判定，不写设置。
         binding.mode.setEnabled(adapter.getItemCount() >= GRID_COUNT);
         binding.mode.setImageResource(getIcon());
     }

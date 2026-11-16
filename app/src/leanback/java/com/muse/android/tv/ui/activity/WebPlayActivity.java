@@ -1305,6 +1305,8 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         "ntElement,{childList:true,subtree:true});setTimeout(function(){try{preOb.disconnect();}catch(e){}},600000);})(",
         ");"
     };
+    // 1080 视口：电视浏览器按固定 1920px 布局，桌面站导航不再裹成多行（吃瓜/黑料/大赛上框占比大）。
+    private static final String VIEWPORT_JS = "(function(){try{var ms=document.getElementsByTagName('meta');var m=null;for(var i=0;i<ms.length;i++){if(ms[i].getAttribute('name')==='viewport'){m=ms[i];break;}}if(!m){m=document.createElement('meta');m.setAttribute('name','viewport');document.head.appendChild(m);}m.setAttribute('content','width=1920');}catch(e){}})();";
     private static final String CLEAN_JS;
     static {
         StringBuilder sb = new StringBuilder();
@@ -1720,6 +1722,8 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 mJumpAnchorHost = null;
                 mJumpRelayHost = null;
                 mJumpChainUntil = 0;
+                // 1080 视口：先定 1920px 布局再跑站内脚本与去广告，避免几何判据量到窄视口。
+                view.evaluateJavascript(VIEWPORT_JS, null);
                 evaluate(getScript(url), 0);
                 // v97：不再立即显示——等 CLEAN_JS 回调再显示，否则分类页加载快会抢在首扫前闪出横幅墙（同 onPageCommitVisible）。
                 view.evaluateJavascript(CLEAN_JS, value -> view.setVisibility(View.VISIBLE));
