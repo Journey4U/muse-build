@@ -761,6 +761,14 @@
     <string name="site_web_source_url_empty">URL cannot be empty</string>
     <string name="site_web_source_url_hint">URL, e.g. https://missav.ai/</string>
     <string name="site_web_source_url_invalid">Invalid URL, use an http/https address</string>
+    <!-- v67 网页源删除/改名 -->
+    <string name="site_websource_delete">删除网页源</string>
+    <string name="site_websource_rename">改名</string>
+    <string name="site_websource_rename_title">网页源改名</string>
+    <string name="site_websource_rename_done">已改名：%1$s</string>
+    <string name="site_websource_edit_fail">修改网页源失败</string>
+    <string name="site_websource_not_found">该网页源已不在当前配置里</string>
+    <string name="site_websource_network">当前是网络源配置，网页源只能在本地源配置里删除或改名</string>
     <!-- v67 权限统一 -->
     <string name="config_storage_permission_required">需要存储权限才能读取本地配置文件</string>
     <string name="websource_storage_permission_required">需要存储权限才能保存网页源</string>
