@@ -7,6 +7,7 @@ import android.util.Base64;
 import com.github.catvod.crawler.DebugLogStore;
 import com.github.catvod.utils.Asset;
 import com.github.catvod.utils.Prefers;
+import com.muse.android.tv.bean.Config;
 import com.muse.android.tv.bean.Site;
 import com.muse.android.tv.utils.UrlUtil;
 import com.google.gson.GsonBuilder;
@@ -21,6 +22,7 @@ import android.util.TypedValue;
 import java.util.concurrent.ConcurrentHashMap;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.nio.charset.Charset;
@@ -105,17 +107,13 @@ public class LocalSourceHub {
 
     /**
      * r25-②：{@code file://自己整理 (1)/PQ类/a.json} 这种「脚本写法」的展开基准 —— 路径里那一段是
-     * <b>相对外部存储根</b>的（App 载入配置本身也用这种写法：{@code file://自己整理 (1)/昏黄本地源.json}），
+     * <b>相对外部存储根</b>的（App 载入配置本身也用这种写法：{@code file://自己整理 (1)/Muse本地源.json}），
      * 解析成绝对路径时必须补上存储根，否则整批本地源都会被判成「外地源」而被剔除。
      */
     private static final String[] EXTERNAL_BASES = {"/storage/emulated/0", "/sdcard", "/storage/self/primary"};
 
     /** 生成文件名（默认放在第一个启用的扫描目录里）。r29-⑤：名字可自定义，默认 Muse本地源.json。 */
     public static final String DEFAULT_OUT_NAME = "Muse本地源";
-    /** r29 之前写死的产物名：仍按「本壳产物」识别，避免老用户已有文件被当成自写源。 */
-    /** Vesper 时代的默认产物名：仍按「本壳产物」识别，避免已用 Vesper 的老用户文件被误判成自写源。 */
-    public static final String LEGACY_VESPER_OUT_NAME = "Vesper自动本地源";
-    public static final String LEGACY_OUT_NAME = "昏黄本地源.json";
     /** 资产里的默认常量（由用户脚本导出）。 */
     private static final String ASSET = "local_source_defaults.json";
 
@@ -468,14 +466,12 @@ public class LocalSourceHub {
     /**
      * r29-⑤：这个文件名是不是「本壳产物」。
      *
-     * <p>既认当前自定义名，也认 r29 之前的固定名 {@link #LEGACY_OUT_NAME}，
-     * 保证老用户已有的 {@code 昏黄本地源.json} 不会被误判成「用户自写源」而被排除在自动回写之外。
+     * <p>只认当前自定义名（默认 {@code Muse本地源.json}）；老名字不再认——
+     * 用老名字文件的用户，它会被当成普通手写配置，不再享受产物待遇。
      */
     private static boolean isProductName(String name, JsonObject data) {
         if (TextUtils.isEmpty(name)) return false;
-        String base = name;
-        if (base.toLowerCase(Locale.ROOT).endsWith(".json")) base = base.substring(0, base.length() - 5);
-        return name.equalsIgnoreCase(outName(data)) || name.equalsIgnoreCase(LEGACY_OUT_NAME) || base.equalsIgnoreCase(LEGACY_VESPER_OUT_NAME);
+        return name.equalsIgnoreCase(outName(data));
     }
 
 
@@ -920,7 +916,7 @@ public class LocalSourceHub {
         if (config == null || !isEnabled()) return;
         if (enabledScanDirs(settings()).isEmpty()) return;
         // r28-① 两套规则彻底剥离：当前加载的是「你自己编写的本地源配置」（本地文件型、且不是本壳
-        // 产物「昏黄本地源.json」，例如 file://自用2026plus/家享plus.json）时，自动扫描生成的源
+        // 产物，例如 file://自用2026plus/家享plus.json）时，自动扫描生成的源
         // 一律不注入 —— 你在这套规则下只看到自己写的源与自己的分类，自动扫描那套不再掺进来。
         // （实测：以前加载自己的配置时被追加 1103 条扫描源，源列表里全是自动生成的分类。）
         // 自动扫描那套只在加载本壳产物或远程订阅配置时生效，两套互不干扰。
@@ -1253,7 +1249,7 @@ public class LocalSourceHub {
                 long now = System.currentTimeMillis();
                 // r20-⑭：force（删源后的回写）不受「距上次写入不足 AUTO_WRITE_INTERVAL」限制 ——
                 // 删源往往紧跟在一次加载触发的自动回写之后，旧实现会把这次回写静默吞掉，
-                // 用户看到的就是「文件删了、昏黄本地源.json 里的条目还在」。
+                // 用户看到的就是「文件删了、产物配置里的条目还在」。
                 if (!force && now - autoWriteAt < AUTO_WRITE_INTERVAL) return;
                 autoWriteAt = now;
                 autoWriteHash = text;
@@ -1848,7 +1844,7 @@ public class LocalSourceHub {
      * </ul>
      *
      * <p>远程订阅源（http/https）、引擎名（{@code csp_XXX}）、内置源都不算本地源 → false，
-     * 保持原来「没有本地源文件」的提示不变。当前配置本身就是本壳产物（{@code 昏黄本地源.json}）时，
+     * 保持原来「没有本地源文件」的提示不变。当前配置本身就是本壳产物时，
      * 「随行目录」不参与判定 —— 否则产物所在的扫描目录会把整批扫描源误判成自写源。
      *
      * @param api      站点 api（可能只是引擎名）
@@ -1894,7 +1890,7 @@ public class LocalSourceHub {
      * 就一律不写，免得把手写 json 覆盖成本壳产物；② 搬家 / 删源后回填其它 json 的指向时
      * （{@link #rewriteJsonPaths}）—— 你手写的 json 一个字段都不改。
      *
-     * <p>判定：文件名就是本壳产物名（{@code 昏黄本地源.json}）→ 不是你的；是当前正在加载的那份配置本身
+     * <p>判定：文件名就是本壳产物名 → 不是你的；是当前正在加载的那份配置本身
      * → 是你的；位于当前配置的随行目录里 → 是你的。
      */
     public static boolean isUserOwnedConfig(String path) {
@@ -1930,7 +1926,7 @@ public class LocalSourceHub {
         return configRootDirs(currentConfigUrl);
     }
 
-    /** r26-②：配置地址是不是本壳产物（{@code 昏黄本地源.json}）。 */
+    /** r26-②：配置地址是不是本壳产物。 */
     private static boolean isAppProductConfig(String url) {
         String name = url == null ? "" : url.trim();
         int cut = Math.max(name.lastIndexOf('/'), name.lastIndexOf('\\'));
@@ -2206,11 +2202,110 @@ public class LocalSourceHub {
         try {
             if (!file.delete()) return -1;
             DebugLogStore.add(TAG, "已删除本地源文件：" + file.getAbsolutePath() + "（随后回写 json）");
+            pruneDanglingEntriesFromUserConfig();
             refreshOutput();
             return 1;
         } catch (Throwable e) {
             DebugLogStore.add(TAG, "删除本地源文件失败：" + e);
             return -1;
+        }
+    }
+
+    /**
+     * v67-cleanup：删本地源文件成功后，顺手摘掉当前手写配置里的悬空条目。
+     *
+     * <p>只在删文件成功后触发；只碰当前加载的手写配置文件（产物配置由 {@link #refreshOutput()}
+     * 整份重建，网络配置没有本地文件可写）；只摘 api/ext/homePage/url 指向已不存在文件的条目，
+     * 其他条目一行不动；文本级摘除，不整份重写。写回失败只记日志，不影响删除本身的结果。
+     */
+    private static void pruneDanglingEntriesFromUserConfig() {
+        try {
+            File config = currentConfigFile();
+            if (config == null) return;
+            if (!isUserOwnedConfig(config.getAbsolutePath())) return;
+            String text = readTextFile(config);
+            if (TextUtils.isEmpty(text)) return;
+            try {
+                JsonParser.parseString(text).getAsJsonObject();
+            } catch (Throwable e) {
+                return;
+            }
+            String updated = text;
+            int removed = 0;
+            for (String key : new String[]{"sites", "lives"}) {
+                while (true) {
+                    int[] span = findTopArraySpan(updated, key);
+                    if (span == null) break;
+                    List<int[]> entries = findEntrySpans(updated, span[0], span[1]);
+                    if (entries == null || entries.isEmpty()) break;
+                    int target = -1;
+                    for (int i = 0; i < entries.size(); i++) {
+                        JsonObject entry = parseEntryObject(updated, entries.get(i));
+                        if (entry != null && isDanglingEntry(entry, config)) {
+                            target = i;
+                            break;
+                        }
+                    }
+                    if (target < 0) break;
+                    updated = removeEntryAt(updated, span, entries, target);
+                    removed++;
+                }
+            }
+            if (removed == 0) return;
+            try {
+                JsonParser.parseString(updated).getAsJsonObject();
+            } catch (Throwable e) {
+                DebugLogStore.add(TAG, "悬空条目清理后校验失败，不落盘：" + e);
+                return;
+            }
+            int r = writeTextFileCode(config, updated);
+            DebugLogStore.add(TAG, "手写配置悬空条目已清理：" + removed + " 条（" + config.getAbsolutePath() + "），写盘=" + r);
+        } catch (Throwable e) {
+            DebugLogStore.add(TAG, "悬空条目清理失败（不影响删除结果）：" + e);
+        }
+    }
+
+    /**
+     * v67-cleanup：手写配置里的这条是不是悬空（指向本地文件、但文件已不存在）。
+     *
+     * <p>远程/引擎/内置源（没有本地文件路径）不算悬空；网页源的 homePage 是网址，不算文件；
+     * 任一候选路径能解析到已存在的文件就不算悬空。相对路径先试手写配置所在目录，再试生成/扫描目录。
+     */
+    private static boolean isDanglingEntry(JsonObject entry, File configFile) {
+        if (entry == null) return false;
+        if (isWebSourceEntry(entry)) return false;
+        String api = primitiveString(entry, "api");
+        String ext = primitiveString(entry, "ext");
+        String homePage = primitiveString(entry, "homePage");
+        List<String> paths = sourcePaths(api, ext, homePage);
+        for (String p : parseSourcePath(primitiveString(entry, "url"))) if (!paths.contains(p)) paths.add(p);
+        if (paths.isEmpty()) return false;
+        for (String candidate : paths) {
+            if (TextUtils.isEmpty(candidate)) continue;
+            File f = new File(candidate);
+            if (f.isAbsolute()) {
+                if (f.isFile()) return false;
+            } else {
+                if (configFile != null && configFile.getParentFile() != null) {
+                    if (new File(configFile.getParentFile(), candidate).isFile()) return false;
+                }
+                if (resolveSource(candidate) != null) return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * v67-cleanup：从数组文本里切掉下标为 target 的一条目（逗号处理与 deleteWebSource 一致：
+     * 唯一条目则清空数组；中间条目连后逗号切；末条连前逗号切）。
+     */
+    private static String removeEntryAt(String text, int[] span, List<int[]> entries, int target) {
+        if (entries.size() == 1) {
+            return text.substring(0, span[0] + 1) + text.substring(span[1]);
+        } else if (target + 1 < entries.size()) {
+            return text.substring(0, entries.get(target)[0]) + text.substring(entries.get(target + 1)[0]);
+        } else {
+            return text.substring(0, entries.get(target - 1)[1] + 1) + text.substring(entries.get(target)[1] + 1);
         }
     }
 
@@ -2845,15 +2940,32 @@ public class LocalSourceHub {
         }
     }
 
-    /** r24：写文本文件（失败返回 false）。 */
+    /** r24：写文本文件（失败返回 false；v67：权限失败由 writeTextFileCode 区分）。 */
     private static boolean writeTextFile(File file, String text) {
+        return writeTextFileCode(file, text) == WEB_OK;
+    }
+
+    /**
+     * v67：写文本文件（返回码版）——SecurityException / EACCES 单独认成无权限，
+     * 与其它写盘失败分开，调用方按返回码提示。
+     *
+     * @return {@link #WEB_OK} 成功；{@link #WEB_NO_PERMISSION} 无权限；{@link #WEB_WRITE_FAIL} 其它写盘失败
+     */
+    private static int writeTextFileCode(File file, String text) {
         try (OutputStream out = new FileOutputStream(file)) {
             out.write(text.getBytes(StandardCharsets.UTF_8));
             out.flush();
-            return true;
+            return WEB_OK;
+        } catch (SecurityException e) {
+            DebugLogStore.add(TAG, "写 json 无权限：" + file.getAbsolutePath() + "：" + e);
+            return WEB_NO_PERMISSION;
+        } catch (FileNotFoundException e) {
+            DebugLogStore.add(TAG, "写 json 失败：" + file.getAbsolutePath() + "：" + e);
+            if (e.getMessage() != null && e.getMessage().contains("EACCES")) return WEB_NO_PERMISSION;
+            return WEB_WRITE_FAIL;
         } catch (Throwable e) {
             DebugLogStore.add(TAG, "写 json 失败：" + file.getAbsolutePath() + "：" + e);
-            return false;
+            return WEB_WRITE_FAIL;
         }
     }
 
@@ -2873,6 +2985,16 @@ public class LocalSourceHub {
     public static final int WEB_NO_SITES = -5;
     /** 网页源追加：写盘失败。 */
     public static final int WEB_WRITE_FAIL = -6;
+    /** v67：网页源追加：写盘被系统拒绝（无存储权限，与写盘失败分开）。 */
+    public static final int WEB_NO_PERMISSION = -7;
+    /** v67：网页源删除/改名：当前配置里没有这条网页源（可能已被删）。 */
+    public static final int WEB_NOT_FOUND = -8;
+    /** v66：网页源追加：新建了网页源配置文件（成功，文件为新建）。 */
+    public static final int WEB_CREATED = 2;
+    /** v66：无配置时新建的网页源配置文件名（系统 Download 目录）。 */
+    public static final String WEB_SOURCE_FILE_NAME = "Muse网页源.json";
+    /** v66：无配置时新建的网页源配置文件地址（file:// 相对外部存储根写法 = /storage/emulated/0/Download/Muse网页源.json）。 */
+    public static final String WEB_SOURCE_FILE_URL = "file://Download/Muse网页源.json";
 
     /**
      * v61 网页源：把一条网页源追加到当前配置文件的 sites 数组末尾。
@@ -2891,10 +3013,10 @@ public class LocalSourceHub {
         if (webName.isEmpty()) webName = deriveWebSourceName(webUrl);
         if (webName.isEmpty()) return WEB_INVALID;
         String cfg = getCurrentConfigUrl();
-        if (cfg == null || cfg.trim().isEmpty()) return WEB_NO_CONFIG;
+        if (cfg == null || cfg.trim().isEmpty()) return createWebSourceConfig(webName, webUrl);
         if (isNetworkConfigUrl(cfg)) return WEB_NETWORK;
         File config = currentConfigFile();
-        if (config == null) return WEB_NO_CONFIG;
+        if (config == null) return createWebSourceConfig(webName, webUrl);
         String text = readTextFile(config);
         if (text == null || text.isEmpty()) return WEB_NO_SITES;
         JsonObject root;
@@ -2922,9 +3044,265 @@ public class LocalSourceHub {
             DebugLogStore.add(TAG, "网页源追加后校验失败，不落盘：" + e);
             return WEB_NO_SITES;
         }
-        if (!writeTextFile(config, updated)) return WEB_WRITE_FAIL;
+        int writeResult = writeTextFileCode(config, updated);
+        if (writeResult != WEB_OK) return writeResult;
         DebugLogStore.add(TAG, "网页源已追加：" + webName + " -> " + webUrl + "（" + config.getAbsolutePath() + "）");
         return WEB_OK;
+    }
+
+    /**
+     * v67 网页源：从当前配置文件的 sites 数组里删掉一条网页源（按 key 定位）。
+     *
+     * <p>与 {@link #appendWebSource} 同一条文本级路线：不全盘重写，只切掉目标条目
+     * （中间条目连同它后面的逗号一起切，末条切掉它前面的逗号，唯一条目清空数组），
+     * 原文件其它格式原样保留；写前重解析一次校验 JSON 合法，非法就不落盘。
+     * 只删网页源条目（key/name/主页url 三项、无 api/ext），普通源条目即使同名也不动。
+     * 删的是当前正在用的站时，由调用方重载配置，home 自动落到第一条站（默认站）。
+     *
+     * @return {@link #WEB_OK} 成功；{@link #WEB_NOT_FOUND} 当前配置里没有这条网页源；
+     *         {@link #WEB_NETWORK} 当前配置是网络源；{@link #WEB_NO_CONFIG} 当前没有加载配置 /
+     *         找不到本地配置文件；{@link #WEB_NO_SITES} 配置里没有 sites 数组 / 解析失败；
+     *         {@link #WEB_INVALID} key 为空；{@link #WEB_NO_PERMISSION} 无权限；
+     *         {@link #WEB_WRITE_FAIL} 其它写盘失败
+     */
+    public static int deleteWebSource(String key) {
+        if (key == null || key.trim().isEmpty()) return WEB_INVALID;
+        String cfg = getCurrentConfigUrl();
+        if (cfg == null || cfg.trim().isEmpty()) return WEB_NO_CONFIG;
+        if (isNetworkConfigUrl(cfg)) return WEB_NETWORK;
+        File config = currentConfigFile();
+        if (config == null) return WEB_NO_CONFIG;
+        String text = readTextFile(config);
+        if (text == null || text.isEmpty()) return WEB_NO_SITES;
+        JsonObject root;
+        try {
+            root = JsonParser.parseString(text).getAsJsonObject();
+        } catch (Throwable e) {
+            return WEB_NO_SITES;
+        }
+        if (root == null || !root.has("sites") || !root.get("sites").isJsonArray()) return WEB_NO_SITES;
+        int[] span = findSitesArraySpan(text);
+        if (span == null) return WEB_NO_SITES;
+        List<int[]> entries = findEntrySpans(text, span[0], span[1]);
+        if (entries == null) return WEB_NO_SITES;
+        int target = -1;
+        for (int i = 0; i < entries.size(); i++) {
+            JsonObject entry = parseEntryObject(text, entries.get(i));
+            if (entry != null && isWebSourceEntry(entry) && key.equals(primitiveString(entry, "key"))) {
+                target = i;
+                break;
+            }
+        }
+        if (target < 0) return WEB_NOT_FOUND;
+        String updated;
+        if (entries.size() == 1) {
+            // 删到只剩 0 条：数组清空，剩 {"sites": []}，合法
+            updated = text.substring(0, span[0] + 1) + text.substring(span[1]);
+        } else if (target + 1 < entries.size()) {
+            // 中间条目：连同它后面的逗号与分隔空白一起切，下一条顶上来
+            updated = text.substring(0, entries.get(target)[0]) + text.substring(entries.get(target + 1)[0]);
+        } else {
+            // 末条：连同它前面的逗号一起切，上一条变成末条（不带尾逗号）
+            updated = text.substring(0, entries.get(target - 1)[1] + 1) + text.substring(entries.get(target)[1] + 1);
+        }
+        try {
+            JsonParser.parseString(updated).getAsJsonObject();
+        } catch (Throwable e) {
+            DebugLogStore.add(TAG, "网页源删除后校验失败，不落盘：" + e);
+            return WEB_NO_SITES;
+        }
+        int writeResult = writeTextFileCode(config, updated);
+        if (writeResult != WEB_OK) return writeResult;
+        DebugLogStore.add(TAG, "网页源已删除：" + key + "（" + config.getAbsolutePath() + "）");
+        return WEB_OK;
+    }
+
+    /**
+     * v67 网页源：改一条网页源的名字与网址（按旧 key 定位，文本级原地换三个字段值）。
+     *
+     * <p>改名即改 key（与 v61 规则一致：key 即名）。新 key 查重看全表（除自己以外任意条目的
+     * key 都算冲突，口径与追加一致），冲突返回 {@link #WEB_EXISTS}；名字留空时取新网址域名，
+     * 与追加一致。只改网页源条目，普通源条目即使旧 key 命中也不动。
+     *
+     * @return {@link #WEB_OK} 成功；{@link #WEB_EXISTS} 新名字已被占用；
+     *         {@link #WEB_NOT_FOUND} 当前配置里没有这条网页源；其它返回码见 {@link #deleteWebSource}
+     */
+    public static int renameWebSource(String oldKey, String newName, String newUrl) {
+        String webUrl = normalizeWebSourceUrl(newUrl);
+        if (webUrl == null) return WEB_INVALID;
+        String webName = newName == null ? "" : newName.trim();
+        if (webName.isEmpty()) webName = deriveWebSourceName(webUrl);
+        if (webName.isEmpty()) return WEB_INVALID;
+        if (oldKey == null || oldKey.trim().isEmpty()) return WEB_INVALID;
+        String cfg = getCurrentConfigUrl();
+        if (cfg == null || cfg.trim().isEmpty()) return WEB_NO_CONFIG;
+        if (isNetworkConfigUrl(cfg)) return WEB_NETWORK;
+        File config = currentConfigFile();
+        if (config == null) return WEB_NO_CONFIG;
+        String text = readTextFile(config);
+        if (text == null || text.isEmpty()) return WEB_NO_SITES;
+        JsonObject root;
+        try {
+            root = JsonParser.parseString(text).getAsJsonObject();
+        } catch (Throwable e) {
+            return WEB_NO_SITES;
+        }
+        if (root == null || !root.has("sites") || !root.get("sites").isJsonArray()) return WEB_NO_SITES;
+        for (JsonElement e : root.getAsJsonArray("sites")) {
+            if (!e.isJsonObject()) continue;
+            JsonElement k = e.getAsJsonObject().get("key");
+            if (k != null && k.isJsonPrimitive() && webName.equals(k.getAsString()) && !webName.equals(oldKey)) return WEB_EXISTS;
+        }
+        int[] span = findSitesArraySpan(text);
+        if (span == null) return WEB_NO_SITES;
+        List<int[]> entries = findEntrySpans(text, span[0], span[1]);
+        if (entries == null) return WEB_NO_SITES;
+        int[] targetSpan = null;
+        for (int[] entrySpan : entries) {
+            JsonObject entry = parseEntryObject(text, entrySpan);
+            if (entry != null && isWebSourceEntry(entry) && oldKey.equals(primitiveString(entry, "key"))) {
+                targetSpan = entrySpan;
+                break;
+            }
+        }
+        if (targetSpan == null) return WEB_NOT_FOUND;
+        String entryText = text.substring(targetSpan[0], targetSpan[1] + 1);
+        String replaced = replaceEntryField(entryText, "key", webName);
+        if (replaced == null) return WEB_NO_SITES;
+        replaced = replaceEntryField(replaced, "name", webName);
+        if (replaced == null) return WEB_NO_SITES;
+        replaced = replaceEntryField(replaced, "主页url", webUrl);
+        if (replaced == null) return WEB_NO_SITES;
+        String updated = text.substring(0, targetSpan[0]) + replaced + text.substring(targetSpan[1] + 1);
+        try {
+            JsonParser.parseString(updated).getAsJsonObject();
+        } catch (Throwable e) {
+            DebugLogStore.add(TAG, "网页源改名后校验失败，不落盘：" + e);
+            return WEB_NO_SITES;
+        }
+        int writeResult = writeTextFileCode(config, updated);
+        if (writeResult != WEB_OK) return writeResult;
+        DebugLogStore.add(TAG, "网页源已改名：" + oldKey + " -> " + webName + "（" + config.getAbsolutePath() + "）");
+        return WEB_OK;
+    }
+
+    /** v67：配置里一条网页源条目——只有 key/name/主页url，没有 api/ext。 */
+    private static boolean isWebSourceEntry(JsonObject entry) {
+        if (entry == null) return false;
+        if (TextUtils.isEmpty(primitiveString(entry, "主页url"))) return false;
+        return TextUtils.isEmpty(primitiveString(entry, "api")) && TextUtils.isEmpty(primitiveString(entry, "ext"));
+    }
+
+    /** v67：按 span 切出一条数组内对象条目并解析成 JsonObject；失败返回 null。 */
+    private static JsonObject parseEntryObject(String text, int[] span) {
+        try {
+            JsonElement element = JsonParser.parseString(text.substring(span[0], span[1] + 1));
+            return element.isJsonObject() ? element.getAsJsonObject() : null;
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    /**
+     * v67：条目文本内替换一个顶层字符串字段的值（只认 depth==1 的字段名，后面须跟冒号与
+     * 字符串值；同名字符串值不会误认）。字段不存在 / 值不是字符串时返回 null。
+     * 值按 JSON 转义后写回（含引号整体替换）。
+     */
+    private static String replaceEntryField(String entryText, String field, String value) {
+        String quoted = new JsonPrimitive(value).toString();
+        int depth = 0;
+        int i = 0;
+        int len = entryText.length();
+        while (i < len) {
+            char c = entryText.charAt(i);
+            if (c == '"') {
+                int end = skipString(entryText, i);
+                if (end < 0) return null;
+                if (depth == 1 && field.equals(entryText.substring(i + 1, end))) {
+                    int j = end + 1;
+                    while (j < len && Character.isWhitespace(entryText.charAt(j))) j++;
+                    if (j < len && entryText.charAt(j) == ':') {
+                        j++;
+                        while (j < len && Character.isWhitespace(entryText.charAt(j))) j++;
+                        if (j >= len || entryText.charAt(j) != '"') return null;
+                        int valueEnd = skipString(entryText, j);
+                        if (valueEnd < 0) return null;
+                        return entryText.substring(0, j) + quoted + entryText.substring(valueEnd + 1);
+                    }
+                    // 同名字符串值（后面不是冒号）：不是字段，继续往后找
+                }
+                i = end + 1;
+                continue;
+            }
+            if (c == '{' || c == '[') depth++;
+            else if (c == '}' || c == ']') depth--;
+            i++;
+        }
+        return null;
+    }
+
+    /**
+     * v66：无配置时新建网页源配置文件 —— 系统 Download 目录的 {@code Muse网页源.json}，
+     * 内容只有 {"sites": [本次这条网页源]}（条目形状与 {@link #buildWebSourceEntry} 一致：
+     * key/name/主页url 三项；key 与 name 沿用现有命名规则，名称自定义优先、留空取域名）。
+     *
+     * <p>不用本地源产物文件（{@code Muse本地源.json}）：scan() 重建产物时不读旧产物，
+     * 网页源写进去下次刷新会被抹掉；专用文件 scan 永远不重写。
+     *
+     * <p>文件已存在时直接当作当前配置、走正常追加（同名 key 查重照旧）；
+     * 不存在时新建并入库为点播配置（{@code Config.find(fileUrl, name, 0)}），
+     * 再由调用方重载，新站立刻进切站列表。
+     *
+     * @return {@link #WEB_CREATED} 新建成功；文件已存在时返回正常追加的结果；
+     *         写盘失败 {@link #WEB_WRITE_FAIL}；无权限 {@link #WEB_NO_PERMISSION}；其它失败兜底 {@link #WEB_NO_CONFIG}
+     */
+    private static int createWebSourceConfig(String webName, String webUrl) {
+        File file = null;
+        for (String candidate : parseSourcePath(WEB_SOURCE_FILE_URL)) {
+            if (candidate != null && candidate.startsWith("/")) {
+                file = new File(candidate);
+                break;
+            }
+        }
+        if (file == null) return WEB_NO_CONFIG;
+        try {
+            File parent = file.getParentFile();
+            try {
+                if (parent != null && !parent.exists() && !parent.mkdirs()) return WEB_WRITE_FAIL;
+            } catch (SecurityException e) {
+                DebugLogStore.add(TAG, "新建网页源配置目录无权限：" + e);
+                return WEB_NO_PERMISSION;
+            }
+            if (file.isFile()) {
+                // 已存在：当作当前配置，走正常追加（同名 key 查重照旧）
+                // v68：注册并设为当前点播配置 —— 重装后数据库是空的，不注册则 vod() 取不到它，
+                // 重载读空配置，网页源永不显示；update() 打时间戳，findOne(0) 才能取到它
+                Config.find(WEB_SOURCE_FILE_URL, WEB_SOURCE_FILE_NAME, 0).update();
+                setCurrentConfigUrl(WEB_SOURCE_FILE_URL);
+                return appendWebSource(webName, webUrl);
+            }
+            String qName = new JsonPrimitive(webName).toString();
+            String qUrl = new JsonPrimitive(webUrl).toString();
+            String content = "{\n    \"sites\": [\n        {\n            \"key\": " + qName + ",\n            \"name\": " + qName + ",\n            \"主页url\": " + qUrl + "\n        }\n    ]\n}";
+            try {
+                JsonParser.parseString(content).getAsJsonObject();
+            } catch (Throwable e) {
+                return WEB_NO_SITES;
+            }
+            int writeResult = writeTextFileCode(file, content);
+            if (writeResult != WEB_OK) return writeResult;
+            // v68：update() 打时间戳并设为当前配置 —— 光 insert() 不打 time，vod() 按 time 最新取，仍取旧配置
+            Config.find(WEB_SOURCE_FILE_URL, WEB_SOURCE_FILE_NAME, 0).update();
+            setCurrentConfigUrl(WEB_SOURCE_FILE_URL);
+            DebugLogStore.add(TAG, "网页源配置文件已新建：" + webName + " -> " + webUrl + "（" + file.getAbsolutePath() + "）");
+            return WEB_CREATED;
+        } catch (SecurityException e) {
+            DebugLogStore.add(TAG, "新建网页源配置文件无权限：" + e);
+            return WEB_NO_PERMISSION;
+        } catch (Throwable e) {
+            DebugLogStore.add(TAG, "新建网页源配置文件失败：" + e);
+            return WEB_NO_CONFIG;
+        }
     }
 
     /** v61：网址归一化——去空白，缺 scheme 时补 https://；非 http/https 返回 null。 */
@@ -3017,6 +3395,11 @@ public class LocalSourceHub {
 
     /** v61：定位顶层 sites 数组的 [ 与 ] 下标；找不到返回 null（字符串内的括号不计）。 */
     private static int[] findSitesArraySpan(String text) {
+        return findTopArraySpan(text, "sites");
+    }
+
+    /** v67-cleanup：顶层 key 对应的数组 [左中括号, 右中括号] 下标；找不到返回 null。 */
+    private static int[] findTopArraySpan(String text, String key) {
         int len = text.length();
         int depth = 0;
         int i = 0;
@@ -3026,7 +3409,7 @@ public class LocalSourceHub {
                 int end = skipString(text, i);
                 if (end < 0) return null;
                 String token = text.substring(i + 1, end);
-                if (depth == 1 && "sites".equals(token)) {
+                if (depth == 1 && key.equals(token)) {
                     int j = end + 1;
                     while (j < len && Character.isWhitespace(text.charAt(j))) j++;
                     if (j < len && text.charAt(j) == ':') {
@@ -3051,8 +3434,15 @@ public class LocalSourceHub {
 
     /** v61：数组内最后一个对象条目的 [左大括号, 右大括号] 下标；空数组返回 null。 */
     private static int[] findLastEntrySpan(String text, int arrayOpen, int arrayClose) {
+        List<int[]> entries = findEntrySpans(text, arrayOpen, arrayClose);
+        if (entries == null || entries.isEmpty()) return null;
+        return entries.get(entries.size() - 1);
+    }
+
+    /** v67：数组内全部对象条目的 [左大括号, 右大括号] 下标（按出现顺序）；结构非法返回 null。 */
+    private static List<int[]> findEntrySpans(String text, int arrayOpen, int arrayClose) {
+        List<int[]> result = new ArrayList<>();
         int i = arrayOpen + 1;
-        int[] last = null;
         while (i < arrayClose) {
             char c = text.charAt(i);
             if (c == '"') {
@@ -3064,13 +3454,13 @@ public class LocalSourceHub {
             if (c == '{') {
                 int close = matchBracket(text, i);
                 if (close < 0 || close > arrayClose) return null;
-                last = new int[]{i, close};
+                result.add(new int[]{i, close});
                 i = close + 1;
                 continue;
             }
             i++;
         }
-        return last;
+        return result;
     }
 
     /** v61：跳过一个 JSON 字符串（text.charAt(start) 须为 '"'），返回收尾引号下标；未闭合返回 -1。 */
