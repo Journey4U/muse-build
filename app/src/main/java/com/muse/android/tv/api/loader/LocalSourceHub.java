@@ -7,6 +7,7 @@ import android.util.Base64;
 import com.github.catvod.crawler.DebugLogStore;
 import com.github.catvod.utils.Asset;
 import com.github.catvod.utils.Prefers;
+import com.muse.android.tv.bean.Config;
 import com.muse.android.tv.bean.Site;
 import com.muse.android.tv.utils.UrlUtil;
 import com.google.gson.GsonBuilder;
@@ -2988,6 +2989,12 @@ public class LocalSourceHub {
     public static final int WEB_NO_PERMISSION = -7;
     /** v67：网页源删除：当前配置里没有这条网页源（可能已被删）。 */
     public static final int WEB_NOT_FOUND = -8;
+    /** v66：网页源追加：新建了网页源配置文件（成功，文件为新建）。 */
+    public static final int WEB_CREATED = 2;
+    /** v66：无配置时新建的网页源配置文件名（系统 Download 目录）。 */
+    public static final String WEB_SOURCE_FILE_NAME = "Muse网页源.json";
+    /** v66：无配置时新建的网页源配置文件地址（file:// 相对外部存储根写法 = /storage/emulated/0/Download/Muse网页源.json）。 */
+    public static final String WEB_SOURCE_FILE_URL = "file://Download/Muse网页源.json";
 
     /**
      * v61 网页源：把一条网页源追加到当前配置文件的 sites 数组末尾。
@@ -3006,10 +3013,10 @@ public class LocalSourceHub {
         if (webName.isEmpty()) webName = deriveWebSourceName(webUrl);
         if (webName.isEmpty()) return WEB_INVALID;
         String cfg = getCurrentConfigUrl();
-        if (cfg == null || cfg.trim().isEmpty()) return WEB_NO_CONFIG;
+        if (cfg == null || cfg.trim().isEmpty()) return createWebSourceConfig(webName, webUrl);
         if (isNetworkConfigUrl(cfg)) return WEB_NETWORK;
         File config = currentConfigFile();
-        if (config == null) return WEB_NO_CONFIG;
+        if (config == null) return createWebSourceConfig(webName, webUrl);
         String text = readTextFile(config);
         if (text == null || text.isEmpty()) return WEB_NO_SITES;
         JsonObject root;
@@ -3124,6 +3131,70 @@ public class LocalSourceHub {
             return element.isJsonObject() ? element.getAsJsonObject() : null;
         } catch (Throwable ignored) {
             return null;
+        }
+    }
+
+    /**
+     * v66：无配置时新建网页源配置文件 —— 系统 Download 目录的 {@code Muse网页源.json}，
+     * 内容只有 {"sites": [本次这条网页源]}（条目形状与 {@link #buildWebSourceEntry} 一致：
+     * key/name/主页url 三项；key 与 name 沿用现有命名规则，名称自定义优先、留空取域名）。
+     *
+     * <p>不用本地源产物文件（{@code Muse本地源.json}）：scan() 重建产物时不读旧产物，
+     * 网页源写进去下次刷新会被抹掉；专用文件 scan 永远不重写。
+     *
+     * <p>文件已存在时直接当作当前配置、走正常追加（同名 key 查重照旧）；
+     * 不存在时新建并入库为点播配置（{@code Config.find(fileUrl, name, 0)}），
+     * 再由调用方重载，新站立刻进切站列表。
+     *
+     * @return {@link #WEB_CREATED} 新建成功；文件已存在时返回正常追加的结果；
+     *         写盘失败 {@link #WEB_WRITE_FAIL}；无权限 {@link #WEB_NO_PERMISSION}；其它失败兜底 {@link #WEB_NO_CONFIG}
+     */
+    private static int createWebSourceConfig(String webName, String webUrl) {
+        File file = null;
+        for (String candidate : parseSourcePath(WEB_SOURCE_FILE_URL)) {
+            if (candidate != null && candidate.startsWith("/")) {
+                file = new File(candidate);
+                break;
+            }
+        }
+        if (file == null) return WEB_NO_CONFIG;
+        try {
+            File parent = file.getParentFile();
+            try {
+                if (parent != null && !parent.exists() && !parent.mkdirs()) return WEB_WRITE_FAIL;
+            } catch (SecurityException e) {
+                DebugLogStore.add(TAG, "新建网页源配置目录无权限：" + e);
+                return WEB_NO_PERMISSION;
+            }
+            if (file.isFile()) {
+                // 已存在：当作当前配置，走正常追加（同名 key 查重照旧）
+                // v68：注册并设为当前点播配置 —— 重装后数据库是空的，不注册则 vod() 取不到它，
+                // 重载读空配置，网页源永不显示；update() 打时间戳，findOne(0) 才能取到它
+                Config.find(WEB_SOURCE_FILE_URL, WEB_SOURCE_FILE_NAME, 0).update();
+                setCurrentConfigUrl(WEB_SOURCE_FILE_URL);
+                return appendWebSource(webName, webUrl);
+            }
+            String qName = new JsonPrimitive(webName).toString();
+            String qUrl = new JsonPrimitive(webUrl).toString();
+            String content = "{\n    \"sites\": [\n        {\n            \"key\": " + qName + ",\n            \"name\": " + qName + ",\n            \"主页url\": " + qUrl + "\n        }\n    ]\n}";
+            try {
+                JsonParser.parseString(content).getAsJsonObject();
+            } catch (Throwable e) {
+                return WEB_NO_SITES;
+            }
+            int writeResult = writeTextFileCode(file, content);
+            if (writeResult != WEB_OK) return writeResult;
+            // v68：update() 打时间戳并设为当前配置 —— 光 insert() 不打 time，vod() 按 time 最新取，仍取旧配置
+            Config.find(WEB_SOURCE_FILE_URL, WEB_SOURCE_FILE_NAME, 0).update();
+            setCurrentConfigUrl(WEB_SOURCE_FILE_URL);
+            DebugLogStore.add(TAG, "网页源配置文件已新建：" + webName + " -> " + webUrl + "（" + file.getAbsolutePath() + "）");
+            return WEB_CREATED;
+        } catch (SecurityException e) {
+            DebugLogStore.add(TAG, "新建网页源配置文件无权限：" + e);
+            return WEB_NO_PERMISSION;
+        } catch (Throwable e) {
+            DebugLogStore.add(TAG, "新建网页源配置文件失败：" + e);
+            return WEB_NO_CONFIG;
         }
     }
 
