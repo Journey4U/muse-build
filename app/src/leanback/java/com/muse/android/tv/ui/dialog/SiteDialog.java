@@ -250,7 +250,8 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
             return;
         }
         // 只对本地源文件生效；远程源长按不进勾选模式（与手机版同一口径）。
-        if (LocalSourceHub.sourceFilePathOf(item.getApi(), item.getExt(), null) == null) return;
+        // v29：网页源没有本地文件，但允许进勾选模式删配置条目。
+        if (LocalSourceHub.sourceFilePathOf(item.getApi(), item.getExt(), null) == null && !item.isWebSource()) return;
         ops = true;
         binding.selectBar.setVisibility(View.VISIBLE);
         adapter.enterOps(item);
@@ -691,9 +692,17 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
         new Thread(() -> {
             int removed = 0;
             String selfName = null;
+            boolean noPermission = false;
             try {
                 LocalSourceHub.beginBatch();
                 for (Site site : snapshot) {
+                    if (site.isWebSource()) {
+                        // v29：网页源没有本地文件，删当前配置文件里的配置条目（不删文件）
+                        int result = LocalSourceHub.deleteWebSource(site.getKey());
+                        if (result == LocalSourceHub.WEB_OK || result == LocalSourceHub.WEB_NOT_FOUND) removed++;
+                        else if (result == LocalSourceHub.WEB_NO_PERMISSION) noPermission = true;
+                        continue;
+                    }
                     int result = LocalSourceHub.deleteSiteFile(site.getApi(), site.getExt(), null);
                     if (result > 0) removed++;
                     else if (result == LocalSourceHub.BLOCK_SELF_AUTHORED) selfName = site.getName();
@@ -704,11 +713,13 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
             }
             final int removedCount = removed;
             final String blockedName = selfName;
+            final boolean denied = noPermission;
             post(() -> {
                 if (!isAdded()) return;
                 if (blockedName != null) showSelfAuthoredHint(getString(R.string.site_self_authored, blockedName));
                 if (removedCount == 0) {
-                    Notify.show(R.string.site_del_fail);
+                    if (denied) Notify.show(R.string.websource_storage_permission_required);
+                    else Notify.show(R.string.site_del_fail);
                     return;
                 }
                 Notify.show(getString(R.string.site_del_done_multi, removedCount));

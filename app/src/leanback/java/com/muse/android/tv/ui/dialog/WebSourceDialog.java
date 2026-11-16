@@ -1,8 +1,10 @@
 package com.muse.android.tv.ui.dialog;
 
+import android.app.Activity;
 import android.content.Context;
 
 import androidx.appcompat.app.AlertDialog;
+import androidx.fragment.app.FragmentActivity;
 
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.muse.android.tv.App;
@@ -11,6 +13,7 @@ import com.muse.android.tv.api.config.VodConfig;
 import com.muse.android.tv.api.loader.LocalSourceHub;
 import com.muse.android.tv.impl.Callback;
 import com.muse.android.tv.utils.Notify;
+import com.muse.android.tv.utils.PermissionUtil;
 
 /**
  * v62 网页源：设置页入口（v61 在切站弹窗里，Liu 嫌挤，挪到设置）。
@@ -59,8 +62,18 @@ public class WebSourceDialog {
                 Notify.show(R.string.site_web_source_url_invalid);
                 return;
             }
-            dialog.dismiss();
-            addWebSource(context, webName, webUrl);
+            // v67：先走权限门；已授予直接加，未授予弹系统申请，通过后自动重试本次添加
+            if (context instanceof FragmentActivity) {
+                PermissionUtil.ensureStoragePermission((FragmentActivity) context,
+                        () -> {
+                            dialog.dismiss();
+                            addWebSource(context, webName, webUrl);
+                        },
+                        () -> showPermissionDenied(context));
+            } else {
+                dialog.dismiss();
+                addWebSource(context, webName, webUrl);
+            }
         });
     }
 
@@ -83,9 +96,24 @@ public class WebSourceDialog {
                 } else if (result == LocalSourceHub.WEB_EXISTS) Notify.show(R.string.site_web_source_exists);
                 else if (result == LocalSourceHub.WEB_NETWORK) Notify.show(R.string.site_web_source_network);
                 else if (result == LocalSourceHub.WEB_NO_CONFIG) Notify.show(R.string.site_web_source_no_config);
+                else if (result == LocalSourceHub.WEB_NO_PERMISSION) showPermissionDenied(context);
                 else Notify.show(R.string.site_web_source_fail);
             });
         }, "local-source-websource").start();
+    }
+
+    /** v67：拒绝 / 写盘时才发现没权限：弹权限提示 +「去设置」；不是 Activity 上下文时退回 Toast。 */
+    private static void showPermissionDenied(Context context) {
+        if (context instanceof Activity && !((Activity) context).isFinishing()) {
+            Activity activity = (Activity) context;
+            new MaterialAlertDialogBuilder(activity)
+                    .setMessage(R.string.websource_storage_permission_required)
+                    .setPositiveButton(R.string.permission_open_settings, (dialog, which) -> PermissionUtil.openAppSettings(activity))
+                    .setNegativeButton(R.string.dialog_negative, null)
+                    .show();
+        } else {
+            Notify.show(R.string.websource_storage_permission_required);
+        }
     }
 
     private static boolean isBlank(String value) {
