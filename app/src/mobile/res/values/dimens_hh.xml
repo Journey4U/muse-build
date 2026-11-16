@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  hh 尺寸令牌子集（随小说阅读器从昏黄 r60 搬入）：仅含阅读器布局实际引用的 15 个尺寸。
+  数值与 VesperTV app/src/mobile/res/values/dimens_hh.xml 一致。
+-->
+<resources>
+
+    <dimen name="hh_space_1">4dp</dimen>
+    <dimen name="hh_space_2">8dp</dimen>
+    <dimen name="hh_space_3">12dp</dimen>
+    <dimen name="hh_space_4">16dp</dimen>
+    <dimen name="hh_space_5">20dp</dimen>
+    <dimen name="hh_space_6">24dp</dimen>
+    <dimen name="hh_space_8">48dp</dimen>
+    <dimen name="hh_space_9">64dp</dimen>
+
+    <dimen name="hh_radius_pill">999dp</dimen>
+    <dimen name="hh_radius_chip">14dp</dimen>
+
+    <dimen name="hh_touch">44dp</dimen>
+
+    <dimen name="hh_text_t1">18sp</dimen>
+    <dimen name="hh_text_t2">14sp</dimen>
+    <dimen name="hh_text_t3">15sp</dimen>
+    <dimen name="hh_text_t4">12sp</dimen>
+    <dimen name="hh_text_t5">13sp</dimen>
+
+    <dimen name="hh_icon_md">22dp</dimen>
+    <dimen name="hh_icon_lg">24dp</dimen>
+
+    <dimen name="hh_radius_card">18dp</dimen>
+</resources>
+
+

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  #61 图片播放器深色胶囊底（顶栏返回/模式切换、底栏选话与缩放键共用）：
+  默认 = 半透明白（压在深色蒙层 hh_scrim 上清晰可见）；按压 = 提亮；
+  选中 = 暖金半透（与阅读器 bg_hh_pill 选中态同一语言，用于模式切换在用态）。
+-->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_selected="true">
+        <shape android:shape="rectangle">
+            <solid android:color="#59D99A2B" />
+            <corners android:radius="999dp" />
+        </shape>
+    </item>
+    <item android:state_pressed="true">
+        <shape android:shape="rectangle">
+            <solid android:color="#40FFFFFF" />
+            <corners android:radius="999dp" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#26FFFFFF" />
+            <corners android:radius="999dp" />
+        </shape>
+    </item>
+</selector>

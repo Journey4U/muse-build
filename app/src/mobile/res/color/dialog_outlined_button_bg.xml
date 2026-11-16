@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- r49 修复：原为残留浅蓝 #ffd2e3fc / #ffffffff。改令牌：
+     聚焦/按下 = hh_accent_soft_bg（半透明暖金），常态 = hh_neutral_soft_bg（极淡柔光）。 -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:color="@color/hh_accent_soft_bg" android:state_focused="true" />
+    <item android:color="@color/hh_accent_soft_bg" android:state_pressed="true" />
+    <item android:color="@color/hh_neutral_soft_bg" />
+</selector>

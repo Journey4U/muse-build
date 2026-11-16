@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  hh 主题令牌子集 · 夜间值（随小说阅读器从昏黄 r60 搬入）。
+  数值与 VesperTV app/src/mobile/res/values-night/colors_hh.xml 一致。
+-->
+<resources>
+
+    <color name="hh_bg_base">#FF20262F</color>
+    <color name="hh_bg_card">#FF2B323E</color>
+
+    <color name="hh_scrim">#99000000</color>
+    <color name="hh_stroke_hairline">#00000000</color>
+    <color name="hh_stroke_strong">#00000000</color>
+
+    <color name="hh_accent">#FFF2B75C</color>
+    <color name="hh_accent_soft_bg">#33F2B75C</color>
+    <color name="hh_neutral_soft_bg">#1FFFFFFF</color>
+
+    <color name="hh_text_primary">#FFE9ECF1</color>
+    <color name="hh_text_secondary">#FFAEB6C4</color>
+    <color name="hh_text_hint">#FF8A93A1</color>
+    <color name="hh_text_accent">#FFF2B75C</color>
+
+    <color name="hh_on_accent">#FF171A1F</color>
+</resources>

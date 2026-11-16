@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.appcompat.widget.LinearLayoutCompat xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingStart="18dp"
+    android:paddingEnd="18dp"
+    android:paddingTop="6dp"
+    android:paddingBottom="6dp">
+
+    <com.google.android.material.textview.MaterialTextView
+        android:id="@+id/categoryTreeUp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="↑ 上一级"
+        android:textSize="16sp" />
+
+    <com.google.android.material.textview.MaterialTextView
+        android:id="@+id/categoryTreePath"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:textColor="?attr/colorOnSurfaceVariant"
+        android:textSize="12sp" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/categoryTreeList"
+        android:layout_width="match_parent"
+        android:layout_height="284dp"
+        android:clipToPadding="false" />
+
+    <com.google.android.material.textview.MaterialTextView
+        android:id="@+id/categoryTreeEmpty"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/site_move_no_target"
+        android:textSize="12sp"
+        android:visibility="gone" />
+
+</androidx.appcompat.widget.LinearLayoutCompat>

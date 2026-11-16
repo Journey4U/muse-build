@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  hh 主题令牌子集（随小说阅读器从昏黄 r60 搬入）：仅含阅读器布局/代码实际引用的 12 个颜色。
+  数值与 VesperTV app/src/mobile/res/values/colors_hh.xml 一致。
+-->
+<resources>
+
+    <color name="hh_bg_base">#FFE9EDF4</color>
+    <color name="hh_bg_card">#FFFFFFFF</color>
+
+    <color name="hh_scrim">#66141719</color>
+    <color name="hh_stroke_hairline">#00000000</color>
+    <color name="hh_stroke_strong">#00000000</color>
+
+    <color name="hh_accent">#FFD99A2B</color>
+    <color name="hh_accent_soft_bg">#2ED99A2B</color>
+    <color name="hh_neutral_soft_bg">#0F000000</color>
+
+    <color name="hh_text_primary">#FF171A1F</color>
+    <color name="hh_text_secondary">#FF5A6270</color>
+    <color name="hh_text_hint">#FF8A93A1</color>
+    <color name="hh_text_accent">#FF8A5F12</color>
+
+    <color name="hh_on_accent">#FF171A1F</color>
+</resources>

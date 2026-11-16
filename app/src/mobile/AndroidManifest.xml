@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
+
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <supports-screens
+        android:anyDensity="true"
+        android:resizeable="true"
+        android:smallScreens="true"
+        android:normalScreens="true"
+        android:largeScreens="true"
+        android:xlargeScreens="true" />
+
+    <application>
+
+        <activity
+            android:name=".ui.activity.HomeActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:theme="@style/Theme.Splash"
+            android:windowSoftInputMode="adjustPan">
+
+            <meta-data
+                android:name="android.app.searchable"
+                android:resource="@xml/searchable" />
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.SEARCH" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="video/*" />
+                <data android:mimeType="audio/*" />
+                <data android:mimeType="text/plain" />
+                <data android:mimeType="application/x-bittorrent" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="smb" />
+                <data android:scheme="rtmp" />
+                <data android:scheme="rtsp" />
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+                <data android:mimeType="video/*" />
+                <data android:mimeType="audio/*" />
+            </intent-filter>
+
+        </activity>
+
+        <activity
+            android:name=".ui.activity.SearchActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout"
+            android:windowSoftInputMode="adjustPan" />
+
+        <activity
+            android:name=".ui.activity.FileActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout" />
+
+        <!-- 转存：外部分享 / 打开方式入口（SEND 文本类 mime；VIEW 按扩展名 pathPattern），入口名「转存」。 -->
+        <activity
+            android:name=".ui.activity.FileTransferActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout"
+            android:exported="true"
+            android:label="@string/transfer_title">
+
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+                <data android:mimeType="text/*" />
+                <data android:mimeType="application/json" />
+                <data android:mimeType="application/javascript" />
+                <data android:mimeType="application/x-javascript" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="file" />
+                <data android:scheme="content" />
+                <data android:mimeType="text/plain" />
+                <data android:mimeType="text/*" />
+                <data android:mimeType="application/json" />
+                <data android:mimeType="application/javascript" />
+                <data android:mimeType="application/x-javascript" />
+                <data android:pathPattern=".*\.py" />
+                <data android:pathPattern=".*\.js" />
+                <data android:pathPattern=".*\.json" />
+                <data android:pathPattern=".*\.txt" />
+                <data android:pathPattern=".*\.m3u" />
+                <data android:pathPattern=".*\.m3u8" />
+                <data android:pathPattern=".*\.conf" />
+                <data android:pathPattern=".*\.php" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".ui.activity.FolderActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout" />
+
+        <activity
+            android:name=".ui.activity.HistoryActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout" />
+
+        <activity
+            android:name=".ui.activity.KeepActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout" />
+
+        <activity
+            android:name=".ui.activity.BookshelfActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout" />
+
+        <activity
+            android:name=".ui.activity.LiveActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|uiMode|orientation"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:parentActivityName=".ui.activity.HomeActivity"
+            android:screenOrientation="sensorLandscape"
+            android:supportsPictureInPicture="true" />
+
+        <activity
+            android:name=".ui.activity.ScanActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout" />
+
+        <activity
+            android:name=".ui.activity.VideoActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|uiMode|orientation"
+            android:launchMode="singleTop"
+            android:parentActivityName=".ui.activity.HomeActivity"
+            android:supportsPictureInPicture="true" />
+
+        <activity
+            android:name=".ui.activity.WebPlayActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+            android:exported="false"
+            android:label="网页播放" />
+
+        <activity
+            android:name=".ui.novel.NovelReaderActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+            android:exported="false"
+            android:label="阅读" />
+
+        <activity
+            android:name=".ui.activity.ImageActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout"
+            android:exported="false"
+            android:label="图片" />
+
+        <receiver
+            android:name=".receiver.ShortcutReceiver"
+            android:exported="false" />
+
+        <service
+            android:name=".service.DLNACastService"
+            android:exported="false" />
+
+    </application>
+</manifest>

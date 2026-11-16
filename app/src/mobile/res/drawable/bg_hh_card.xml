@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- r46：卡片底 —— 无描边，靠色阶分层（比上一版“1dp 硬描边”自然得多） -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/hh_bg_card" />
+    <corners android:radius="@dimen/hh_radius_card" />
+</shape>

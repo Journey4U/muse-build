@@ -1,0 +1,715 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="exo_controls_show">显示播放器控件</string>
+    <string name="exo_controls_hide">隐藏播放器控件</string>
+    <string name="exo_controls_seek_bar_description">播放进度</string>
+    <string name="exo_controls_settings_description">设置</string>
+    <string name="exo_controls_overflow_hide_description">隐藏其他设置</string>
+    <string name="exo_controls_overflow_show_description">显示其他设置</string>
+    <string name="exo_controls_fullscreen_enter_description">进入全屏模式</string>
+    <string name="exo_controls_fullscreen_exit_description">退出全屏模式</string>
+    <string name="exo_controls_previous_description">上一首</string>
+    <string name="exo_controls_next_description">下一首</string>
+    <string name="exo_controls_pause_description">暂停</string>
+    <string name="exo_controls_play_description">播放</string>
+    <string name="exo_controls_stop_description">停止</string>
+    <string name="exo_controls_rewind_description">快退</string>
+    <plurals name="exo_controls_rewind_by_amount_description">
+    <item quantity="one">快退 %d 秒</item>
+    <item quantity="other">快退 %d 秒</item>
+  </plurals>
+    <string name="exo_controls_fastforward_description">快进</string>
+    <plurals name="exo_controls_fastforward_by_amount_description">
+    <item quantity="one">快进 %d 秒</item>
+    <item quantity="other">快进 %d 秒</item>
+  </plurals>
+    <string name="exo_controls_repeat_off_description">当前模式：不重复。切换重复播放模式。</string>
+    <string name="exo_controls_repeat_one_description">当前模式：重复播放当前项目。切换重复播放模式。</string>
+    <string name="exo_controls_repeat_all_description">当前模式：重复播放所有项目。切换重复播放模式。</string>
+    <string name="exo_controls_shuffle_on_description">停用随机播放模式</string>
+    <string name="exo_controls_shuffle_off_description">启用随机播放模式</string>
+    <string name="exo_controls_vr_description">VR 模式</string>
+    <string name="exo_controls_cc_enabled_description">停用字幕</string>
+    <string name="exo_controls_cc_disabled_description">启用字幕</string>
+    <string name="exo_controls_playback_speed">速度</string>
+    <string-array name="exo_controls_playback_speeds">
+    <item>0.25 倍</item>
+    <item>0.5 倍</item>
+    <item>0.75 倍</item>
+    <item>正常</item>
+    <item>1.25 倍</item>
+    <item>1.5 倍</item>
+    <item>2 倍</item>
+  </string-array>
+    <string name="exo_track_selection_title_audio">音频</string>
+    <string name="exo_track_selection_none">无</string>
+    <string name="exo_track_selection_auto">自动</string>
+    <string name="exo_track_unknown">未知</string>
+    <string name="exo_track_unknown_name">未知 (%1$s)</string>
+    <string name="exo_track_resolution">%1$d × %2$d</string>
+    <string name="exo_track_mono">单声道</string>
+    <string name="exo_track_stereo">立体声</string>
+    <string name="exo_track_surround">环绕声</string>
+    <string name="exo_track_surround_5_point_1">5.1 环绕声</string>
+    <string name="exo_track_surround_7_point_1">7.1 环绕声</string>
+    <string name="exo_track_role_alternate">替用轨</string>
+    <string name="exo_track_role_supplementary">补充轨</string>
+    <string name="exo_track_role_commentary">旁白</string>
+    <string name="exo_track_role_closed_captions">字幕</string>
+    <string name="exo_track_bitrate">%1$.2f Mbps</string>
+    <string name="exo_item_list">%1$s，%2$s</string>
+    <string name="app_name">影视</string>
+    <string name="live_pass">密码</string>
+    <string name="live_refresh">刷新</string>
+    <string name="live_line">线路 <xliff:g name="name">%s</xliff:g></string>
+    <string name="detail_title"><xliff:g name="name">%s</xliff:g>：<xliff:g name="name">%s</xliff:g></string>
+    <string name="detail_site">站源：<xliff:g name="name">%s</xliff:g></string>
+    <string name="detail_year">年份：<xliff:g name="name">%s</xliff:g></string>
+    <string name="detail_area">地区：<xliff:g name="name">%s</xliff:g></string>
+    <string name="detail_type">类型：<xliff:g name="name">%s</xliff:g></string>
+    <string name="detail_director">导演：<xliff:g name="name">%s</xliff:g></string>
+    <string name="detail_actor">演员：<xliff:g name="name">%s</xliff:g></string>
+    <string name="detail_content">简介：<xliff:g name="name">%s</xliff:g></string>
+    <string name="detail_desc">简介</string>
+    <string name="keep">收藏</string>
+    <string name="keep_add">已加入收藏</string>
+    <string name="keep_del">已取消收藏</string>
+    <string name="play">播放</string>
+    <string name="pause">暂停</string>
+    <string name="play_op">片头</string>
+    <string name="play_ed">片尾</string>
+    <string name="play_exo">EXO</string>
+    <string name="play_mpv">MPV</string>
+    <string name="play_other">其它</string>
+    <string name="play_next">下集</string>
+    <string name="play_prev">上集</string>
+    <string name="play_stop">停止</string>
+    <string name="play_repeat">循环</string>
+    <string name="play_forward">→</string>
+    <string name="play_backward">←</string>
+    <string name="play_speed">倍速</string>
+    <string name="play_speed_hint">倍速 <xliff:g name="speed">%1$s</xliff:g></string>
+    <string name="play_reset">刷新</string>
+    <string name="play_replay">重播</string>
+    <string name="play_decode">硬解</string>
+    <string name="play_media_info">媒体信息</string>
+    <string name="play_web">网页播放</string>
+    <string name="web_load_fail">播放地址获取失败</string>
+    <string name="play_timer">定时</string>
+    <string name="play_edition">标题</string>
+    <string name="play_chapter">章节</string>
+    <string name="play_scale">原始</string>
+    <string name="play_config">配置</string>
+    <string name="play_change">换源</string>
+    <string name="play_invert">反转</string>
+    <string name="play_across">跨类</string>
+    <string name="play_reverse">倒序</string>
+    <string name="play_track_text">字幕</string>
+    <string name="play_track_audio">音轨</string>
+    <string name="play_track_video">视轨</string>
+    <string name="play_forward_hint">已切换正序播放</string>
+    <string name="play_backward_hint">已切换倒序播放</string>
+    <string name="play_ready">准备播放：<xliff:g name="name">%s</xliff:g></string>
+    <string name="play_switch_flag">正在切换线路至「<xliff:g name="name">%s</xliff:g>」</string>
+    <string name="play_switch_site">正在切换站源至「<xliff:g name="name">%s</xliff:g>」</string>
+    <string name="play_switch_parse">正在切换解析至「<xliff:g name="name">%s</xliff:g>」</string>
+    <string name="setting_tab_offset">偏移</string>
+    <string name="setting_effect_basic">基础</string>
+    <string name="setting_effect_scene">场景</string>
+    <string name="setting_effect_custom">自定义</string>
+    <string name="setting_preset_original">原始</string>
+    <string name="speed_setting">倍速设置</string>
+    <string name="speed_setting_reset">重置</string>
+    <string name="speed_setting_current">播放速度</string>
+    <string name="speed_setting_long_press">长按倍速</string>
+    <string name="speed_setting_quick">快速选择</string>
+    <string name="speed_setting_skip_silence">跳过无声片段</string>
+    <string name="audio_setting">音质设置</string>
+    <string name="audio_effect_compare">比较</string>
+    <string name="audio_effect_reset">重置</string>
+    <string name="audio_effect_tab_preset">效果</string>
+    <string name="audio_effect_tab_equalizer">调整</string>
+    <string name="audio_effect_tab_advanced">进阶</string>
+    <string name="audio_offset">音轨偏移</string>
+    <string name="audio_effect_category_tone">音色</string>
+    <string name="audio_effect_category_genre">曲风</string>
+    <string name="audio_effect_natural">自然</string>
+    <string name="audio_effect_vocal">人声</string>
+    <string name="audio_effect_cinema">影院</string>
+    <string name="audio_effect_bass">低音</string>
+    <string name="audio_effect_treble">高音</string>
+    <string name="audio_effect_pop">流行</string>
+    <string name="audio_effect_rock">摇滚</string>
+    <string name="audio_effect_dance">舞曲</string>
+    <string name="audio_effect_electronic">电音</string>
+    <string name="audio_effect_hiphop">嘻哈</string>
+    <string name="audio_effect_jazz">爵士</string>
+    <string name="audio_effect_classical">古典</string>
+    <string name="audio_effect_custom">自定义</string>
+    <string name="audio_effect_stability">音量稳定</string>
+    <string name="audio_effect_stability_summary">缩小影片内的大小声差距</string>
+    <string name="audio_effect_boost">音量增益</string>
+    <string name="audio_effect_dialogue">语音增强</string>
+    <string name="audio_effect_balance">声道平衡</string>
+    <string name="audio_effect_headroom">前级衰减</string>
+    <string name="audio_effect_loudness">响度平衡</string>
+    <string name="audio_effect_loudness_summary">平衡不同影片的平均音量</string>
+    <string name="audio_effect_center_gain">中置声道增益</string>
+    <string name="audio_channel_mode">声道模式</string>
+    <string name="audio_channel_auto">自动</string>
+    <string name="audio_channel_stereo">立体</string>
+    <string name="audio_channel_mono">单声</string>
+    <string name="audio_channel_reverse">反转</string>
+    <string name="audio_effect_balance_center">中央</string>
+    <string name="audio_effect_balance_left">左 %1$d%%</string>
+    <string name="audio_effect_balance_right">右 %1$d%%</string>
+    <string name="video_setting">画质设置</string>
+    <string name="video_effect_compare">比较</string>
+    <string name="video_effect_reset">重置</string>
+    <string name="video_effect_tab_preset">效果</string>
+    <string name="video_effect_tab_adjust">调整</string>
+    <string name="video_effect_category_boost">增强</string>
+    <string name="video_effect_category_tone">风格</string>
+    <string name="video_effect_natural">自然</string>
+    <string name="video_effect_vivid">臻彩</string>
+    <string name="video_effect_clear">清晰</string>
+    <string name="video_effect_bright">明亮</string>
+    <string name="video_effect_cinema">影院</string>
+    <string name="video_effect_soft">柔和</string>
+    <string name="video_effect_warm">暖色</string>
+    <string name="video_effect_cool">冷色</string>
+    <string name="video_effect_comfort">护眼</string>
+    <string name="video_effect_anime">动画</string>
+    <string name="video_effect_sport">运动</string>
+    <string name="video_effect_game">游戏</string>
+    <string name="video_effect_custom">自定义</string>
+    <string name="video_effect_saturation">饱和度</string>
+    <string name="video_effect_contrast">对比度</string>
+    <string name="video_effect_brightness">亮度</string>
+    <string name="video_effect_gamma">伽马</string>
+    <string name="video_effect_hue">色相</string>
+    <string name="video_effect_temperature">色温</string>
+    <string name="video_effect_sharpness">锐利度</string>
+    <string name="video_effect_shadow">阴影提亮</string>
+    <string name="subtitle_setting">字幕设置</string>
+    <string name="subtitle_search_api_title">Assrt</string>
+    <string name="subtitle_search_token_hint">Token</string>
+    <string name="subtitle_reset">重置</string>
+    <string name="subtitle_tab_appearance">外观</string>
+    <string name="subtitle_tab_adjust">调整</string>
+    <string name="subtitle_tab_advanced">进阶</string>
+    <string name="subtitle_offset">字幕偏移</string>
+    <string name="subtitle_size">大小</string>
+    <string name="subtitle_position">位置</string>
+    <string name="subtitle_style">样式</string>
+    <string name="playback_font">字体</string>
+    <string name="playback_font_default">系统默认</string>
+    <string name="playback_font_import">导入字体</string>
+    <string name="playback_font_imported">已导入字体：%1$s</string>
+    <string name="playback_font_import_failed">无法导入字体</string>
+    <string name="playback_font_load_failed">无法加载字体</string>
+    <string name="subtitle_style_original">原始</string>
+    <string name="subtitle_style_system">系统</string>
+    <string name="subtitle_style_custom">自定义</string>
+    <string name="subtitle_system_setting">系统字幕设置</string>
+    <string name="subtitle_text_color">文字颜色</string>
+    <string name="subtitle_text_opacity">文字透明度</string>
+    <string name="subtitle_edge_style">边框样式</string>
+    <string name="subtitle_edge_none">无</string>
+    <string name="subtitle_edge_outline">描边</string>
+    <string name="subtitle_edge_shadow">阴影</string>
+    <string name="subtitle_edge_color">边框颜色</string>
+    <string name="subtitle_edge_opacity">边框透明度</string>
+    <string name="subtitle_edge_width">边框粗细</string>
+    <string name="subtitle_shadow_strength">阴影强度</string>
+    <string name="subtitle_background">背景</string>
+    <string name="subtitle_background_opacity">背景透明度</string>
+    <string name="subtitle_secondary_track">双字幕</string>
+    <string name="subtitle_secondary_default">默认</string>
+    <string name="subtitle_secondary_off">关闭</string>
+    <string name="subtitle_secondary_auto">自动</string>
+    <string name="subtitle_secondary_select">指定</string>
+    <string name="subtitle_secondary_track_select">副字幕</string>
+    <string name="subtitle_secondary_position">副字幕位置</string>
+    <string name="subtitle_color_white">白色</string>
+    <string name="subtitle_color_yellow">黄色</string>
+    <string name="subtitle_color_cyan">青色</string>
+    <string name="subtitle_color_green">绿色</string>
+    <string name="subtitle_color_orange">橙色</string>
+    <string name="subtitle_color_pink">粉色</string>
+    <string name="subtitle_color_red">红色</string>
+    <string name="subtitle_color_blue">蓝色</string>
+    <string name="subtitle_color_black">黑色</string>
+    <string name="subtitle_color_gray">灰色</string>
+    <string name="subtitle_color_transparent">透明</string>
+    <string name="subtitle_background_dim">半透明黑色</string>
+    <string name="danmaku">弹幕</string>
+    <string name="danmaku_select">选择弹幕</string>
+    <string name="danmaku_setting">弹幕设置</string>
+    <string name="danmaku_text_size">字体缩放</string>
+    <string name="danmaku_transparency">透明度</string>
+    <string name="danmaku_text_bold">粗体</string>
+    <string name="danmaku_style_mode">字体效果</string>
+    <string name="danmaku_style_none">无</string>
+    <string name="danmaku_style_shadow">阴影</string>
+    <string name="danmaku_style_stroke">描边</string>
+    <string name="danmaku_style_projection">投影</string>
+    <string name="danmaku_shadow_transparency">阴影透明度</string>
+    <string name="danmaku_stroke_width">描边宽度</string>
+    <string name="danmaku_projection_offset_x">投影水平偏移</string>
+    <string name="danmaku_projection_offset_y">投影垂直偏移</string>
+    <string name="danmaku_projection_transparency">投影透明度</string>
+    <string name="danmaku_color_mode">颜色模式</string>
+    <string name="danmaku_color_default">原色</string>
+    <string name="danmaku_color_colorful">彩色</string>
+    <string name="danmaku_color_gradient">渐变</string>
+    <string name="danmaku_color_override_hint">弹幕原始颜色将被忽略</string>
+    <string name="danmaku_auto">自动</string>
+    <string name="danmaku_duration">滚动时间</string>
+    <string name="danmaku_fixed_duration">固定显示时间</string>
+    <string name="danmaku_time_offset">时间偏移</string>
+    <string name="danmaku_max_on_screen">最多同时显示</string>
+    <string name="danmaku_scroll_area_ratio">滚动区域</string>
+    <string name="danmaku_max_scroll_lines">最大滚动行数</string>
+    <string name="danmaku_max_top_lines">最大顶部行数</string>
+    <string name="danmaku_max_bottom_lines">最大底部行数</string>
+    <string name="danmaku_line_spacing">垂直间距</string>
+    <string name="danmaku_scroll_gap_ratio">水平间距</string>
+    <string name="danmaku_show_scroll">滚动弹幕</string>
+    <string name="danmaku_show_top">顶部固定</string>
+    <string name="danmaku_show_bottom">底部固定</string>
+    <string name="danmaku_show_reverse">反向滚动</string>
+    <string name="danmaku_show_positioned">定位弹幕</string>
+    <string name="danmaku_show_subtitle">字幕型</string>
+    <string name="danmaku_show_special">特效型</string>
+    <string name="danmaku_section_appearance">外观</string>
+    <string name="danmaku_section_display">显示</string>
+    <string name="danmaku_section_timing">时间</string>
+    <string name="danmaku_section_density">密度</string>
+    <string name="danmaku_reset">重置</string>
+    <string name="parse">解析</string>
+    <string name="parse_god">超级解析</string>
+    <string name="parse_from">解析来自：<xliff:g name="name">%s</xliff:g></string>
+    <string name="push">推送</string>
+    <string name="setting_vod">点播</string>
+    <string name="setting_live">直播</string>
+    <string name="setting_wall">壁纸</string>
+    <string name="setting_player">播放设置</string>
+    <string name="setting_danmaku">弹幕设置</string>
+    <string name="setting_incognito">无痕模式</string>
+    <string name="setting_net_info">网速显示</string>
+    <string name="setting_media_info">媒体信息显示</string>
+    <string name="setting_auto_play">自动播放</string>
+    <string name="setting_auto_play_delay">延时</string>
+    <string name="setting_auto_play_delay_seconds">%d 秒</string>
+    <string name="exit_confirm">再按一次返回键退出</string>
+    <string name="setting_theme_color">主题色彩</string>
+    <string name="setting_auto">自动</string>
+    <string name="setting_custom">自定义</string>
+    <string name="setting_size">图片尺寸</string>
+    <string name="setting_doh">DoH</string>
+    <string name="setting_proxy">Proxy</string>
+    <string name="setting_cache">缓存</string>
+    <string name="setting_backup">备份</string>
+    <string name="setting_restore">恢复</string>
+    <string name="setting_log_debug">日志调试</string>
+    <string name="setting_log_realtime">实时日志</string>
+    <string name="setting_reset_app">重置App</string>
+    <string name="setting_reset">重置</string>
+    <string name="setting_enabled">启用</string>
+    <string name="setting_disabled">禁用</string>
+    <string name="log_title">运行日志</string>
+    <string name="log_count">%1$d 条</string>
+    <string name="log_count_search">命中 %1$d 条，共 %2$d 条</string>
+    <string name="log_search">搜索</string>
+    <string name="log_minimize">最小化</string>
+    <string name="log_close">关闭</string>
+    <string name="log_refresh">刷新</string>
+    <string name="log_copy">复制</string>
+    <string name="log_clear">清空</string>
+    <string name="log_jump">跳转</string>
+    <string name="log_export">导出</string>
+    <string name="log_copy_address">复制地址</string>
+    <string name="log_ball">日志</string>
+    <string name="log_cat_all">全部</string>
+    <string name="log_cat_run">运行</string>
+    <string name="log_cat_file">文件加载</string>
+    <string name="log_cat_media">影片</string>
+    <string name="log_cat_play">播放</string>
+    <string name="log_cat_spider">蜘蛛</string>
+    <string name="log_copied">已复制到剪贴板</string>
+    <string name="log_address_copied">日志地址已复制</string>
+    <string name="log_exported">已导出：%1$s</string>
+    <string name="log_export_failed">导出失败</string>
+    <string name="log_no_browser">没有可用的浏览器</string>
+    <string name="log_float_failed">悬浮窗打开失败</string>
+    <string name="log_empty">暂无日志</string>
+    <string name="log_disabled_hint">日志调试未开启，请先打开「日志调试」开关</string>
+    <string name="reset_app_message">将清除全部应用数据（站点配置、历史记录、收藏、全部设置、缓存与日志），恢复到刚安装时的状态并重启应用。确定要重置吗？</string>
+
+    <string name="setting_version">版本</string>
+    <string name="setting_choose">选择</string>
+    <string name="setting_off">关</string>
+    <string name="setting_on">开</string>
+    <string name="restore_select">选择备份</string>
+    <string name="restore_success">恢复成功</string>
+    <string name="restore_fail">恢复失败</string>
+    <string name="backup_success">备份成功</string>
+    <string name="backup_fail">备份失败</string>
+    <string name="player">播放核心</string>
+    <string name="player_engine">播放引擎</string>
+    <string name="player_debug">调试</string>
+    <string name="player_render">视频输出</string>
+    <string name="player_scale">缩放比例</string>
+    <string name="player_libass">字幕特效</string>
+    <string name="player_background">后台播放</string>
+    <string name="player_audio_pass_through">音频直通</string>
+    <string name="player_audio_decode">音频软解</string>
+    <string name="player_video_decode">视频软解</string>
+    <string name="player_dolby_vision_output">杜比视界</string>
+    <string name="player_aac_track">AAC优先</string>
+    <string name="player_adblock">智能去广</string>
+    <string name="player_tunnel">隧道模式</string>
+    <string name="player_buffer">缓冲时间</string>
+    <string name="player_decode_setting">解码设置</string>
+    <string name="player_preload_setting">预载设置</string>
+    <string name="player_preload">预载</string>
+    <string name="player_preload_next">预载下集</string>
+    <string name="player_preload_threads">预载线程</string>
+    <string name="player_preload_threads_value">%1$d 条</string>
+    <string name="player_preload_size">预载容量</string>
+    <string name="player_preload_time">预载时间</string>
+    <string name="player_preload_time_value">%1$d 秒</string>
+    <string name="player_mpv_conf">mpv.conf</string>
+    <string name="player_mpv_gpu_next">gpu-next</string>
+    <string name="player_mpv_vulkan">vulkan</string>
+    <string name="player_mpv_conf_priority_hint">界面设置优先，重进播放页生效。</string>
+    <string name="player_mpv_conf_conflict_hint">界面设置将覆盖：%1$s</string>
+    <string name="player_mpv_conf_import_success">已导入 mpv.conf</string>
+    <string name="player_mpv_conf_import_failed">无法导入 mpv.conf</string>
+    <string name="player_mpv_conf_save_failed">无法保存 mpv.conf</string>
+    <string name="player_ua">User-Agent</string>
+    <string name="danmaku_load">弹幕加载</string>
+    <string name="danmaku_api">搜索接口</string>
+    <string name="danmaku_auto_load">自动搜索</string>
+    <string name="danmaku_spider_first">爬虫优先</string>
+    <string name="search_keyword">关键字…</string>
+    <string name="search_record">历史</string>
+    <string name="search_suggest">建议</string>
+    <string name="search_hot">热搜</string>
+    <string name="dialog_edit">修改</string>
+    <string name="dialog_import">导入</string>
+    <string name="dialog_positive">确定</string>
+    <string name="dialog_negative">取消</string>
+    <string name="dialog_select_edition">选择标题</string>
+    <string name="dialog_select_chapter">选择章节</string>
+    <string name="dialog_config_hint">请输入配置…</string>
+    <string name="dialog_config_name">请输入名称…</string>
+    <string name="dialog_config_url">请输入地址…</string>
+    <string name="error_config_get">配置取得失败</string>
+    <string name="error_file_open">无法打开文件</string>
+    <string name="error_play_next">已经是最后一集了！</string>
+    <string name="error_play_prev">已经是第一集了！</string>
+    <string name="error_play_parse">播放地址解析失败</string>
+    <string name="error_play_drm">此设备不支持所需的 DRM scheme</string>
+    <string name="error_play_url">播放地址加载失败</string>
+    <string name="error_play_variant">画质切换失败</string>
+    <string name="error_play_flag">暂无线路数据</string>
+    <string name="error_play_timeout">连接超时</string>
+    <string name="error_audio_effect_unsupported">当前播放方式不支持音质设置</string>
+    <string name="error_audio_effect_tunnel">隧道模式下不支持音质设置</string>
+    <string name="error_audio_effect_passthrough">音频直通音轨不支持音质设置</string>
+    <string name="error_audio_effect_apply">音质设置应用失败</string>
+    <string name="error_video_effect_unsupported">当前播放方式不支持画质设置</string>
+    <string name="error_video_effect_decode">画质设置需要视频硬解</string>
+    <string name="error_video_effect_drm">DRM 视频不支持画质设置</string>
+    <string name="error_video_effect_tunnel">隧道模式下不支持画质设置</string>
+    <string name="error_video_effect_dolby_vision_passthrough">杜比视界直通不支持画质设置</string>
+    <string name="error_detail">暂无播放数据</string>
+    <string name="error_empty">这里什麽都没有 👀</string>
+    <string name="update_version">发现新版本 <xliff:g name="name">%s</xliff:g></string>
+    <string name="update_check">正在检测更新…</string>
+    <string name="update_confirm">更新</string>
+    <string name="crash_info">发生意外错误\n抱歉给您带来不便</string>
+    <string name="crash_restart">重新启动</string>
+    <string name="crash_details">错误信息</string>
+    <string name="crash_details_title">错误信息</string>
+    <string name="crash_details_close">关闭</string>
+    <string name="copied">已复制</string>
+    <string name="all">全部</string>
+    <string name="yes">有</string>
+    <string name="none">无</string>
+    <string name="times">倍</string>
+    <string name="lines">行</string>
+    <string-array name="select_decode">
+        <item>软解</item>
+        <item>硬解</item>
+    </string-array>
+    <string-array name="select_dolby_vision_output">
+        <item>自动</item>
+        <item>开</item>
+        <item>关</item>
+    </string-array>
+    <string-array name="select_size">
+        <item>小</item>
+        <item>中</item>
+        <item>大</item>
+        <item>特大</item>
+    </string-array>
+    <string-array name="select_scale">
+        <item>原始</item>
+        <item>16:9</item>
+        <item>4:3</item>
+        <item>填充</item>
+        <item>裁剪</item>
+    </string-array>
+    <string-array name="audio_effect_stability_levels">
+        <item>关闭</item>
+        <item>轻微</item>
+        <item>柔和</item>
+        <item>标准</item>
+        <item>明显</item>
+        <item>强力</item>
+    </string-array>
+    <string-array name="select_track">
+        <item>选择音轨</item>
+        <item>选择视轨</item>
+        <item>选择字幕</item>
+    </string-array>
+
+    <!-- MPV config strings ported from webhtv (required by MpvConfigStore; fix #37 build failure) -->
+    <string name="mpv_config_default">默认</string>
+    <string name="mpv_config_url">URL mpv.conf</string>
+    <string name="mpv_config_untitled">未命名配置</string>
+    <string name="mpv_config_script_exists">同名脚本已存在</string>
+    <string name="mpv_config_local">本地 mpv.conf</string>
+    <string name="mpv_config_name_required">请输入配置名称</string>
+    <string name="mpv_config_file_invalid">mpv.conf 文件无效</string>
+    <string name="mpv_config_empty">MPV 配置为空</string>
+    <string name="mpv_config_write_failed">无法写入 MPV 配置文件</string>
+    <string name="mpv_config_url_invalid">mpv.conf URL 无效</string>
+    <string name="mpv_config_too_large">配置文本不能超过 1 MB</string>
+    <string name="mpv_config_scripts_count">%1$d 个脚本</string>
+    <string name="mpv_config_profile_missing">配置文件已不存在</string>
+    <string name="mpv_config_history_empty">暂无 MPV 配置历史</string>
+    <string name="mpv_config_download_empty">下载到的 mpv.conf 为空</string>
+    <string name="mpv_config_custom_buttons_invalid">自定义按钮 ID 无效</string>
+    <string name="mpv_config_custom_buttons">脚本按钮</string>
+    <string name="mpv_config_text">文本配置</string>
+
+    <string name="novel_tts">朗读</string>
+    <string name="novel_tts_pause">暂停</string>
+    <string name="novel_tts_loading">正在初始化语音引擎…</string>
+    <string name="novel_tts_empty">本章没有可朗读的文字</string>
+    <string name="novel_tts_unsupported">当前设备不支持系统朗读</string>
+    <string name="novel_tts_settings">朗读设置</string>
+    <string name="novel_tts_rate">语速</string>
+    <string name="novel_tts_pitch">音色</string>
+    <string name="novel_tts_stop">停止朗读</string>
+    <string name="novel_tts_stopped">已停止朗读</string>
+    <string name="novel_tts_end">已朗读到最后一章</string>
+    <string name="site_search_hint">搜索站点…</string>
+    <string name="site_group_all">全部</string>
+    <string name="search_scope_title">搜索范围</string>
+    <string name="search_scope_current">当前源</string>
+    <string name="search_scope_all">全部源</string>
+    <string name="search_scope_group">按分类搜索</string>
+    <string name="search_scope_type">按源类型搜索</string>
+    <string name="search_scope_current_desc">%s</string>
+    <string name="type_all_title">全部分类</string>
+    <string name="type_search_hint">搜索分类…</string>
+    <string name="view_switch_title">切换视图</string>
+    <!-- 本地源移植（VesperTV 手册 76–192 行 + 1.0.3 8 项优化）：local_source_*/site_* 措辞照搬 VesperTV r80，品牌名已按 MuseTV 改；transfer_* 为 1.0.3 资源 id 对应的 MuseTV 新文案。 -->
+    <string name="local_source_auto">每次加载源时自动重新扫描</string>
+    <string name="local_source_desc">扫描该文件夹（含子目录）里的源文件 → 生成 MuseTV 源文件 → 每次加载源时自动重新扫描并加载。支持 .js/.jar/.json/.txt/.m3u。</string>
+    <string name="local_source_dir_hint">文件夹路径，如 /storage/emulated/0/自己整理</string>
+    <string name="local_source_dir_required">请先填写文件夹路径</string>
+    <string name="local_source_done">扫描完成：%1$s</string>
+    <string name="local_source_empty">未生成任何源：%1$s</string>
+    <string name="local_source_enable">启用本地源文件夹</string>
+    <string name="local_source_generate">立即生成并加载</string>
+    <string name="local_source_output">生成文件：%1$s</string>
+    <string name="local_source_parse_add">新增解析源</string>
+    <string name="local_source_parse_remove">删除</string>
+    <string name="local_source_parse_unnamed">（未命名解析源）</string>
+    <string name="local_source_permission_required">需要存储权限才能扫描本地源文件，请先授予存储权限</string>
+    <string name="local_source_save">保存并重新加载</string>
+    <string name="local_source_saved">设置已保存，正在重新加载源…</string>
+    <string name="local_source_scan">立即扫描并生成</string>
+    <string name="local_source_scanning">正在扫描，请稍候…</string>
+    <string name="local_source_settings_base64">自动解码 Base64 规则文件（xbpq/xyq）</string>
+    <string name="local_source_settings_blocked">忽略目录名（只列扫描目录里真实存在的目录名，默认全不选；勾选＝忽略该目录）</string>
+    <string name="local_source_settings_clear">清除</string>
+    <string name="local_source_settings_dir_add">添加</string>
+    <string name="local_source_settings_dir_remove">删除</string>
+    <string name="local_source_settings_dirs">扫描目录</string>
+    <string name="local_source_settings_dirs_empty">（还没有添加目录）</string>
+    <string name="local_source_settings_excluded">忽略文件名（只列扫描目录里真实存在的文件名；勾选＝忽略该文件）</string>
+    <string name="local_source_settings_ext_all">已勾选 %1$d / %2$d（点一下＝全选）</string>
+    <string name="local_source_settings_extensions">扫描类型＝文件最后一个后缀（列表按实际扫描结果生成；不勾选＝全部类型）</string>
+    <string name="local_source_settings_extra">附加配置（两项都留空＝产物里不写这两项）</string>
+    <string name="local_source_settings_hint">生成规则（r17）：深度 5 层；源名＝原始文件名[文件夹名](后缀)，文件名自带的 [标签] 会被删掉；源分类只认文件夹名（不是文件夹名的分类整条删除，内置附加源也一样）；源类型＝文件名的最后一个后缀（如 xxx.hh.py → py）；直播文件→直播频道、PQ类→XBPQ、YQ类→XYQ、JS[Drpy]→drpy；附加配置（spider jar / 直播源地址）留空则不写。</string>
+    <string name="local_source_settings_js_folder_hint">%1$s（道长js源必须放在JS文件夹里面，cat源必须放在cat文件夹里面）</string>
+    <string name="local_source_settings_list_count">候选（按实际扫描结果）：扫描类型 %1$d 种 · 忽略目录名 %2$d 项</string>
+    <string name="local_source_settings_list_empty">（扫描目录为空，暂无候选）</string>
+    <string name="local_source_settings_list_loading">正在扫描目录，生成候选列表…</string>
+    <string name="local_source_settings_list_more">显示更多（剩余 %1$d）</string>
+    <string name="local_source_settings_list_refresh">重新扫描目录刷新列表</string>
+    <string name="local_source_settings_live_url">直播源地址（留空＝不写直播）</string>
+    <string name="local_source_settings_merge">同名源只保留一个（同名多引擎副本按 XBPQ &gt; XYQ &gt; JS &gt; PY 保留一个）</string>
+    <string name="local_source_settings_mode">扫描模式</string>
+    <string name="local_source_settings_mode_file">文件模式（点播文件）</string>
+    <string name="local_source_settings_mode_hint">扫描模式说明：\n· 站源模式（推荐）：把 .py/.js/.wv.js/.php/.html 脚本，以及 PQ类 目录下的 xbpq json、YQ类 目录下的 xyq json 当作“站源”，生成可直接点播的源；txt/m3u/db/zip/pkg 不会被扫。\n· 文件模式：把 .txt/.m3u/.db/.zip/.pkg/.json 当作“本地文件源”（用 csp_FileSpider 读取本地片单/数据库/压缩包），不扫脚本类文件。\n一句话：目录里是一堆爬虫脚本/规则 → 用站源模式；是一堆本地片单/清单文件 → 用文件模式。</string>
+    <string name="local_source_settings_mode_source">站源模式（脚本/规则）</string>
+    <string name="local_source_settings_out_name">生成文件名（留空＝Muse本地源）</string>
+    <string name="local_source_settings_out_name_hint">产物固定生成到「第一个已勾选扫描目录」下，文件名自定义（自动补 .json）。</string>
+    <string name="local_source_settings_output">生成文件路径（留空＝第一个扫描目录/Muse本地源.json）</string>
+    <string name="local_source_settings_parses">解析源（%1$d 条）</string>
+    <string name="local_source_settings_parses_empty">（没有解析条目）</string>
+    <string name="local_source_settings_replace">替换原有点播站点（生成结果直接顶替当前点播接口的站点列表，解析/直播/规则不受影响）</string>
+    <string name="local_source_settings_save_load">保存并加载</string>
+    <string name="local_source_settings_saved">设置已保存</string>
+    <string name="local_source_settings_spider">spider jar（全局源包，原脚本里是 ./jar/xbpq251118.jar）</string>
+    <string name="local_source_settings_spider_empty">已选扫描目录里没有找到 .jar 文件（请先在上面添加扫描目录）</string>
+    <string name="local_source_settings_spider_none">（未选择：不写 spider）</string>
+    <string name="local_source_settings_spider_pick">选择 .jar</string>
+    <string name="local_source_settings_spider_pick_title">选择 spider jar</string>
+    <string name="local_source_settings_title">本地源生成设置</string>
+    <string name="local_source_status">上次扫描：%1$s</string>
+    <string name="local_source_title">本地源文件夹</string>
+    <string name="local_source_write_blocked">已跳过自动刷新回填：%1$s 是你自己编写的配置，App 不改写它</string>
+    <string name="setting_local_source">本地源文件夹</string>
+    <string name="site_action_delete">删除源文件</string>
+    <string name="site_action_move">移动到其他分类</string>
+    <string name="site_del_confirm">删除</string>
+    <string name="site_del_done">已删除源文件：%1$s</string>
+    <string name="site_del_fail">删除失败（文件被占用或无权限）</string>
+    <string name="site_del_message">确定删除「%1$s」的本地源文件？\n%2$s\n删除后会重新生成并回写 json，操作不可恢复。</string>
+    <string name="site_del_title">删除源文件</string>
+    <string name="site_del_unavailable">「%1$s」没有本地源文件，未做任何改动</string>
+    <string name="site_long_title">选择操作</string>
+    <string name="site_move_done">已移动到「%1$s」：%2$s</string>
+    <string name="site_move_exists">「%1$s」下已有同名文件，未移动</string>
+    <string name="site_move_fail">移动失败（文件被占用或没有写入权限）</string>
+    <string name="site_move_no_target">没有其他分类可移动：先在扫描目录里建好分类文件夹，或到「本地源设置」里添加扫描目录</string>
+    <string name="site_move_title">移动到哪个分类</string>
+    <string name="site_move_unavailable">「%1$s」没有本地源文件，无法移动</string>
+    <string name="site_self_authored">「%1$s」是你自己编写的本地源：自动刷新回填、删除源、移动源三项都不提供，App 不会改动你自己的源文件与 json（要修改请用文件管理器自行操作）</string>
+    <string name="transfer_cancel">取消</string>
+    <string name="transfer_empty">（空文件夹）</string>
+    <string name="transfer_failed">转存失败</string>
+    <string name="transfer_hint">选择目标文件夹后点保存，即可把文件转存到本地源扫描目录。</string>
+    <string name="transfer_importing">正在转存…</string>
+    <string name="transfer_name_hint">文件名</string>
+    <string name="transfer_new_dir">新建文件夹</string>
+    <string name="transfer_new_dir_create">创建</string>
+    <string name="transfer_new_dir_done">已创建文件夹：%1$s</string>
+    <string name="transfer_new_dir_empty">文件夹名不能为空</string>
+    <string name="transfer_new_dir_exist">该文件夹已存在</string>
+    <string name="transfer_new_dir_fail">创建文件夹失败</string>
+    <string name="transfer_new_dir_hint">新建文件夹名称</string>
+    <string name="transfer_new_dir_where">在哪里新建文件夹</string>
+    <string name="transfer_no_stream">无法读取该文件</string>
+    <string name="transfer_open_save_to">选择保存位置</string>
+    <string name="transfer_readonly">该文件不可写</string>
+    <string name="transfer_save_here">保存到这里</string>
+    <string name="transfer_saved">已转存：%1$s</string>
+    <string name="transfer_saved_out_of_scope">这个文件夹不在扫描目录里，本次不会出现在源列表中（去“本地源设置”添加扫描目录后才会出现）</string>
+    <string name="transfer_search_hint">搜索子目录…</string>
+    <string name="transfer_title">转存</string>
+    <string name="transfer_unsupported">「%1$s」不在本地源扫描类型（%2$s）内</string>
+    <string name="transfer_entry">转存文件</string>
+    <string name="transfer_name_empty">文件名不能为空</string>
+    <string name="transfer_overwrite">「%1$s」已存在，是否覆盖？</string>
+    <string name="site_action_new_category">增加/删除分类</string>
+    <string name="site_action_rename_folder">重命名分类文件夹</string>
+    <string name="site_action_rename_source">重命名源文件</string>
+    <string name="site_action_restore">回退到上一次分类</string>
+    <string name="site_action_share">分享给他人</string>
+    <string name="site_category_add">增加</string>
+    <string name="site_category_del_done">已删除文件夹：%1$s</string>
+    <string name="site_category_del_empty">文件夹「%1$s」内没有文件，仍要删除这个空文件夹吗？</string>
+    <string name="site_category_del_fail">删除文件夹失败（可能被占用或无权限）</string>
+    <string name="site_category_del_forbidden">扫描根目录不能删除</string>
+    <string name="site_category_del_msg">文件夹「%1$s」下有 %2$d 个文件（含源文件），删除后无法恢复，请谨慎操作。</string>
+    <string name="site_category_del_title">删除分类文件夹</string>
+    <string name="site_category_delete">删除</string>
+    <string name="site_category_pick_tip">点文件夹即选中，点 ▸ 展开子目录。「增加」会在该文件夹下新建分类，「删除」会把它整个删掉</string>
+    <string name="site_del_done_multi">已删除 %1$d 个源文件</string>
+    <string name="site_del_multi_message">确定删除选中的 %1$d 个源文件？\n删除后会重新生成并回写 json，操作不可恢复。</string>
+    <string name="site_folder_none_selected">请先选中一个文件夹</string>
+    <string name="site_folder_pick_empty">没有可改名的分类文件夹</string>
+    <string name="site_folder_pick_title">选择要改名的分类文件夹</string>
+    <string name="site_folder_root_forbidden">扫描根目录不能改名</string>
+    <string name="site_move_here">移动到此处</string>
+    <string name="site_move_pick_tip">点文件夹即选中，点 ▸ 展开子目录。选中的文件夹就是新的分类</string>
+    <string name="site_new_category_create">创建</string>
+    <string name="site_new_category_done">已创建分类：%1$s</string>
+    <string name="site_new_category_empty">分类名称不能为空</string>
+    <string name="site_new_category_fail">分类创建失败</string>
+    <string name="site_new_category_invalid">分类名称不能包含 / \\ : * ? \" &lt; &gt; |</string>
+    <string name="site_new_category_name">输入新分类名称</string>
+    <string name="site_new_category_title">增加新分类</string>
+    <string name="site_rename_done">已重命名为 %1$s</string>
+    <string name="site_rename_empty">名称不能为空</string>
+    <string name="site_rename_exists">该名称已存在</string>
+    <string name="site_rename_fail">重命名失败</string>
+    <string name="site_rename_folder_title">重命名分类文件夹</string>
+    <string name="site_rename_hint">新的名称</string>
+    <string name="site_rename_invalid">名称不能包含 \\ / : * ? \" &lt; &gt; |</string>
+    <string name="site_rename_no_file">这个源没有本地文件，无法重命名</string>
+    <string name="site_rename_single_only">重命名一次只处理一个源，已取第一个</string>
+    <string name="site_rename_title">重命名源文件</string>
+    <string name="site_restore_done">已回退 %1$d 个源到上一次分类</string>
+    <string name="site_restore_none">这些源没有「上一次分类」记录，无法回退（可改用「移动到其他分类」）</string>
+    <string name="site_select_all">全选</string>
+    <string name="site_select_confirm">选定当前目标</string>
+    <string name="site_select_empty">请先勾选要操作的源</string>
+    <string name="site_select_hint">已勾选 %1$d 项</string>
+    <string name="site_select_invert">反选</string>
+    <string name="site_select_moved">已移动 %1$d 个源</string>
+    <string name="site_select_none">全不选</string>
+    <string name="site_share_empty">这些源既没有本地文件也没有接口地址，无法分享</string>
+    <string name="site_share_fail">分享失败：没有找到可用的分享目标</string>
+    <string name="site_target_title">选定当前目标</string>
+    <string name="site_web_source_add">添加网页源</string>
+    <string name="site_web_source_done">已添加网页源 %1$s</string>
+    <string name="site_web_source_exists">该名称已存在</string>
+    <string name="site_web_source_fail">添加网页源失败</string>
+    <string name="site_web_source_name_hint">名称（留空自动取域名）</string>
+    <string name="site_web_source_network">请切换本地源配置后重试</string>
+    <string name="site_web_source_no_config">当前没有加载配置</string>
+    <string name="site_web_source_title">添加网页源</string>
+    <string name="site_web_source_url_empty">网址不能为空</string>
+    <string name="site_web_source_url_hint">网址，如 https://missav.ai/</string>
+    <string name="site_web_source_url_invalid">网址无效，请填 http/https 地址</string>
+    <string name="shelf_title">书架</string>
+    <string name="shelf_import">导入书籍</string>
+    <string name="shelf_recent">最近阅读</string>
+    <string name="shelf_local">本地书</string>
+    <string name="shelf_kept">收藏的小说</string>
+    <string name="shelf_empty_local">暂无本地书，点右上角「导入书籍」添加。</string>
+    <string name="shelf_empty_kept">暂无收藏的小说，在阅读器里收藏过的小说会出现在这里。</string>
+    <string name="shelf_remove_book">从书架移除</string>
+    <string name="shelf_remove_local_msg">只移除记录，不删除源文件。</string>
+    <string name="shelf_delete_record">删除记录</string>
+    <string name="shelf_importing">正在导入…</string>
+    <string name="shelf_import_ok">已导入《%1$s》，共 %2$d 章</string>
+    <string name="shelf_import_fail">导入失败，请确认是可读的 TXT 或 EPUB 文件（不支持带 DRM 的 EPUB）。</string>
+    <string name="shelf_txt_only">仅支持 TXT 与 EPUB 格式。</string>
+    <string name="shelf_book_gone">源文件已不存在。</string>
+    <string name="shelf_read_to">读至 %1$s · %2$d%%</string>
+    <string name="shelf_chapters">共 %1$d 章</string>
+    <string name="shelf_local_tag">本地书</string>
+    <string name="shelf_choose_folder">选择当前文件夹</string>
+    <string name="shelf_folder_result">文件夹导入完成：新增 %1$d 本，跳过 %2$d 本，失败 %3$d 本</string>
+    <string name="shelf_folder_empty">这个文件夹里没有 TXT 或 EPUB 文件。</string>
+</resources>
+
+
+
+
+
+
+
+

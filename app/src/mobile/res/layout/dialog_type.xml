@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.appcompat.widget.LinearLayoutCompat xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@color/hh_bg_card"
+    android:orientation="vertical"
+    android:paddingStart="@dimen/hh_space_5"
+    android:paddingTop="@dimen/hh_space_5"
+    android:paddingEnd="@dimen/hh_space_5"
+    android:paddingBottom="@dimen/hh_space_6">
+
+    <!-- 搜索框与列数切换按钮同一行：按钮在右，点击循环 1→2→3 列 -->
+    <androidx.appcompat.widget.LinearLayoutCompat
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/keyword"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:background="@drawable/shape_danmaku_search_keyword"
+            android:drawablePadding="8dp"
+            android:gravity="center_vertical"
+            android:hint="@string/type_search_hint"
+            android:imeOptions="actionDone"
+            android:inputType="text"
+            android:maxLength="255"
+            android:paddingStart="@dimen/hh_space_4"
+            android:paddingEnd="@dimen/hh_space_4"
+            android:singleLine="true"
+            android:textColor="@color/hh_text_primary"
+            android:textColorHint="@color/hh_text_hint"
+            android:textSize="@dimen/hh_text_t2"
+            app:drawableStartCompat="@drawable/ic_action_search"
+            app:drawableTint="@color/hh_accent" />
+
+        <androidx.appcompat.widget.AppCompatImageView
+            android:id="@+id/column"
+            android:layout_width="@dimen/hh_icon_lg"
+            android:layout_height="48dp"
+            android:layout_marginStart="@dimen/hh_space_4"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@null"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_site_single_column"
+            app:tint="@color/hh_accent" />
+
+    </androidx.appcompat.widget.LinearLayoutCompat>
+
+    <com.muse.android.tv.ui.custom.CustomRecyclerView
+        android:id="@+id/recycler"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/hh_space_3"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        android:overScrollMode="never"
+        app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
+        app:maxHeight="376dp" />
+
+</androidx.appcompat.widget.LinearLayoutCompat>

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  r46：胶囊控件统一底（chip / 标签 / 分类）
+  未选中 = 极淡中性柔光（叠在任意卡面上都自然）；选中/在用 = 半透明暖金。
+  **不画描边** —— 形状与背景颜色自此搭配一致。
+-->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_selected="true">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/hh_accent_soft_bg" />
+            <corners android:radius="@dimen/hh_radius_pill" />
+        </shape>
+    </item>
+    <item android:state_activated="true">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/hh_accent_soft_bg" />
+            <corners android:radius="@dimen/hh_radius_pill" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/hh_neutral_soft_bg" />
+            <corners android:radius="@dimen/hh_radius_pill" />
+        </shape>
+    </item>
+</selector>
