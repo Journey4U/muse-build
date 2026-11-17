@@ -3007,7 +3007,7 @@ public class LocalSourceHub {
      * @return {@link #WEB_OK} 成功；其它见各常量
      */
     public static int appendWebSource(String name, String url) {
-        String webUrl = normalizeWebSourceUrl(url);
+        String webUrl = normalizeWebSourceUrl(sanitizeWebSourceUrl(url));
         if (webUrl == null) return WEB_INVALID;
         String webName = name == null ? "" : name.trim();
         if (webName.isEmpty()) webName = deriveWebSourceName(webUrl);
@@ -3303,6 +3303,20 @@ public class LocalSourceHub {
             DebugLogStore.add(TAG, "新建网页源配置文件失败：" + e);
             return WEB_NO_CONFIG;
         }
+    }
+
+    /**
+     * v29：单次添加网页源清洗——去逗号、去空格，缺前缀补 https://。
+     * 在 appendWebSource 入口统一调，所有调用方自动受益；批量 URL 已清洗过，重复调是幂等的。
+     */
+    public static String sanitizeWebSourceUrl(String url) {
+        if (url == null) return null;
+        String s = url.trim().replace(",", "").trim();
+        if (s.isEmpty()) return s;
+        if (!s.startsWith("http://") && !s.startsWith("https://")) {
+            s = "https://" + s;
+        }
+        return s;
     }
 
     /** v61：网址归一化——去空白，缺 scheme 时补 https://；非 http/https 返回 null。 */
