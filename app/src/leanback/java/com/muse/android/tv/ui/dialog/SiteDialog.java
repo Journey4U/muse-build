@@ -7,6 +7,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.Editable;
+import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.util.DisplayMetrics;
 import android.view.View;
@@ -34,6 +35,7 @@ import com.muse.android.tv.impl.SiteListener;
 import com.muse.android.tv.setting.Setting;
 import com.muse.android.tv.ui.adapter.SiteAdapter;
 import com.muse.android.tv.ui.custom.SpaceItemDecoration;
+import com.muse.android.tv.utils.MoveHistory;
 import com.muse.android.tv.utils.Notify;
 import com.muse.android.tv.utils.PermissionUtil;
 import com.muse.android.tv.utils.ResUtil;
@@ -237,9 +239,13 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
         Context context = getContext();
         if (context == null) return;
         boolean web = item.isWebSource();
-        String[] actions = new String[]{
-            getString(web ? R.string.site_websource_delete : R.string.site_action_delete),
-            getString(web ? R.string.site_websource_rename : R.string.site_action_rename_source)};
+        // v31：长按菜单加“移动”（第三项）；网页源没有本地文件，菜单里不显示移动项。
+        String[] actions = web ? new String[]{
+            getString(R.string.site_websource_delete),
+            getString(R.string.site_websource_rename)} : new String[]{
+            getString(R.string.site_action_delete),
+            getString(R.string.site_action_rename_source),
+            getString(R.string.site_action_move)};
         new MaterialAlertDialogBuilder(context, R.style.TaixuAlertDialogTheme)
             .setTitle(item.getName())
             .setItems(actions, (dialog, which) -> {
@@ -247,12 +253,19 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
                     List<Site> single = new ArrayList<>();
                     single.add(item);
                     confirmDeleteSelected(single);
-                } else if (web) {
-                    renameWebSourceFlow(item);
+                } else if (which == 1) {
+                    if (web) {
+                        renameWebSourceFlow(item);
+                    } else {
+                        List<Site> single = new ArrayList<>();
+                        single.add(item);
+                        renameSourceFlow(single);
+                    }
                 } else {
+                    // 移动：只对本地源文件（网页源菜单里没有这一项）。
                     List<Site> single = new ArrayList<>();
                     single.add(item);
-                    renameSourceFlow(single);
+                    chooseMoveTargetForSelection(single);
                 }
             })
             .setNegativeButton(R.string.dialog_negative, null)
@@ -497,6 +510,55 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
                 reloadAfterMove();
             });
         }, "local-source-delete").start();
+    }
+
+    /** v31：单条移动——弹目录树选目的文件夹，搬文件后重载生成新配置（与主线 v35 同款逻辑）。 */
+    private void chooseMoveTargetForSelection(List<Site> targets) {
+        Context context = getContext();
+        if (context == null || targets.isEmpty()) return;
+        FolderTreeDialog.showPicker(context, R.string.site_action_move, R.string.site_move_pick_tip,
+            R.string.site_move_here, 0, (dir, neutral) -> {
+                if (dir != null) moveSelectedToDir(targets, dir.getAbsolutePath());
+            });
+    }
+
+    private void moveSelectedToDir(List<Site> targets, String targetDir) {
+        if (TextUtils.isEmpty(targetDir)) return;
+        final List<Site> snapshot = new ArrayList<>(targets);
+        final String dirPath = targetDir;
+        new Thread(() -> {
+            int moved = 0;
+            String selfName = null;
+            try {
+                LocalSourceHub.beginBatch();
+                for (Site site : snapshot) {
+                    String prevDir = LocalSourceHub.categoryDirOf(site.getApi(), site.getExt(), null);
+                    int result = LocalSourceHub.moveSiteToDir(site.getApi(), site.getExt(), null, dirPath);
+                    if (result == 1) {
+                        moved++;
+                        // 记下「搬家前所在分类」，供「回退到上一次分类」用
+                        MoveHistory.record(LocalSourceHub.movedPath(), prevDir);
+                    } else if (result == LocalSourceHub.BLOCK_SELF_AUTHORED) {
+                        selfName = site.getName();
+                    }
+                }
+            } catch (Throwable ignored) {
+            } finally {
+                LocalSourceHub.endBatch();
+            }
+            final int movedCount = moved;
+            final String blockedName = selfName;
+            post(() -> {
+                if (!isAdded()) return;
+                if (blockedName != null) showSelfAuthoredHint(getString(R.string.site_self_authored, blockedName));
+                if (movedCount == 0) {
+                    Notify.show(R.string.site_move_fail);
+                    return;
+                }
+                Notify.show(getString(R.string.site_select_moved, movedCount));
+                reloadAfterMove();
+            });
+        }, "local-source-move-tree").start();
     }
 
     /** 删除/改名后立刻生效：重载点播配置 → 重建列表。 */
