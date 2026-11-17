@@ -80,7 +80,7 @@ public class WebSourceDialog {
                 return;
             }
             String rawUrl = urlInput.getText() == null ? "" : urlInput.getText().toString();
-            String webUrl = LocalSourceHub.normalizeWebSourceUrl(rawUrl);
+            String webUrl = LocalSourceHub.normalizeWebSourceUrl(LocalSourceHub.sanitizeWebSourceUrl(rawUrl));
             if (webUrl == null) {
                 Notify.show(isBlank(rawUrl) ? R.string.site_web_source_url_empty : R.string.site_web_source_url_invalid);
                 return;
