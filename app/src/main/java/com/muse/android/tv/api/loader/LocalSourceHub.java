@@ -3336,6 +3336,65 @@ public class LocalSourceHub {
         }
     }
 
+    // ==================== 批量导入网页源（v70） ====================
+
+    /** v70：批量导入网页源进度回调（后台线程调，调用方发回主线程刷新进度 UI）。 */
+    public interface BatchProgressListener {
+        void onProgress(int done, int total);
+    }
+
+    /**
+     * v70：批量导入网页源 —— 纯解析：按换行和逗号切分 → trim → 跳空段 →
+     * 缺 scheme（无 "://"）补 https://，返回清理后的 URL 列表。
+     * 不校验 host 是否合法，非法条目由追加时按格式不对跳过。
+     */
+    public static List<String> parseBatchWebSourceUrls(String input) {
+        List<String> urls = new ArrayList<>();
+        if (input == null || input.trim().isEmpty()) return urls;
+        for (String part : input.split("[\\r\\n,]+")) {
+            String value = part.trim();
+            if (value.isEmpty()) continue;
+            if (!value.contains("://")) value = "https://" + value;
+            urls.add(value);
+        }
+        return urls;
+    }
+
+    /**
+     * v70：批量导入网页源 —— 逐条复用 {@link #appendWebSource} 单个添加路径追加，
+     * key/name 取域名（去 www、小写），查重与当前配置全部站点 key 比，重复的跳过；
+     * 格式不对的（取不到域名）也跳过；配置级失败（网络源 / 无配置 / 无 sites /
+     * 写盘失败 / 无权限）后面的条目同样会失败，直接计入跳过并停止。
+     * 每处理完一条调 {@link BatchProgressListener#onProgress}（listener 为 null 时不调）。
+     *
+     * @return int[]{added, skipped} 成功数，跳过数
+     */
+    public static int[] importBatchWebSources(List<String> urls, BatchProgressListener listener) {
+        int added = 0;
+        int skipped = 0;
+        if (urls == null || urls.isEmpty()) return new int[]{0, 0};
+        int total = urls.size();
+        for (int i = 0; i < total; i++) {
+            String webUrl = normalizeWebSourceUrl(urls.get(i));
+            int result;
+            if (webUrl == null) {
+                result = WEB_INVALID;
+            } else {
+                String webName = deriveWebSourceName(webUrl);
+                result = webName.isEmpty() ? WEB_INVALID : appendWebSource(webName, webUrl);
+            }
+            if (result == WEB_OK || result == WEB_CREATED) added++;
+            else if (result == WEB_EXISTS || result == WEB_INVALID) skipped++;
+            else {
+                skipped += total - i;
+                if (listener != null) listener.onProgress(i + 1, total);
+                return new int[]{added, skipped};
+            }
+            if (listener != null) listener.onProgress(i + 1, total);
+        }
+        return new int[]{added, skipped};
+    }
+
     /**
      * v61：当前配置是不是网络源。file:// 是本地；http(s) 只有是内置服务 /file/ 地址且能定位到
      * 本机已存在的文件时才算本地，其余一律算网络（不能写，须提示切换本地源配置）。

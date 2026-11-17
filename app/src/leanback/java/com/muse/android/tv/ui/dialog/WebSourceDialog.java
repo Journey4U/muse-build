@@ -1,5 +1,12 @@
 package com.muse.android.tv.ui.dialog;
 
+import android.app.ProgressDialog;
+import android.os.Bundle;
+import android.text.InputFilter;
+import android.text.InputType;
+import android.view.View;
+import android.view.inputmethod.EditorInfo;
+
 import androidx.fragment.app.FragmentActivity;
 import androidx.viewbinding.ViewBinding;
 
@@ -12,6 +19,9 @@ import com.muse.android.tv.databinding.DialogWebSourceBinding;
 import com.muse.android.tv.impl.Callback;
 import com.muse.android.tv.utils.Notify;
 import com.muse.android.tv.utils.PermissionUtil;
+import com.muse.android.tv.utils.ResUtil;
+
+import java.util.List;
 
 /**
  * v22 网页源（电视版，移植自主线手机 v61/v62）：设置页「本地源」行下的「添加网页源」入口。
@@ -21,6 +31,8 @@ import com.muse.android.tv.utils.PermissionUtil;
  * 与电视版 ConfigDialog 同款），不用手机版程序拼 AlertDialog 的写法。
  * v25：点确定先走权限统一门（同步主线手机 v67）；通过后自动重试本次添加，拒绝弹
  * 权限提示 +「去设置」。
+ * v28 批量导入：同一弹窗的批量模式（showBatch），只留多行网址框，不设字节上限；
+ * 确认后先纯解析，100 条及以上弹横向进度框、后台线程逐条追加，进度发回主线程刷新。
  */
 public class WebSourceDialog extends BaseAlertDialog {
 
@@ -31,6 +43,19 @@ public class WebSourceDialog extends BaseAlertDialog {
         new WebSourceDialog().show(activity.getSupportFragmentManager(), null);
     }
 
+    /** v28：批量导入入口——与单个添加共用同一弹窗，批量模式只留多行网址框。 */
+    public static void showBatch(FragmentActivity activity) {
+        WebSourceDialog dialog = new WebSourceDialog();
+        Bundle args = new Bundle();
+        args.putBoolean("batch", true);
+        dialog.setArguments(args);
+        dialog.show(activity.getSupportFragmentManager(), null);
+    }
+
+    private boolean isBatch() {
+        return getArguments() != null && getArguments().getBoolean("batch", false);
+    }
+
     @Override
     protected ViewBinding getBinding() {
         return binding = DialogWebSourceBinding.inflate(getLayoutInflater());
@@ -38,18 +63,116 @@ public class WebSourceDialog extends BaseAlertDialog {
 
     @Override
     protected MaterialAlertDialogBuilder getBuilder() {
-        return builder().setTitle(R.string.site_web_source_title).setView(getBinding().getRoot());
+        return builder().setTitle(isBatch() ? R.string.web_source_batch_import : R.string.site_web_source_title).setView(getBinding().getRoot());
     }
 
     @Override
     protected void initView() {
+        if (isBatch()) {
+            // v28 批量模式：只要多行网址框——多行输入、不设字节上限（清掉长度过滤器），
+            // 名称框隐藏（key/name 一律取域名），提示换成批量说明
+            binding.name.setVisibility(View.GONE);
+            binding.url.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+            binding.url.setSingleLine(false);
+            binding.url.setMinLines(6);
+            binding.url.setFilters(new InputFilter[0]);
+            binding.url.setHint(R.string.web_source_batch_hint);
+            binding.url.setImeOptions(EditorInfo.IME_ACTION_DONE);
+            binding.url.requestFocus();
+            return;
+        }
         binding.url.requestFocus();
     }
 
     @Override
     protected void initEvent() {
-        binding.positive.setOnClickListener(v -> onPositive());
+        binding.positive.setOnClickListener(view -> {
+            if (isBatch()) onBatchPositive();
+            else onPositive();
+        });
         binding.negative.setOnClickListener(v -> dismiss());
+        binding.url.setOnEditorActionListener((textView, actionId, event) -> {
+            if (isBatch() && actionId == EditorInfo.IME_ACTION_DONE) {
+                binding.positive.performClick();
+                return true;
+            }
+            return false;
+        });
+    }
+
+    /** v28：批量导入确认——先纯解析得 URL 列表，空列表直接提示；再走权限门，通过后后台线程导入。 */
+    private void onBatchPositive() {
+        String raw = binding.url.getText() == null ? "" : binding.url.getText().toString();
+        List<String> urls = LocalSourceHub.parseBatchWebSourceUrls(raw);
+        if (urls.isEmpty()) {
+            Notify.show(R.string.web_source_batch_empty);
+            return;
+        }
+        // 与单个添加同款权限门：已授予直接跑，未授予弹系统申请，通过后自动重试本次导入
+        PermissionUtil.ensureStoragePermission(this,
+                () -> {
+                    FragmentActivity activity = requireActivity();
+                    dismiss();
+                    runBatchImport(activity, urls);
+                },
+                this::showPermissionDenied);
+    }
+
+    /**
+     * v28：批量导入执行——后台线程逐条追加，不卡界面；
+     * 100 条及以上弹横向进度框（ProgressDialog STYLE_HORIZONTAL），进度回调发回主线程刷新
+     * 进度条与“已处理 X / 共 Y 条”消息；跑完关进度框，再弹成功/跳过数结果，成功过就重载配置。
+     */
+    private void runBatchImport(FragmentActivity activity, List<String> urls) {
+        int total = urls.size();
+        ProgressDialog progress = null;
+        if (total >= 100) {
+            try {
+                progress = new ProgressDialog(activity);
+                progress.setTitle(R.string.web_source_batch_import);
+                progress.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+                progress.setMax(total);
+                progress.setProgress(0);
+                progress.setMessage(ResUtil.getString(R.string.web_source_batch_progress, 0, total));
+                progress.setCancelable(false);
+                progress.show();
+            } catch (Throwable ignored) {
+                progress = null;
+            }
+        }
+        final ProgressDialog dialog = progress;
+        new Thread(() -> {
+            int[] result = LocalSourceHub.importBatchWebSources(urls, dialog == null ? null : (done, totalCount) -> App.post(() -> {
+                try {
+                    if (dialog.isShowing()) {
+                        dialog.setProgress(done);
+                        dialog.setMessage(ResUtil.getString(R.string.web_source_batch_progress, done, totalCount));
+                    }
+                } catch (Throwable ignored) {
+                }
+            }));
+            App.post(() -> {
+                if (dialog != null) {
+                    try {
+                        dialog.dismiss();
+                    } catch (Throwable ignored) {
+                    }
+                }
+                Notify.show(ResUtil.getString(R.string.web_source_batch_result, result[0], result[1]));
+                if (result[0] > 0) {
+                    // 写完重载配置：新站立刻进切站列表，不用手动刷新
+                    VodConfig.get().init().load(new Callback() {
+                        @Override
+                        public void start() {
+                        }
+
+                        @Override
+                        public void success() {
+                        }
+                    });
+                }
+            });
+        }, "local-source-batch").start();
     }
 
     private void onPositive() {
