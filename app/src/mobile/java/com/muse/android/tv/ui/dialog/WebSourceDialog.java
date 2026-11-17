@@ -181,7 +181,7 @@ public class WebSourceDialog {
         // 强校验：网址无效原地提示，不关弹窗，避免「点了确定没反应」
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
             String rawUrl = urlInput.getText() == null ? "" : urlInput.getText().toString();
-            String webUrl = LocalSourceHub.normalizeWebSourceUrl(rawUrl);
+            String webUrl = LocalSourceHub.normalizeWebSourceUrl(LocalSourceHub.sanitizeWebSourceUrl(rawUrl));
             if (webUrl == null) {
                 Notify.show(isBlank(rawUrl) ? R.string.site_web_source_url_empty : R.string.site_web_source_url_invalid);
                 return;
