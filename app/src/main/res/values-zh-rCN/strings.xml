@@ -97,6 +97,11 @@
     <string name="web_back">返回</string>
     <string name="web_refresh">刷新</string>
     <string name="web_load_fail">播放地址获取失败</string>
+    <string name="web_source_batch_empty">请输入网址</string>
+    <string name="web_source_batch_hint">每行一个网址，也可用逗号分隔</string>
+    <string name="web_source_batch_import">批量导入网页源</string>
+    <string name="web_source_batch_progress">正在导入网页源（已处理 %1$d / 共 %2$d 条）</string>
+    <string name="web_source_batch_result">已添加 %1$d 个，跳过 %2$d 个</string>
     <string name="play_timer">定时</string>
     <string name="play_edition">标题</string>
     <string name="play_chapter">章节</string>

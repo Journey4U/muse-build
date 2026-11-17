@@ -112,6 +112,7 @@ public class SettingActivity extends BaseActivity implements ConfigListener, Sit
         mBinding.doh.setOnClickListener(this::setDoh);
         mBinding.localSource.setOnClickListener(this::onLocalSource);
         mBinding.webSource.setOnClickListener(v -> WebSourceDialog.show(this));
+        mBinding.webSourceBatch.setOnClickListener(v -> WebSourceDialog.showBatch(this));
         mBinding.live.setOnClickListener(this::onLive);
         mBinding.wall.setOnClickListener(this::onWall);
         mBinding.size.setOnClickListener(this::setSize);
