@@ -16,6 +16,8 @@ import com.muse.android.tv.impl.Callback;
 import com.muse.android.tv.utils.Notify;
 import com.muse.android.tv.utils.PermissionUtil;
 
+import java.util.List;
+
 /**
  * v62 网页源：设置页入口（v61 在切站弹窗里，Liu 嫌挤，挪到设置）。
  * 输网址（必填）+ 名称（可选，留空自动取域名），追加到当前配置 sites 数组末尾，
@@ -36,6 +38,111 @@ public class WebSourceDialog {
     public static void showEdit(Fragment fragment, Site site, Runnable onEdited) {
         if (site == null) return;
         showInternal(fragment, site, onEdited);
+    }
+
+    /**
+     * v70：批量导入网页源 —— 多行输入框（不设 maxLength），一次粘贴全部网址，
+     * 点一次确定全部一次处理完，不用分批。空输入原地提示，不关弹窗。
+     * >= 100 条时弹横向进度框，后台线程处理、进度发回主线程刷新。
+     */
+    public static void showBatch(Fragment fragment) {
+        if (fragment == null || !fragment.isAdded()) return;
+        Context context = fragment.requireContext();
+        android.widget.LinearLayout layout = new android.widget.LinearLayout(context);
+        layout.setOrientation(android.widget.LinearLayout.VERTICAL);
+        int pad = Math.round(18 * context.getResources().getDisplayMetrics().density);
+        layout.setPadding(pad, pad, pad, pad);
+        android.widget.EditText input = new android.widget.EditText(context);
+        input.setSingleLine(false);
+        input.setMinLines(5);
+        input.setGravity(android.view.Gravity.TOP);
+        input.setHint(R.string.web_source_batch_hint);
+        input.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+        layout.addView(input, new android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT));
+        AlertDialog dialog = new MaterialAlertDialogBuilder(context, R.style.TaixuAlertDialogTheme)
+                .setTitle(R.string.web_source_batch_import)
+                .setView(layout)
+                .setNegativeButton(R.string.dialog_negative, null)
+                .setPositiveButton(R.string.dialog_positive, null)
+                .create();
+        dialog.show();
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            String text = input.getText() == null ? "" : input.getText().toString();
+            List<String> urls = LocalSourceHub.parseBatchWebSourceUrls(text);
+            if (urls.isEmpty()) {
+                Notify.show(R.string.web_source_batch_empty);
+                return;
+            }
+            // 与单个添加同一权限门；通过后自动重试本次导入（输入保留，不让用户重输）
+            PermissionUtil.ensureStoragePermission(fragment,
+                    () -> {
+                        dialog.dismiss();
+                        runBatchImport(fragment, urls);
+                    },
+                    () -> showPermissionDenied(fragment));
+        });
+    }
+
+    /**
+     * v70：批量导入执行 —— total >= 100 弹横向进度框（ProgressDialog.STYLE_HORIZONTAL，
+     * 标题“批量导入网页源”，消息“正在导入网页源（已处理 X / 共 Y 条）”），后台线程跑导入，
+     * listener 经 App.post 发回主线程刷新进度条与消息；跑完关框再弹结果提示。
+     * total < 100 直接后台跑导入（listener 传 null），跑完弹结果提示。
+     */
+    private static void runBatchImport(Fragment fragment, List<String> urls) {
+        if (fragment == null || !fragment.isAdded()) return;
+        Context context = fragment.requireContext();
+        int total = urls.size();
+        if (total >= 100) {
+            android.app.ProgressDialog progress = new android.app.ProgressDialog(context);
+            progress.setTitle(R.string.web_source_batch_import);
+            progress.setProgressStyle(android.app.ProgressDialog.STYLE_HORIZONTAL);
+            progress.setMax(total);
+            progress.setProgress(0);
+            progress.setMessage(context.getString(R.string.web_source_batch_progress, 0, total));
+            progress.setCancelable(false);
+            progress.show();
+            new Thread(() -> {
+                int[] result = LocalSourceHub.importBatchWebSources(urls, (done, totalCount) -> App.post(() -> {
+                    if (progress.isShowing()) {
+                        progress.setProgress(done);
+                        progress.setMessage(context.getString(R.string.web_source_batch_progress, done, totalCount));
+                    }
+                }));
+                App.post(() -> {
+                    try {
+                        if (progress.isShowing()) progress.dismiss();
+                    } catch (Throwable ignored) {
+                    }
+                    showBatchResult(context, result);
+                });
+            }, "local-source-batch-import").start();
+        } else {
+            new Thread(() -> {
+                int[] result = LocalSourceHub.importBatchWebSources(urls, null);
+                App.post(() -> showBatchResult(context, result));
+            }, "local-source-batch-import").start();
+        }
+    }
+
+    /** v70：批量导入结果 —— 提示成功/跳过数；成功数 > 0 时重载配置，新站立刻进切站列表。 */
+    private static void showBatchResult(Context context, int[] result) {
+        int added = result == null || result.length < 2 ? 0 : result[0];
+        int skipped = result == null || result.length < 2 ? 0 : result[1];
+        Notify.show(context.getString(R.string.web_source_batch_result, added, skipped));
+        if (added > 0) {
+            VodConfig.get().init().load(new Callback() {
+                @Override
+                public void start() {
+                }
+
+                @Override
+                public void success() {
+                }
+            });
+        }
     }
 
     private static void showInternal(Fragment fragment, Site editTarget, Runnable onEdited) {

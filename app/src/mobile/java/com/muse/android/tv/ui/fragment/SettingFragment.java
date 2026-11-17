@@ -140,6 +140,7 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
         mBinding.vod.setOnClickListener(this::onVod);
         mBinding.localSource.setOnClickListener(v -> LocalSourceDialog.show(this, this::setLocalSourceText));
         mBinding.webSource.setOnClickListener(v -> WebSourceDialog.show(this));
+        mBinding.webSourceBatch.setOnClickListener(v -> WebSourceDialog.showBatch(this));
         mBinding.doh.setOnClickListener(this::setDoh);
         mBinding.live.setOnClickListener(this::onLive);
         mBinding.wall.setOnClickListener(this::onWall);
