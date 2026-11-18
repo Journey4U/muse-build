@@ -1021,7 +1021,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         "e[-_]?confirm/.test(ageIdc(n)))return true;n=n.parentElement;p++;}return false;}function kill(el){if(el&&el.pa",
         "rentNode)el.parentNode.removeChild(el);}function collapse(el){var p=el,i=0;while(p&&i<3&&p!==document.body){if",
         "(txt(p).length===0&&!p.querySelector('img,video,iframe,form,input,button,select,textarea')){var n=p.parentElem",
-        "ent;kill(p);p=n;i++;}else break;}}function killLoaderPadding(){var ss=document.querySelectorAll('style');for(v",
+        "ent;kill(p);p=n;i++;}else break;}}function collapseCard(a){var p=a,i=0;while(p&&i<3&&p!==document.body){var links=p.querySelectorAll(\'a[href]\');var hasReal=false;for(var k=0;k<links.length;k++){var h=links[k].getAttribute(\'href\')||\'\';if(!h)continue;if(isPlaceholderHref(h))continue;if(!foreign(links[k].href)){hasReal=true;break;}}if(hasReal)break;if(p.querySelector(\'img,video,iframe\'))break;if(txt(p).length>200)break;var n=p.parentElement;kill(p);p=n;i++;}}function killLoaderPadding(){var ss=document.querySelectorAll('style');for(v",
         "ar i=0;i<ss.length;i++){var st=ss[i];var id=st.id||'';if(id.slice(-9)!=='_style_id')continue;var t=(st.textCon",
         "tent||'').replace(/\\s/g,'');if(t.indexOf('padding-bottom:100px')>=0&&st.parentNode)st.parentNode.removeChild(s",
         "t);}}function mainLink(card){var as=card.querySelectorAll('a[href]');for(var i=0;i<as.length;i++){var a=as[i];",
@@ -1044,7 +1044,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         "runeExtraVideos();",
         // v76：假分类/假视频（跳转完成后，外链 <a> 藏掉；真分类/真视频是站内相对路径）+ 赌博横幅墙（javascript:void(0) 含图 <a> 藏掉）。
         // v77：直接进站也激活——isRealSite()（页含 ≥2 站内正片链接即真实站）时同样触发；发布站页无站内正片链接，不触发。
-        "/*v77*/if(window.__museJumpDone||isRealSite()){var __museFAs=document.querySelectorAll('a[href]');for(var __museFI=0;__museFI<__museFAs.length;__museFI++){var __museFA=__museFAs[__museFI];if(!__museFA.isConnected)continue;if(inAgeGate(__museFA))continue;if(isContent(__museFA))continue;if(!foreign(__museFA.href))continue;kill(__museFA);}var __museVAs=document.querySelectorAll('a[href^=\"javascript:void(0)\"]');for(var __museVI=0;__museVI<__museVAs.length;__museVI++){var __museVA=__museVAs[__museVI];if(!__museVA.isConnected)continue;if(inAgeGate(__museVA))continue;if(!__museVA.querySelector('img'))continue;kill(__museVA);}}",
+        "/*v77*/if(window.__museJumpDone||isRealSite()){var __museFAs=document.querySelectorAll('a[href]');for(var __museFI=0;__museFI<__museFAs.length;__museFI++){var __museFA=__museFAs[__museFI];if(!__museFA.isConnected)continue;if(inAgeGate(__museFA))continue;if(isContent(__museFA))continue;if(!foreign(__museFA.href))continue;var __museFP=__museFA.parentElement;kill(__museFA);collapseCard(__museFP);}var __museVAs=document.querySelectorAll('a[href^=\"javascript:void(0)\"]');for(var __museVI=0;__museVI<__museVAs.length;__museVI++){var __museVA=__museVAs[__museVI];if(!__museVA.isConnected)continue;if(inAgeGate(__museVA))continue;if(!__museVA.querySelector('img'))continue;var __museVP=__museVA.parentElement;kill(__museVA);collapseCard(__museVP);}}",
         "var as=document.querySelectorAll('a[href]');for(var i=0;i<as.length;i++){var a=as[i];if(!a.i",
         "sConnected)continue;if(inAgeGate(a))continue;if(!isAdUrl(a.href))continue;var rel=(a.getAttribute('rel')||'').",
         "toLowerCase();var spon=rel.indexOf('sponsored')>=0;var hasImg=!!a.querySelector('img');var hasBg=false;if(!spo",
