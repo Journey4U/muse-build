@@ -288,6 +288,8 @@
 <string name="play_invert">Invert</string>
 <string name="play_media_info">Media info</string>
     <string name="play_web">Web play</string>
+    <string name="web_back">Back</string>
+    <string name="web_refresh">Refresh</string>
     <string name="web_load_fail">Failed to get the play address</string>
     <string name="web_source_batch_empty">Please enter URLs</string>
     <string name="web_source_batch_hint">One URL per line, or separated by commas</string>
