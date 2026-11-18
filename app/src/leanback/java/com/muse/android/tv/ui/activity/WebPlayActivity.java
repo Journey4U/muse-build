@@ -1217,7 +1217,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         "f(el.querySelector(\'img\'))hasVisual=true;if(!hasVisual){var bg=cs.backgroundImage||\'\';if(bg.indexOf(\'url(\')>=0",
         ")hasVisual=true;}if(!hasVisual){var kids=el.querySelectorAll(\'*\');for(var k2=0;k2<kids.length;k2++){var kb=get",
         "ComputedStyle(kids[k2]).backgroundImage||\'\';if(kb.indexOf(\'url(\')>=0){hasVisual=true;break;}}}if(!hasVisual)re",
-        "turn false;return true;}\nfunction isFixedTopBanner(el){if(!el||el===document.body)return false;i",,
+        "turn false;return true;}\nfunction isFixedTopBanner(el){if(!el||el===document.body)return false;i",
         "f(isAgeGate(el))return false;if(isChallenge(el))return false;if(isContent(el))return false;if(isNavMenu(el))re",
         "turn false;if(el.querySelector&&el.querySelector('video'))return false;var cs=getComputedStyle(el);if(cs.posit",
         "ion!=='fixed')return false;var r=el.getBoundingClientRect();if(r.width<window.innerWidth*0.4)return false;if(r",
