@@ -1251,7 +1251,11 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         // 主页模式：站内搜片、换线路、选集全用网站自己的功能，壳子不传集列表/线路。
         if (TextUtils.isEmpty(click)) click = getSite().getClick();
         player().stop();
-        WebPlayActivity.start(this, getName(), url, header, new ArrayList<>(), new ArrayList<>(), 0, getKey(), "", click, new ArrayList<>(), homeJumpHost(getSite()));
+        // v72：jumpHost 直接取要打开的 url 的 host（即初始页 host），不依赖规则字段名
+        //（防丢url/发布站改名也不怕）；防丢url 跳转后由 WebPlayActivity 在 onPageStarted 里一次性跟进。
+        String jumpHost = hostOf(url);
+        if (jumpHost == null) jumpHost = "";
+        WebPlayActivity.start(this, getName(), url, header, new ArrayList<>(), new ArrayList<>(), 0, getKey(), "", click, new ArrayList<>(), jumpHost);
     }
 
     @Override
