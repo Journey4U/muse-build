@@ -1089,7 +1089,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         "var hr=null;if(isAdIframe(el))hr='isAdIframe';else if(isFixedBottomIframe(el))hr='isFixedBottomIframe';else if",
         "(isBottomBar(el))hr='isBottomBar';else if(isBottomAd(el))hr='isBottomAd';else if(isBottomFlowAd(el))hr='isBott",
         "omFlowAd';else if(isFloatAd(el))hr='isFloatAd';else if(isAdLinkGrid(el))hr='isAdLinkGrid';else if(isFixedBotto",
-        "mAd(el))hr='isFixedBottomAd';else if(isGenericBottomBanner(el))hr='isGenericBottomBanner';else if(isFixedBotto",
+        "mAd(el))hr='isFixedBottomAd';else if(isGenericBottomBanner(el))hr='isGenericBottomBanner';else if(isFixedBottomImageCardRow(el))hr='isFixedBottomImageCardRow';else if(isFixedBotto",
         "mImageAd(el))hr='isFixedBottomImageAd';else if(isGenericMidBanner(el))hr='isGenericMidBanner';else if(isFixedT",
         "opBanner(el))hr='isFixedTopBanner';else if(isBottomPornAd(el))hr='isBottomPornAd';if(hr){noteHide(hr,el);el.st",
         "yle.display='none';}}var links=document.querySelectorAll('a[href]');for(var q=0;q<links.length;q++){var lk=lin",
@@ -1206,7 +1206,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         "ySelector('img,iframe'))hasVisual=true;if(!hasVisual){var bg=cs.backgroundImage||'';if(bg.indexOf('url(')>=0)h",
         "asVisual=true;}if(!hasVisual){var kids=el.querySelectorAll('*');for(var k=0;k<kids.length;k++){var kb=getCompu",
         "tedStyle(kids[k]).backgroundImage||'';if(kb.indexOf('url(')>=0){hasVisual=true;break;}}}if(!hasVisual)return f",
-        "alse;return true;}\nfunction isGenericBottomBanner(el){if(!el||el===document.body)return false;if(isAgeGate(el)",
+        "alse;return true;}\nfunction isImageCard(c){if(!c||c.nodeType!==1)return false;if(c.tagName==='IMG')return false;var hasImg=false;var ch=c.children;for(var i=0;i<ch.length;i++){if(ch[i].tagName==='IMG'){hasImg=true;break;}}if(!hasImg){var b=getComputedStyle(c).backgroundImage||'';if(b.indexOf('url(')>=0)hasImg=true;}if(!hasImg)return false;return txt(c).length<=8;}\nfunction isFixedBottomImageCardRow(el){if(!el||el===document.body)return false;if(isAgeGate(el)||inAgeGate(el))return false;if(isChallenge(el))return false;if(isContent(el))return false;if(el.tagName==='NAV')return false;if(el.closest){try{if(el.closest('nav,[role=\"navigation\"]'))return false;}catch(e){}}if(el.querySelector&&el.querySelector('video,.dplayer'))return false;if(el.querySelector&&el.querySelector('form,input,button,select,textarea'))return false;var an=el,depth=0,found=false;while(an&&an!==document.body&&depth<=2){var cs=getComputedStyle(an);if(cs.position==='fixed'||cs.position==='absolute'||cs.position==='sticky'){found=true;break;}an=an.parentElement;depth++;}if(!found)return false;var r=an.getBoundingClientRect();if(r.width<window.innerWidth*0.4)return false;if(r.bottom<window.innerHeight-2)return false;if(r.top<window.innerHeight*0.5)return false;if(r.height<60||r.height>250)return false;var as=el.querySelectorAll('a[href]');for(var i=0;i<as.length;i++){var h=as[i].getAttribute('href')||'';if(isPlaceholderHref(h))continue;if(!foreign(as[i].href))return false;}var cards=0;var kids=el.children;for(var k=0;k<kids.length;k++){if(isImageCard(kids[k])){cards++;continue;}var gcs=kids[k].children;for(var g=0;g<gcs.length;g++){if(isImageCard(gcs[g]))cards++;}}if(cards<2)return false;return true;}\nfunction isGenericBottomBanner(el){if(!el||el===document.body)return false;if(isAgeGate(el)",
         ")return false;if(isChallenge(el))return false;if(isContent(el))return false;if(isNavMenu(el))return false;if(e",
         "l.querySelector&&el.querySelector('video'))return false;var cs=getComputedStyle(el);if(cs.position!=='fixed'&&",
         "cs.position!=='absolute'&&cs.position!=='sticky')return false;var r=el.getBoundingClientRect();if(r.width<wind",
@@ -1783,7 +1783,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 // v97：不再立即显示——等 CLEAN_JS 回调再显示，否则分类页加载快会抢在首扫前闪出横幅墙（同 onPageCommitVisible）。
                 evalCleanJs(view);
                 // v77：直接进站也算“跳转完成”——入口页加载完，若是真实站（含 ≥2 站内正片链接），清 mJumpHost 激活 v76 规则；发布站页无站内正片链接，不触发。
-                if (!mJumpUsed && !TextUtils.isEmpty(mJumpHost)) {
+                if (!TextUtils.isEmpty(mJumpHost)) {
                     String curHost = null;
                     try { curHost = Uri.parse(url).getHost(); } catch (Exception ignored) {}
                     if (!TextUtils.isEmpty(curHost) && curHost.equalsIgnoreCase(mJumpHost)) {
