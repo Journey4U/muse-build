@@ -96,6 +96,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
      */
     // v28 (P0，同步主线 v58)：isChallenge 扩为整页挑战检测——标题含「请稍候/Just a moment」或 HTML 含 challenges.cloudflare.com/cf-challenge 时整页跳过 CLEAN_JS；
     // div 循环加 isChallenge 守卫；isModal/isOpaqueModal/isBigOverlay 内部加 isChallenge 守卫。
+    // v40：mtyy.tv 发布页变空白——v81 的 isGenericMidBanner 藏了全外链链接目录页；加页级同站链接守卫（同站 <2 条或 <10% 时跳过本规则），helper 缓存每轮 run() 复位。
     private static final String[] CLEAN_JS_PARTS = {
         "(function(){if(window.__museWebClean)return;try{var __museCT=(document.title||'').toLowerCase();if(__museCT.in",
         "dexOf('请稍候')>=0||__museCT.indexOf('just a moment')>=0)return;var __museCH=document.documentElement.outerHTML.s",
@@ -1280,8 +1281,15 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         "isual=true;else if(el.querySelector('img'))hasVisual=true;if(!hasVisual){var bg2=cs.backgroundImage||'';if(bg2",
         ".indexOf('url(')>=0)hasVisual=true;}if(!hasVisual){var kids=el.querySelectorAll('*');for(var k2=0;k2<kids.leng",
         "th;k2++){var kb=getComputedStyle(kids[k2]).backgroundImage||'';if(kb.indexOf('url(')>=0){hasVisual=true;break;",
-        "}}}if(!hasVisual&&el.querySelector(\'iframe\'))hasVisual=true;if(!hasVisual)return false;return true;}\nfunction ",
-        "isGenericMidBanner(el){if(!el||el===document.body)return false;if(isAgeGate(el))return false;if(isChallenge(el",
+        "}}}if(!hasVisual&&el.querySelector(\'iframe\'))hasVisual=true;if(!hasVisual)return false;return true;}\n",
+        "var __museSameHostStats=null;function sameHostLinkStats(){if(__museSameHostStats)return __museSameHostStats;va",
+        "r as=document.querySelectorAll('a[href]');var same=0,total=0;for(var i=0;i<as.length;i++){var h=as[i].getAttri",
+        "bute('href')||'';if(isPlaceholderHref(h))continue;total++;if(!foreign(as[i].href))same++;}__museSameHostStats=",
+        "{same:same,total:total};return __museSameHostStats;}\n",
+        "function ",
+        "isGenericMidBanner(el){if(!el||el===document.body)return false;",
+        "var __st=sameHostLinkStats();if(__st.same<2||__st.same*10<__st.total)return false;",
+        "if(isAgeGate(el))return false;if(isChallenge(el",
         "))return false;if(isContent(el))return false;if(isNavMenu(el))return false;if(el.querySelector&&el.querySelect",
         "or(\'video\'))return false;if(el.querySelector&&el.querySelector(\'iframe\'))return false;var cs=getComputedStyle(",
         "el);if(cs.position===\'fixed\'||cs.position===\'sticky\')return false;var r=el.getBoundingClientRect();if(r.width<",
@@ -1371,7 +1379,9 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         "ar el2=els[j];if(!el2.isConnected)continue;if(el2.querySelector('video,iframe'))continue;var t=txt(el2);if(t.l",
         "ength>16)continue;if(/^(广告)?(\\d{1,2}:\\d{2}|\\d+s?|\\d+秒)后(自动)?(关闭|关)$/.test(t)){killPreRollOne(el2);}else if(/^(",
         "跳过广告|SkipAd)$/i.test(t)){var h=el2.tagName==='A'?(el2.getAttribute('href')||''):'';if(el2.tagName!=='A'||h.ind",
-        "exOf('javascript:')===0)clickNeutral(el2);}}}function run(){if(document.fullscreenElement)return;try{sweep();}",
+        "exOf('javascript:')===0)clickNeutral(el2);}}}function run(){",
+        "__museSameHostStats=null;",
+        "if(document.fullscreenElement)return;try{sweep();}",
         "catch(e){}}run();setTimeout(run,1200);setTimeout(run,3500);var sweepTimer=setInterval(run,2000);setTimeout(fun",
         "ction(){try{clearInterval(sweepTimer);}catch(e){}},300000);if(document.addEventListener){document.addEventList",
         "ener('fullscreenchange',function(){if(!document.fullscreenElement){var vs=document.querySelectorAll('video');f",
