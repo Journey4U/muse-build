@@ -1,209 +1,226 @@
 package com.muse.android.tv.ui.dialog;
 
-import android.app.ProgressDialog;
-import android.os.Bundle;
-import android.text.InputFilter;
-import android.text.InputType;
-import android.view.View;
-import android.view.inputmethod.EditorInfo;
+import android.app.Activity;
+import android.content.Context;
 
-import androidx.fragment.app.FragmentActivity;
-import androidx.viewbinding.ViewBinding;
+import androidx.appcompat.app.AlertDialog;
+import androidx.fragment.app.Fragment;
 
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.muse.android.tv.App;
 import com.muse.android.tv.R;
 import com.muse.android.tv.api.config.VodConfig;
 import com.muse.android.tv.api.loader.LocalSourceHub;
-import com.muse.android.tv.databinding.DialogWebSourceBinding;
+import com.muse.android.tv.bean.Site;
 import com.muse.android.tv.impl.Callback;
 import com.muse.android.tv.utils.Notify;
 import com.muse.android.tv.utils.PermissionUtil;
-import com.muse.android.tv.utils.ResUtil;
 
 import java.util.List;
 
 /**
- * v22 网页源（电视版，移植自主线手机 v61/v62）：设置页「本地源」行下的「添加网页源」入口。
+ * v62 网页源：设置页入口（v61 在切站弹窗里，Liu 嫌挤，挪到设置）。
  * 输网址（必填）+ 名称（可选，留空自动取域名），追加到当前配置 sites 数组末尾，
  * 写完重载配置，新站立刻出现在切站列表里。
- * 电视写法：BaseAlertDialog + dialog_web_source.xml（CustomEditText 行式输入 + 底部确认/取消，
- * 与电视版 ConfigDialog 同款），不用手机版程序拼 AlertDialog 的写法。
- * v25：点确定先走权限统一门（同步主线手机 v67）；通过后自动重试本次添加，拒绝弹
- * 权限提示 +「去设置」。
- * v28 批量导入：同一弹窗的批量模式（showBatch），只留多行网址框，不设字节上限；
- * 确认后先纯解析，100 条及以上弹横向进度框、后台线程逐条追加，进度发回主线程刷新。
+ * v67：入口改传 Fragment，点确定先走权限统一门；通过后自动重试本次添加（名字和
+ * 网址保留，不让用户重输），拒绝弹权限提示 +「去设置」。
  */
-public class WebSourceDialog extends BaseAlertDialog {
+public class WebSourceDialog {
 
-    private DialogWebSourceBinding binding;
-
-    public static void show(FragmentActivity activity) {
-        if (activity == null) return;
-        new WebSourceDialog().show(activity.getSupportFragmentManager(), null);
-    }
-
-    /** v28：批量导入入口——与单个添加共用同一弹窗，批量模式只留多行网址框。 */
-    public static void showBatch(FragmentActivity activity) {
-        WebSourceDialog dialog = new WebSourceDialog();
-        Bundle args = new Bundle();
-        args.putBoolean("batch", true);
-        dialog.setArguments(args);
-        dialog.show(activity.getSupportFragmentManager(), null);
-    }
-
-    private boolean isBatch() {
-        return getArguments() != null && getArguments().getBoolean("batch", false);
-    }
-
-    @Override
-    protected ViewBinding getBinding() {
-        return binding = DialogWebSourceBinding.inflate(getLayoutInflater());
-    }
-
-    @Override
-    protected MaterialAlertDialogBuilder getBuilder() {
-        return builder().setTitle(isBatch() ? R.string.web_source_batch_import : R.string.site_web_source_title).setView(getBinding().getRoot());
-    }
-
-    @Override
-    protected void initView() {
-        if (isBatch()) {
-            // v28 批量模式：只要多行网址框——多行输入、不设字节上限（清掉长度过滤器），
-            // 名称框隐藏（key/name 一律取域名），提示换成批量说明
-            binding.name.setVisibility(View.GONE);
-            binding.url.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
-            binding.url.setSingleLine(false);
-            binding.url.setMinLines(6);
-            binding.url.setFilters(new InputFilter[0]);
-            binding.url.setHint(R.string.web_source_batch_hint);
-            binding.url.setImeOptions(EditorInfo.IME_ACTION_DONE);
-            binding.url.requestFocus();
-            return;
-        }
-        binding.url.requestFocus();
-    }
-
-    @Override
-    protected void initEvent() {
-        binding.positive.setOnClickListener(view -> {
-            if (isBatch()) onBatchPositive();
-            else onPositive();
-        });
-        binding.negative.setOnClickListener(v -> dismiss());
-        binding.url.setOnEditorActionListener((textView, actionId, event) -> {
-            if (isBatch() && actionId == EditorInfo.IME_ACTION_DONE) {
-                binding.positive.performClick();
-                return true;
-            }
-            return false;
-        });
-    }
-
-    /** v28：批量导入确认——先纯解析得 URL 列表，空列表直接提示；再走权限门，通过后后台线程导入。 */
-    private void onBatchPositive() {
-        String raw = binding.url.getText() == null ? "" : binding.url.getText().toString();
-        List<String> urls = LocalSourceHub.parseBatchWebSourceUrls(raw);
-        if (urls.isEmpty()) {
-            Notify.show(R.string.web_source_batch_empty);
-            return;
-        }
-        // 与单个添加同款权限门：已授予直接跑，未授予弹系统申请，通过后自动重试本次导入
-        PermissionUtil.ensureStoragePermission(this,
-                () -> {
-                    FragmentActivity activity = requireActivity();
-                    dismiss();
-                    runBatchImport(activity, urls);
-                },
-                this::showPermissionDenied);
+    public static void show(Fragment fragment) {
+        showInternal(fragment, null, null);
     }
 
     /**
-     * v28：批量导入执行——后台线程逐条追加，不卡界面；
-     * 100 条及以上弹横向进度框（ProgressDialog STYLE_HORIZONTAL），进度回调发回主线程刷新
-     * 进度条与“已处理 X / 共 Y 条”消息；跑完关进度框，再弹成功/跳过数结果，成功过就重载配置。
+     * v67：网页源改名 —— 复用添加弹窗：预填当前名字与网址，标题换成改名，
+     * 提交走改名接口；改后由调用方重载列表（onEdited，见 SiteDialog）。
      */
-    private void runBatchImport(FragmentActivity activity, List<String> urls) {
-        int total = urls.size();
-        ProgressDialog progress = null;
-        if (total >= 100) {
-            try {
-                progress = new ProgressDialog(activity);
-                progress.setTitle(R.string.web_source_batch_import);
-                progress.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
-                progress.setMax(total);
-                progress.setProgress(0);
-                progress.setMessage(ResUtil.getString(R.string.web_source_batch_progress, 0, total));
-                progress.setCancelable(false);
-                progress.show();
-            } catch (Throwable ignored) {
-                progress = null;
+    public static void showEdit(Fragment fragment, Site site, Runnable onEdited) {
+        if (site == null) return;
+        showInternal(fragment, site, onEdited);
+    }
+
+    /**
+     * v70：批量导入网页源 —— 多行输入框（不设 maxLength），一次粘贴全部网址，
+     * 点一次确定全部一次处理完，不用分批。空输入原地提示，不关弹窗。
+     * >= 100 条时弹横向进度框，后台线程处理、进度发回主线程刷新。
+     */
+    public static void showBatch(Fragment fragment) {
+        if (fragment == null || !fragment.isAdded()) return;
+        Context context = fragment.requireContext();
+        android.widget.LinearLayout layout = new android.widget.LinearLayout(context);
+        layout.setOrientation(android.widget.LinearLayout.VERTICAL);
+        int pad = Math.round(18 * context.getResources().getDisplayMetrics().density);
+        layout.setPadding(pad, pad, pad, pad);
+        android.widget.EditText input = new android.widget.EditText(context);
+        input.setSingleLine(false);
+        input.setMinLines(5);
+        input.setGravity(android.view.Gravity.TOP);
+        input.setHint(R.string.web_source_batch_hint);
+        input.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+        layout.addView(input, new android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT));
+        AlertDialog dialog = new MaterialAlertDialogBuilder(context, R.style.TaixuAlertDialogTheme)
+                .setTitle(R.string.web_source_batch_import)
+                .setView(layout)
+                .setNegativeButton(R.string.dialog_negative, null)
+                .setPositiveButton(R.string.dialog_positive, null)
+                .create();
+        dialog.show();
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            String text = input.getText() == null ? "" : input.getText().toString();
+            List<String> urls = LocalSourceHub.parseBatchWebSourceUrls(text);
+            if (urls.isEmpty()) {
+                Notify.show(R.string.web_source_batch_empty);
+                return;
             }
-        }
-        final ProgressDialog dialog = progress;
-        new Thread(() -> {
-            int[] result = LocalSourceHub.importBatchWebSources(urls, dialog == null ? null : (done, totalCount) -> App.post(() -> {
-                try {
-                    if (dialog.isShowing()) {
-                        dialog.setProgress(done);
-                        dialog.setMessage(ResUtil.getString(R.string.web_source_batch_progress, done, totalCount));
-                    }
-                } catch (Throwable ignored) {
-                }
-            }));
-            App.post(() -> {
-                if (dialog != null) {
-                    try {
+            // 与单个添加同一权限门；通过后自动重试本次导入（输入保留，不让用户重输）
+            PermissionUtil.ensureStoragePermission(fragment,
+                    () -> {
                         dialog.dismiss();
+                        runBatchImport(fragment, urls);
+                    },
+                    () -> showPermissionDenied(fragment));
+        });
+    }
+
+    /**
+     * v70：批量导入执行 —— total >= 100 弹横向进度框（ProgressDialog.STYLE_HORIZONTAL，
+     * 标题“批量导入网页源”，消息“正在导入网页源（已处理 X / 共 Y 条）”），后台线程跑导入，
+     * listener 经 App.post 发回主线程刷新进度条与消息；跑完关框再弹结果提示。
+     * total < 100 直接后台跑导入（listener 传 null），跑完弹结果提示。
+     */
+    private static void runBatchImport(Fragment fragment, List<String> urls) {
+        if (fragment == null || !fragment.isAdded()) return;
+        Context context = fragment.requireContext();
+        int total = urls.size();
+        if (total >= 100) {
+            android.app.ProgressDialog progress = new android.app.ProgressDialog(context);
+            progress.setTitle(R.string.web_source_batch_import);
+            progress.setProgressStyle(android.app.ProgressDialog.STYLE_HORIZONTAL);
+            progress.setMax(total);
+            progress.setProgress(0);
+            progress.setMessage(context.getString(R.string.web_source_batch_progress, 0, total));
+            progress.setCancelable(false);
+            progress.show();
+            new Thread(() -> {
+                int[] result = LocalSourceHub.importBatchWebSources(urls, (done, totalCount) -> App.post(() -> {
+                    if (progress.isShowing()) {
+                        progress.setProgress(done);
+                        progress.setMessage(context.getString(R.string.web_source_batch_progress, done, totalCount));
+                    }
+                }));
+                App.post(() -> {
+                    try {
+                        if (progress.isShowing()) progress.dismiss();
                     } catch (Throwable ignored) {
                     }
-                }
-                Notify.show(ResUtil.getString(R.string.web_source_batch_result, result[0], result[1]));
-                if (result[0] > 0) {
-                    // 写完重载配置：新站立刻进切站列表，不用手动刷新
-                    VodConfig.get().init().load(new Callback() {
-                        @Override
-                        public void start() {
-                        }
+                    showBatchResult(context, result);
+                });
+            }, "local-source-batch-import").start();
+        } else {
+            new Thread(() -> {
+                int[] result = LocalSourceHub.importBatchWebSources(urls, null);
+                App.post(() -> showBatchResult(context, result));
+            }, "local-source-batch-import").start();
+        }
+    }
 
-                        @Override
-                        public void success() {
-                        }
-                    });
+    /** v70：批量导入结果 —— 提示成功/跳过数；成功数 > 0 时重载配置，新站立刻进切站列表。 */
+    private static void showBatchResult(Context context, int[] result) {
+        int added = result == null || result.length < 2 ? 0 : result[0];
+        int skipped = result == null || result.length < 2 ? 0 : result[1];
+        Notify.show(context.getString(R.string.web_source_batch_result, added, skipped));
+        if (added > 0) {
+            VodConfig.get().init().load(new Callback() {
+                @Override
+                public void start() {
+                }
+
+                @Override
+                public void success() {
                 }
             });
-        }, "local-source-batch").start();
+        }
     }
 
-    private void onPositive() {
-        String rawUrl = binding.url.getText() == null ? "" : binding.url.getText().toString();
-        String webUrl = LocalSourceHub.normalizeWebSourceUrl(LocalSourceHub.sanitizeWebSourceUrl(rawUrl));
-        if (webUrl == null) {
-            Notify.show(isBlank(rawUrl) ? R.string.site_web_source_url_empty : R.string.site_web_source_url_invalid);
-            return;
+    private static void showInternal(Fragment fragment, Site editTarget, Runnable onEdited) {
+        if (fragment == null || !fragment.isAdded()) return;
+        Context context = fragment.requireContext();
+        android.widget.LinearLayout layout = new android.widget.LinearLayout(context);
+        layout.setOrientation(android.widget.LinearLayout.VERTICAL);
+        int pad = Math.round(18 * context.getResources().getDisplayMetrics().density);
+        layout.setPadding(pad, pad, pad, pad);
+        android.widget.EditText urlInput = new android.widget.EditText(context);
+        urlInput.setSingleLine(true);
+        urlInput.setHint(R.string.site_web_source_url_hint);
+        urlInput.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_URI);
+        android.widget.EditText nameInput = new android.widget.EditText(context);
+        nameInput.setSingleLine(true);
+        nameInput.setHint(R.string.site_web_source_name_hint);
+        // v67：改名预填当前名字与网址（光标落到名字末尾，方便直接改）
+        if (editTarget != null) {
+            urlInput.setText(editTarget.getHomePageUrl());
+            nameInput.setText(editTarget.getName());
+            nameInput.setSelection(nameInput.getText() == null ? 0 : nameInput.getText().length());
         }
-        String rawName = binding.name.getText() == null ? "" : binding.name.getText().toString().trim();
-        String webName = rawName.isEmpty() ? LocalSourceHub.deriveWebSourceName(webUrl) : rawName;
-        if (webName.isEmpty()) {
-            Notify.show(R.string.site_web_source_url_invalid);
-            return;
-        }
-        String done = getString(R.string.site_web_source_done, webName);
-        // v25：先走权限门；已授予直接加，未授予弹系统申请，通过后自动重试本次添加
-        PermissionUtil.ensureStoragePermission(this,
-                () -> {
-                    dismiss();
-                    addWebSource(webName, webUrl, done);
-                },
-                this::showPermissionDenied);
+        layout.addView(urlInput, new android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT));
+        layout.addView(nameInput, new android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT));
+        AlertDialog dialog = new MaterialAlertDialogBuilder(context, R.style.TaixuAlertDialogTheme)
+                .setTitle(editTarget == null ? R.string.site_web_source_title : R.string.site_websource_rename_title)
+                .setView(layout)
+                .setNegativeButton(R.string.dialog_negative, null)
+                .setPositiveButton(R.string.dialog_positive, null)
+                .create();
+        dialog.show();
+        // 强校验：网址无效原地提示，不关弹窗，避免「点了确定没反应」
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            String rawUrl = urlInput.getText() == null ? "" : urlInput.getText().toString();
+            String webUrl = LocalSourceHub.normalizeWebSourceUrl(LocalSourceHub.sanitizeWebSourceUrl(rawUrl));
+            if (webUrl == null) {
+                Notify.show(isBlank(rawUrl) ? R.string.site_web_source_url_empty : R.string.site_web_source_url_invalid);
+                return;
+            }
+            String rawName = nameInput.getText() == null ? "" : nameInput.getText().toString().trim();
+            String webName = rawName.isEmpty() ? LocalSourceHub.deriveWebSourceName(webUrl) : rawName;
+            if (webName.isEmpty()) {
+                Notify.show(R.string.site_web_source_url_invalid);
+                return;
+            }
+            // v67：先走权限门；已授予直接提交，未授予弹系统申请，通过后自动重试本次操作
+            // （名字和网址保留，不让用户重输）
+            PermissionUtil.ensureStoragePermission(fragment,
+                    () -> {
+                        dialog.dismiss();
+                        if (editTarget == null) addWebSource(context, webName, webUrl);
+                        else editWebSource(context, editTarget.getKey(), webName, webUrl, onEdited);
+                    },
+                    () -> showPermissionDenied(fragment));
+        });
     }
 
-    private void addWebSource(String name, String url, String done) {
+    /** v67：拒绝弹权限提示 +「去设置」（输入弹窗还留着，点取消回来不用重输）。 */
+    private static void showPermissionDenied(Fragment fragment) {
+        if (fragment == null || !fragment.isAdded()) return;
+        Activity activity = fragment.requireActivity();
+        new MaterialAlertDialogBuilder(activity)
+                .setMessage(R.string.websource_storage_permission_required)
+                .setPositiveButton(R.string.permission_open_settings, (dialog, which) -> PermissionUtil.openAppSettings(activity))
+                .setNegativeButton(R.string.dialog_negative, null)
+                .show();
+    }
+
+    private static void addWebSource(Context context, String name, String url) {
         new Thread(() -> {
             final int result = LocalSourceHub.appendWebSource(name, url);
             App.post(() -> {
-                if (result == LocalSourceHub.WEB_OK) {
-                    Notify.show(done);
+                if (result == LocalSourceHub.WEB_OK || result == LocalSourceHub.WEB_CREATED) {
+                    Notify.show(context.getString(result == LocalSourceHub.WEB_CREATED ? R.string.site_web_source_created : R.string.site_web_source_done, name));
                     // 写完重载配置：新站立刻进切站列表，不用手动刷新
                     VodConfig.get().init().load(new Callback() {
                         @Override
@@ -217,24 +234,46 @@ public class WebSourceDialog extends BaseAlertDialog {
                 } else if (result == LocalSourceHub.WEB_EXISTS) Notify.show(R.string.site_web_source_exists);
                 else if (result == LocalSourceHub.WEB_NETWORK) Notify.show(R.string.site_web_source_network);
                 else if (result == LocalSourceHub.WEB_NO_CONFIG) Notify.show(R.string.site_web_source_no_config);
-                else if (result == LocalSourceHub.WEB_NO_PERMISSION) showPermissionDenied();
+                else if (result == LocalSourceHub.WEB_NO_PERMISSION) showNoPermission(context);
                 else Notify.show(R.string.site_web_source_fail);
             });
         }, "local-source-websource").start();
     }
 
-    /** v25：拒绝 / 写盘时才发现没权限：弹权限提示 +「去设置」；弹窗已不在时退回 Toast。 */
-    private void showPermissionDenied() {
-        if (!isAdded()) {
+    /** v67：改名提交 —— 后台调改名接口；成功提示 + 通知调用方重载列表，其余按返回码提示。 */
+    private static void editWebSource(Context context, String oldKey, String name, String url, Runnable onEdited) {
+        new Thread(() -> {
+            final int result = LocalSourceHub.renameWebSource(oldKey, name, url);
+            App.post(() -> {
+                if (result == LocalSourceHub.WEB_OK) {
+                    Notify.show(context.getString(R.string.site_websource_rename_done, name));
+                    if (onEdited != null) onEdited.run();
+                } else if (result == LocalSourceHub.WEB_EXISTS) Notify.show(R.string.site_web_source_exists);
+                else if (result == LocalSourceHub.WEB_NETWORK) Notify.show(R.string.site_websource_network);
+                else if (result == LocalSourceHub.WEB_NOT_FOUND) {
+                    Notify.show(R.string.site_websource_not_found);
+                    if (onEdited != null) onEdited.run();
+                } else if (result == LocalSourceHub.WEB_NO_PERMISSION) showNoPermission(context);
+                else Notify.show(R.string.site_websource_edit_fail);
+            });
+        }, "local-source-websource-rename").start();
+    }
+
+    /**
+     * v67：写盘时才发现没权限（与笼统的失败分开）：同样弹权限提示 +「去设置」。
+     * 包内可见，供 SiteDialog 的网页源删除复用（同一写盘失败口径）。
+     */
+    static void showNoPermission(Context context) {
+        if (context instanceof Activity && !((Activity) context).isFinishing()) {
+            Activity activity = (Activity) context;
+            new MaterialAlertDialogBuilder(activity)
+                    .setMessage(R.string.websource_storage_permission_required)
+                    .setPositiveButton(R.string.permission_open_settings, (dialog, which) -> PermissionUtil.openAppSettings(activity))
+                    .setNegativeButton(R.string.dialog_negative, null)
+                    .show();
+        } else {
             Notify.show(R.string.websource_storage_permission_required);
-            return;
         }
-        FragmentActivity activity = requireActivity();
-        new MaterialAlertDialogBuilder(activity)
-                .setMessage(R.string.websource_storage_permission_required)
-                .setPositiveButton(R.string.permission_open_settings, (dialog, which) -> PermissionUtil.openAppSettings(activity))
-                .setNegativeButton(R.string.dialog_negative, null)
-                .show();
     }
 
     private static boolean isBlank(String value) {
