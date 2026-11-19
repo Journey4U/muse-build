@@ -479,6 +479,8 @@ public class VodPlaybackController {
     }
 
     private void requestPlayer(Flag flag, Episode episode) {
+        // push v1：浏览器全集现嗅集（webep: 伪地址）——不进 playerContent，交给宿主现开页面嗅流；宿主不认（返回 false）才继续走正常播放。
+        if (episode != null && episode.getUrl() != null && episode.getUrl().startsWith("webep:") && host.resolveWebEpisode(flag, episode)) return;
         historyPolicy.updateEpisode(state.getHistory(), flag, episode);
         VodPlayRequest request = VodPlayRequest.create(host.getVodKey(), flag, episode);
         state.setPendingRequest(request);

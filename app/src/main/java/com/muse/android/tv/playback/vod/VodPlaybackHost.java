@@ -29,6 +29,11 @@ public interface VodPlaybackHost {
         return -1;
     }
 
+    /** push v1：解析浏览器全集现嗅集（webep: 伪地址）。返回 true 表示宿主已接手（异步解析后自行续播），控制器不再进 playerContent；默认不认。 */
+    default boolean resolveWebEpisode(Flag flag, Episode episode) {
+        return false;
+    }
+
     String getHistoryKey();
 
     boolean isSiteChangeable();

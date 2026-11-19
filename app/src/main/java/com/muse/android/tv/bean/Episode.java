@@ -68,6 +68,11 @@ public class Episode implements Parcelable, Diffable<Episode> {
         return TextUtils.isEmpty(url) ? "" : url;
     }
 
+    /** push v1：现嗅集解析成功后把直链写回该集（原地改 url，不重建 Episode）。 */
+    public void setUrl(String url) {
+        this.url = url;
+    }
+
     public int getIndex() {
         return index;
     }
