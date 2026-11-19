@@ -1384,6 +1384,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     };
     // 1080 视口：电视浏览器按固定 1920px 布局，桌面站导航不再裹成多行（吃瓜/黑料/大赛上框占比大）。
     private static final String VIEWPORT_JS = "(function(){try{var ms=document.getElementsByTagName('meta');var m=null;for(var i=0;i<ms.length;i++){if(ms[i].getAttribute('name')==='viewport'){m=ms[i];break;}}if(!m){m=document.createElement('meta');m.setAttribute('name','viewport');document.head.appendChild(m);}m.setAttribute('content','width=1920');}catch(e){}})();";
+    private static final String DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36";
     private static final String CLEAN_JS;
     static {
         StringBuilder sb = new StringBuilder();
@@ -1639,7 +1640,8 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         setting.setJavaScriptCanOpenWindowsAutomatically(false);
         setting.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         String ua = Setting.getUa();
-        if (!TextUtils.isEmpty(ua)) setting.setUserAgentString(ua);
+        if (TextUtils.isEmpty(ua)) ua = DESKTOP_UA;
+        setting.setUserAgentString(ua);
         mBinding.web.setWebViewClient(webViewClient());
         // 电视卡顿优化（2026-11-16）：WebView 用硬件层，合成走 GPU，减轻 32 位电视 CPU 负担。
         mBinding.web.setLayerType(View.LAYER_TYPE_HARDWARE, null);
