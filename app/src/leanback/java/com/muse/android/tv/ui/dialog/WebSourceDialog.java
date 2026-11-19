@@ -75,6 +75,10 @@ public class WebSourceDialog extends BaseAlertDialog {
             binding.url.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
             binding.url.setSingleLine(false);
             binding.url.setMinLines(6);
+            binding.url.setMaxLines(6);
+            binding.url.setNextFocusDownId(R.id.positive);
+            binding.positive.setNextFocusUpId(R.id.url);
+            binding.negative.setNextFocusUpId(R.id.url);
             binding.url.setFilters(new InputFilter[0]);
             binding.url.setHint(R.string.web_source_batch_hint);
             binding.url.setImeOptions(EditorInfo.IME_ACTION_DONE);
