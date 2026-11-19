@@ -1746,13 +1746,13 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
                     if (isCurrent) {
                         lineCurrentIndex = list.size();
                         streamPlaced = true;
-                        Episode ep = Episode.create(name, stream);
-                        ep.setPageUrl(url);
-                        list.add(ep);
+                        Episode created = Episode.create(name, stream);
+                        created.setPageUrl(url);
+                        list.add(created);
                     } else {
-                        Episode ep = Episode.create(name, "");
-                        ep.setPageUrl(url);
-                        list.add(ep);
+                        Episode created = Episode.create(name, "");
+                        created.setPageUrl(url);
+                        list.add(created);
                     }
                 }
                 if (list.isEmpty()) continue;
