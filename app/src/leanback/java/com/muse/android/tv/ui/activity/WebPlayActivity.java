@@ -1379,6 +1379,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         for (String p : CLEAN_JS_PARTS) sb.append(p);
         CLEAN_JS = sb.toString();
     }
+    private static final String DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36";
     private ActivityWebPlayBinding mBinding;
     private WebResourceResponse mEmpty;
     private HashSet<String> mBlockedHosts = new HashSet<>();
@@ -1625,7 +1626,8 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         setting.setJavaScriptCanOpenWindowsAutomatically(false);
         setting.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         String ua = Setting.getUa();
-        if (!TextUtils.isEmpty(ua)) setting.setUserAgentString(ua);
+        if (TextUtils.isEmpty(ua)) ua = DESKTOP_UA;
+        setting.setUserAgentString(ua);
         mBinding.web.setWebViewClient(webViewClient());
         mChromeClient = webChromeClient();
         mBinding.web.setWebChromeClient(mChromeClient);
