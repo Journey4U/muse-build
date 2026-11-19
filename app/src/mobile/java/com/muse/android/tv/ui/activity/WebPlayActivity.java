@@ -1460,7 +1460,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         + "for(var hi=0;hi<cs.length&&hi<80;hi++){var c0=cs[hi];var ch=c0.children;if(!ch||ch.length<2||ch.length>8)continue;"
         + "var ts2=[];var bad=false;for(var hj=0;hj<ch.length;hj++){var tt=tabText(ch[hj]);if(!tt||tt.length>12||epName(tt)){bad=true;"
         + "break;}ts2.push(tt);}if(bad||ts2.length<2)continue;hs.push(((c0.getAttribute('class')||c0.tagName)||'').slice(0,30)+':'+ts2.slice(0,3).join('~'));"
-        + "if(hs.length>=3)break;}if(hs.length)diag+=(diag?' ':'')+'hunt='+hs.join('|');}}return JSON.stringify({lines:out,diag:diag,pic:picOf()}"
+        + "if(hs.length>=3)break;}if(hs.length)diag+=(diag?' ':'')+'hunt='+hs.join('|');}}function playerCfg(){try{var c=window.player_aaaa||window.player_data||window.player_config||window.MacPlayer;if(!c)return '';return JSON.stringify(c);}catch(e){return '';}}return JSON.stringify({lines:out,diag:diag,pic:picOf(),player:playerCfg(),origin:location.origin,vid:vid,sid:sid,ep:curEp}"
         + ");})()";
     private static final String VIDEO_PROBE =
             "(function(){try{var v=document.querySelector('video');if(!v)return '';"
@@ -1472,6 +1472,8 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     private volatile long mPushSniffAt;
     private volatile Map<String, String> mPushSniffedHeaders;
     private volatile String mPushProbeLines = "";
+    private volatile String mPushProbePageUrl = "";
+    private volatile boolean mPushPlayPending = false;
     private volatile String mPushPagePic = "";
     private volatile String mPushPageUrl = "";
     private ActivityWebPlayBinding mBinding;
@@ -2526,8 +2528,16 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
             mBinding.web.post(this::probePageInfo);
             return;
         }
+        // push v2：记下本次探针跑在哪一页——回调时页面可能已切走，回调里再记就锚错页。
+        mPushProbePageUrl = mPushPageUrl;
         mBinding.web.evaluateJavascript(PROBE_JS, value -> {
-            if (value == null) return;
+            if (value == null) {
+                if (mPushPlayPending) {
+                    mPushPlayPending = false;
+                    continuePushPlay();
+                }
+                return;
+            }
             try {
                 String json = new JSONTokener(value).nextValue().toString();
                 JSONObject obj = new JSONObject(json);
@@ -2540,9 +2550,16 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                     DebugLogStore.add("WebPlay", "push 多线探针 线路=" + lines.length());
                     String diag = obj.optString("diag");
                     if (!diag.isEmpty()) DebugLogStore.add("WebPlay", "push 探针诊断 " + diag);
+                } else if (mPushPlayPending) {
+                    // 重探回来是空表：旧表是上一页的，不能留给续跑用。
+                    mPushProbeLines = "";
                 }
                 updatePushButton();
             } catch (Throwable ignored) {
+            }
+            if (mPushPlayPending) {
+                mPushPlayPending = false;
+                continuePushPlay();
             }
         });
     }
@@ -2603,6 +2620,21 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
             Notify.show("当前页面未识别到线路/集数");
             return;
         }
+        // push v2：探针是旧页的（用户已切集/切页但重探还没跑），强制重探、探完再续跑。
+        if (!mPushProbePageUrl.equals(mPushPageUrl)) {
+            mPushPlayPending = true;
+            probePageInfo();
+            return;
+        }
+        continuePushPlay();
+    }
+
+    /** push v2：探针就绪后的续跑——取当前集直达流（页面 video src 优先，120 秒内嗅探次之），转原生播放器；无流则留在网页。 */
+    private void continuePushPlay() {
+        if (!probeLinesUsable()) {
+            Notify.show("当前页面未识别到线路/集数");
+            return;
+        }
         mBinding.web.evaluateJavascript(VIDEO_PROBE, value -> {
             String src = value == null ? "" : value.replace("\"", "").trim();
             String stream = "";
@@ -2645,9 +2677,41 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
             String ua = Setting.getUa();
             if (!TextUtils.isEmpty(ua)) headers.put("User-Agent", ua);
         }
+        // push v2：探针带的 origin/vid/sid/ep（当前线路 sid + 当前集号），供 HttpEpisodeResolver 回落用；缺失时从页 URL 解析。
+        String origin = "";
+        String vid = "";
+        String sid = "";
+        String nid = "";
+        try {
+            JSONObject probe = new JSONObject(mPushProbeLines);
+            origin = probe.optString("origin");
+            vid = probe.optString("vid");
+            sid = probe.optString("sid");
+            int ep = probe.optInt("ep", -1);
+            if (ep >= 0) nid = String.valueOf(ep);
+        } catch (Throwable ignored) {
+        }
+        if (origin.isEmpty() || vid.isEmpty() || sid.isEmpty() || nid.isEmpty()) {
+            try {
+                Matcher pm = Pattern.compile("(\\d+)-(\\d+)-(\\d+)\\.html").matcher(mPushPageUrl);
+                if (pm.find()) {
+                    if (vid.isEmpty()) vid = pm.group(1);
+                    if (sid.isEmpty()) sid = pm.group(2);
+                    if (nid.isEmpty()) nid = pm.group(3);
+                }
+            } catch (Throwable ignored) {
+            }
+            if (origin.isEmpty() && !mPushPageUrl.isEmpty()) {
+                try {
+                    Uri pageUri = Uri.parse(mPushPageUrl);
+                    if (pageUri.getScheme() != null && pageUri.getHost() != null) origin = pageUri.getScheme() + "://" + pageUri.getHost();
+                } catch (Throwable ignored) {
+                }
+            }
+        }
         String logStream = stream.length() > 90 ? stream.substring(0, 90) : stream;
-        DebugLogStore.add("WebPlay", "push 多线转播放 流=" + logStream + " 线路名=" + flag);
-        VideoActivity.startWithHeaders(this, stream, headers, title, flag, episode, null, mPushPageUrl, mPushProbeLines, mPushPagePic);
+        DebugLogStore.add("WebPlay", "push 多线转播放 流=" + logStream + " 线路名=" + flag + " 集=" + episode + " 页=" + mPushPageUrl);
+        VideoActivity.startWithHeaders(this, stream, headers, title, flag, episode, null, mPushPageUrl, mPushProbeLines, mPushPagePic, origin, vid, sid, nid);
     }
 
     /** push v1：嗅探时把该请求的 Referer/UA + 页面 Cookie 记下来，供转播放时带头。后台线程调用，只读请求对象与 Cookie，不碰 WebView 方法。 */

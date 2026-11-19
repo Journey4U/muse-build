@@ -1,0 +1,770 @@
+package com.muse.android.tv.api.loader;
+
+// push v2 Phase A：纯 HTTP 逐集解析器，替代已删除的隐形 WebView 逐集解析器（fuzi 移植版）。
+// 本文件不含任何 WebView / WebViewClient / evaluateJavascript：三层全部走 OkHttp 纯 HTTP。
+//
+// 层级（先成功者胜，失败全部如实落日志、绝不交假流）：
+//   L0 Provide API —— {origin}/api.php/provide/vod/?ac=detail&ids={vid}，一次拿全线全集，
+//      命中即用；API 失败/无可用数据则记「API closed」，本会话内同一 (origin, vid) 永不重试。
+//   L1 播放页 player_aaaa / player_data / player_config —— 明文直链直接探活；密文 + from
+//      走 playerconfig.js 的 from → parse 前缀表再解（fuzi ddPlay 链路，算法重写，见 ddResolve）；
+//      ID 形 url（如 "11602|1"）HTTP 解不了，交给 L2。
+//   L2 通用候选 —— 页内明文直链 / iframe 参数 / iframe 内页 / eval packer 解包，逐个探活。
+//   全败 → onFailed()，不交假流。
+//
+// 线程：resolve() 在后台线程跑网络，回调一律经主线程 Handler 回调；结果按播放页 URL 缓存。
+// 单次请求超时 9 秒（OkHttp.client(TIMEOUT_MS)）；m3u8 探活走 GET + #EXTM3U 校验，
+// 其余媒体先 HEAD、不支持再退 Range GET（fuzi probe 结论：m3u8 绝不能带 Range，会误杀）。
+
+import android.app.Activity;
+import android.net.Uri;
+import android.os.Handler;
+import android.os.Looper;
+import android.text.TextUtils;
+import android.webkit.CookieManager;
+
+import com.github.catvod.crawler.DebugLogStore;
+import com.github.catvod.net.OkHttp;
+import com.muse.android.tv.setting.Setting;
+import com.muse.android.tv.utils.Sniffer;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.net.URLDecoder;
+import java.net.URLEncoder;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import okhttp3.Request;
+import okhttp3.Response;
+import okhttp3.ResponseBody;
+
+public class HttpEpisodeResolver {
+
+    private static final long TIMEOUT_MS = 9000;
+    private static final int MAX_REDIRECTS = 3;
+    private static final int MAX_CANDIDATES = 8;
+    private static final int LOG_URL_LEN = 90;
+
+    private static final Map<String, Resolved> CACHE = new ConcurrentHashMap<>();
+    /** 每部剧的 L0 全量表：key = origin + "\n" + vid，value = 按线路分的集表。 */
+    private static final Map<String, List<List<Ep>>> SHOW_CACHE = new ConcurrentHashMap<>();
+    /** 已证实关闭的 Provide API：key = origin + "\n" + vid，本会话内永不重试。 */
+    private static final Set<String> API_CLOSED = ConcurrentHashMap.newKeySet();
+    /** playerconfig.js 的 from → parse 前缀表：key = 配置地址 host。 */
+    private static final Map<String, Map<String, String>> PARSE_CACHE = new ConcurrentHashMap<>();
+
+    private static final Pattern PLAYER_VAR = Pattern.compile("var (?:player_aaaa|player_data|player_config)\\s*=\\s*(\\{.*?\\})\\s*</script>", Pattern.DOTALL);
+    private static final Pattern PLAYER_CFG_SRC = Pattern.compile("<script[^>]+src=[\"']([^\"']*playerconfig[^\"']*)[\"']", Pattern.CASE_INSENSITIVE);
+    private static final Pattern PARSE_ENTRY = Pattern.compile("\"([\\w-]+)\"\\s*:\\s*\\{[^{}]*?\"parse\"\\s*:\\s*\"([^\"]*)\"");
+    private static final Pattern PARSE_JSON_URL = Pattern.compile("JSON\\.parse\\('[^']*?\"url\"\\s*:\\s*\"(https?://[^\"']+?)\"");
+    private static final Pattern PLAIN_JSON_URL = Pattern.compile("\"url\"\\s*:\\s*\"(https?://[^\"']+?)\"");
+    private static final Pattern P_M3U8 = Pattern.compile("(https?:\\\\?/\\\\?/[^\\s\"'<>]+?\\.m3u8[^\\s\"'<>]*)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern P_MP4 = Pattern.compile("(https?:\\\\?/\\\\?/[^\\s\"'<>]+?\\.(?:mp4|flv|mkv)[^\\s\"'<>]*)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern IFRAME_SRC = Pattern.compile("<iframe[^>]+src=[\"']([^\"']{6,500})[\"']", Pattern.CASE_INSENSITIVE);
+    private static final Pattern QUERY_MEDIA_PARAM = Pattern.compile("[?&](?:video_url|play_url|url|v|src|m3u8)=([^&#\"']{6,900})", Pattern.CASE_INSENSITIVE);
+    private static final Pattern SID_EP = Pattern.compile("-(\\d+)-(\\d+)\\.html");
+    private static final Pattern EP_NUMBER = Pattern.compile("(\\d+)");
+    private static final Pattern PACKER_ARGS = Pattern.compile("\\('([\\s\\S]*?)',(\\d+),(\\d+),'([\\s\\S]*?)'\\.split\\('\\|'\\)");
+    private static final Pattern PACKER_WORD = Pattern.compile("\\b[a-z0-9]+\\b");
+    private static final Pattern REWRITE_TPL = Pattern.compile("\\.replace\\([^,]*,\\s*['\"]([^'\"]*?)\\$1/?['\"]\\)");
+    private static final Pattern SCHEME_HOST = Pattern.compile("^(https?://[^/]+)");
+
+    public interface Callback {
+        void onResolved(String url, Map<String, String> headers);
+
+        void onFailed();
+    }
+
+    private static final class Resolved {
+        final String url;
+        final Map<String, String> headers;
+
+        Resolved(String url, Map<String, String> headers) {
+            this.url = url;
+            this.headers = headers;
+        }
+    }
+
+    private static final class Ep {
+        final String name;
+        final String url;
+
+        Ep(String name, String url) {
+            this.name = name;
+            this.url = url;
+        }
+    }
+
+    private static final class HttpResult {
+        final int code;
+        final String body;
+
+        HttpResult(int code, String body) {
+            this.code = code;
+            this.body = body;
+        }
+    }
+
+    private final String pageUrl;
+    private final String origin;
+    private final String vid;
+    private final Callback callback;
+    private final Handler main = new Handler(Looper.getMainLooper());
+
+    private HttpEpisodeResolver(String pageUrl, String origin, String vid, Callback callback) {
+        this.pageUrl = pageUrl;
+        this.origin = origin == null ? "" : origin.trim();
+        this.vid = vid == null ? "" : vid.trim();
+        this.callback = callback;
+    }
+
+    /**
+     * 入口：worker B 从 VideoActivity.resolveWebEpisode 调用。
+     * activity 仅为保持与旧解析器相同的调用形状而保留，
+     * v2 不再建 WebView，解析全程不需要它（可传 null 以外的任意 Activity）。
+     * origin / vid 为空时跳过 L0。
+     */
+    public static void resolve(Activity activity, String pageUrl, String origin, String vid, Callback callback) {
+        if (callback == null || TextUtils.isEmpty(pageUrl)) {
+            if (callback != null) new Handler(Looper.getMainLooper()).post(callback::onFailed);
+            return;
+        }
+        Resolved cached = CACHE.get(pageUrl);
+        if (cached != null) {
+            new Handler(Looper.getMainLooper()).post(() -> callback.onResolved(cached.url, cached.headers));
+            return;
+        }
+        new Thread(new HttpEpisodeResolver(pageUrl, origin, vid, callback)::run).start();
+    }
+
+    private void run() {
+        try {
+            log("resolve page=" + trunc(pageUrl) + " vid=" + vid);
+            int[] sidEp = parseSidEp(pageUrl);
+            int sid = sidEp[0];
+            int epNum = sidEp[1];
+            Map<String, String> headers = pageHeaders(pageUrl);
+
+            String stream = layer0(sid, epNum, headers);
+            if (stream != null) {
+                finish(stream, streamHeaders(stream, pageUrl), "L0");
+                return;
+            }
+
+            HttpResult page = get(pageUrl, headers);
+            log("L1 page http=" + page.code + " len=" + page.body.length());
+            if (page.code == -1) log("L1 page GET blocked/timeout");
+            String html = page.body;
+            List<String> extraCandidates = new ArrayList<>();
+            if (!TextUtils.isEmpty(html)) {
+                stream = layer1(html, headers, extraCandidates);
+                if (stream != null) {
+                    finish(stream, streamHeaders(stream, pageUrl), "L1");
+                    return;
+                }
+                stream = layer2(html, headers, extraCandidates);
+                if (stream != null) {
+                    finish(stream, streamHeaders(stream, pageUrl), "L2");
+                    return;
+                }
+            } else {
+                log("L1 skip empty-page http=" + page.code);
+            }
+            log("FAIL all-layers page=" + trunc(pageUrl));
+            fail();
+        } catch (Throwable t) {
+            log("FAIL exception " + t.getClass().getSimpleName());
+            fail();
+        }
+    }
+
+    // ================= L0：MacCMS Provide API =================
+
+    private String layer0(int sid, int epNum, Map<String, String> headers) {
+        if (TextUtils.isEmpty(origin) || TextUtils.isEmpty(vid)) {
+            log("L0 skip no-origin-vid");
+            return null;
+        }
+        List<List<Ep>> show = loadShow(headers);
+        if (show == null) return null;
+        Ep ep = findEpisode(show, sid, epNum);
+        if (ep == null) {
+            log("L0 miss no-ep sid=" + sid + " ep=" + epNum);
+            return null;
+        }
+        log("L0 ep=" + ep.name + " stream=" + trunc(ep.url));
+        if (!validStream(ep.url)) {
+            log("L0 miss not-direct stream=" + trunc(ep.url));
+            return null;
+        }
+        if (!probe(ep.url, headers)) {
+            log("L0 miss probe-fail stream=" + trunc(ep.url));
+            return null;
+        }
+        return ep.url;
+    }
+
+    /** 取回并缓存整部剧的全线全集表；API 失败/无可用数据则记 closed，之后同一部剧不再请求。 */
+    private List<List<Ep>> loadShow(Map<String, String> headers) {
+        String key = origin + "\n" + vid;
+        List<List<Ep>> cached = SHOW_CACHE.get(key);
+        if (cached != null) return cached;
+        if (API_CLOSED.contains(key)) {
+            log("L0 skip api-closed");
+            return null;
+        }
+        String base = origin.endsWith("/") ? origin.substring(0, origin.length() - 1) : origin;
+        String apiUrl;
+        try {
+            apiUrl = base + "/api.php/provide/vod/?ac=detail&ids=" + URLEncoder.encode(vid, "UTF-8");
+        } catch (Exception e) {
+            apiUrl = base + "/api.php/provide/vod/?ac=detail&ids=" + vid;
+        }
+        HttpResult res = get(apiUrl, headers);
+        if (res.code < 200 || res.code >= 400 || TextUtils.isEmpty(res.body)) {
+            API_CLOSED.add(key);
+            log("L0 api closed http=" + res.code);
+            return null;
+        }
+        List<List<Ep>> show = parseProvide(res.body);
+        if (show == null || show.isEmpty()) {
+            API_CLOSED.add(key);
+            log("L0 api closed empty-list http=" + res.code);
+            return null;
+        }
+        SHOW_CACHE.put(key, show);
+        int total = 0;
+        for (List<Ep> line : show) total += line.size();
+        log("L0 api open http=" + res.code + " lines=" + show.size() + " eps=" + total);
+        return show;
+    }
+
+    /** MacCMS Provide 响应：{"list":[{"vod_play_from":"线1$$$线2","vod_play_url":"第1集$直链#第2集$直链$$$..."}]}。 */
+    private static List<List<Ep>> parseProvide(String body) {
+        try {
+            JSONObject root = new JSONObject(body);
+            JSONArray list = root.optJSONArray("list");
+            if (list == null || list.length() == 0) return null;
+            JSONObject vod = list.optJSONObject(0);
+            if (vod == null) return null;
+            String[] froms = vod.optString("vod_play_from", "").split("\\$\\$\\$");
+            String[] urls = vod.optString("vod_play_url", "").split("\\$\\$\\$");
+            List<List<Ep>> show = new ArrayList<>();
+            int lines = Math.min(froms.length, urls.length);
+            for (int i = 0; i < lines; i++) {
+                List<Ep> line = new ArrayList<>();
+                for (String item : urls[i].split("#")) {
+                    if (TextUtils.isEmpty(item)) continue;
+                    int sep = item.indexOf('$');
+                    if (sep > 0) line.add(new Ep(item.substring(0, sep), item.substring(sep + 1)));
+                    else if (item.startsWith("http")) line.add(new Ep("", item));
+                }
+                if (!line.isEmpty()) show.add(line);
+            }
+            return show.isEmpty() ? null : show;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** sid 为播放页 URL 里的线路号（1 起）；先在该线找集号，找不到再扫其余线。 */
+    private static Ep findEpisode(List<List<Ep>> show, int sid, int epNum) {
+        List<Integer> order = new ArrayList<>();
+        if (sid >= 1 && sid <= show.size()) order.add(sid - 1);
+        for (int i = 0; i < show.size(); i++) if (!order.contains(i)) order.add(i);
+        for (int li : order) {
+            List<Ep> line = show.get(li);
+            for (int j = 0; j < line.size(); j++) {
+                Ep ep = line.get(j);
+                int n = episodeNumber(ep.name);
+                if (epNum > 0 && n == epNum) return ep;
+                if (epNum > 0 && n < 0 && j + 1 == epNum) return ep;
+            }
+        }
+        if (epNum <= 0 && !order.isEmpty() && !show.get(order.get(0)).isEmpty()) return show.get(order.get(0)).get(0);
+        return null;
+    }
+
+    private static int episodeNumber(String name) {
+        if (TextUtils.isEmpty(name)) return -1;
+        Matcher m = EP_NUMBER.matcher(name);
+        if (!m.find()) return -1;
+        try {
+            return Integer.parseInt(m.group(1));
+        } catch (Exception e) {
+            return -1;
+        }
+    }
+
+    /** 播放页 /vodplay/{vid}-{sid}-{ep}.html 里的线路号与集号；取不到则 sid=1、ep 未知。 */
+    private static int[] parseSidEp(String pageUrl) {
+        Matcher m = SID_EP.matcher(pageUrl == null ? "" : pageUrl);
+        if (!m.find()) return new int[]{1, -1};
+        try {
+            return new int[]{Integer.parseInt(m.group(1)), Integer.parseInt(m.group(2))};
+        } catch (Exception e) {
+            return new int[]{1, -1};
+        }
+    }
+
+    // ================= L1：player_aaaa / player_data / player_config =================
+
+    private String layer1(String html, Map<String, String> headers, List<String> extraCandidates) {
+        Matcher pm = PLAYER_VAR.matcher(html);
+        if (!pm.find()) {
+            log("L1 player_aaaa absent");
+            return null;
+        }
+        JSONObject pa;
+        try {
+            pa = new JSONObject(pm.group(1));
+        } catch (Exception e) {
+            log("L1 player_aaaa bad-json");
+            return null;
+        }
+        String url = pa.optString("url", "");
+        String from = pa.optString("from", "");
+        if (TextUtils.isEmpty(url)) {
+            log("L1 player_aaaa empty-url from=" + from);
+            return null;
+        }
+        if (url.startsWith("http")) {
+            log("L1 url plaintext from=" + from + " stream=" + trunc(url));
+            if (validStream(url) && probe(url, headers)) return url;
+            if (!validStream(url)) log("L1 plaintext not-direct");
+            else log("L1 plaintext probe-fail");
+            extraCandidates.add(url);
+            return null;
+        }
+        if (!TextUtils.isEmpty(from)) {
+            log("L1 url ciphertext from=" + from);
+            String stream = ddResolve(html, headers, url, from);
+            if (!TextUtils.isEmpty(stream) && validStream(stream) && probe(stream, headers)) return stream;
+            if (!TextUtils.isEmpty(stream)) log("L1 dd stream invalid/probe-fail " + trunc(stream));
+            return null;
+        }
+        log("L1 url id-form=" + trunc(url));
+        return null;
+    }
+
+    /**
+     * fuzi ddPlay 链路（算法重写，未抄代码）：
+     * 播放页 var player_aaaa={"url":"密文","from":"zy1080_01"} → 播放页外链 playerconfig.js
+     * 的 from → parse 前缀表 → GET parse + 密文 → 响应 JSON.parse('{"url":"...m3u8"}') → 直链。
+     * player_aaaa 里没有 parse 字段，前缀必须查 playerconfig.js；外链路径从播放页提取，不写死。
+     */
+    private String ddResolve(String html, Map<String, String> headers, String enc, String from) {
+        Matcher cm = PLAYER_CFG_SRC.matcher(html);
+        if (!cm.find()) {
+            log("L1 dd miss no-playerconfig");
+            return "";
+        }
+        String cfgUrl = absUrl(cm.group(1), pageUrl);
+        String prefix = parsePrefix(cfgUrl, headers, from);
+        if (TextUtils.isEmpty(prefix)) {
+            log("L1 dd miss no-parse from=" + from);
+            return "";
+        }
+        String parseUrl;
+        try {
+            parseUrl = absUrl(prefix, cfgUrl) + URLEncoder.encode(enc, "UTF-8");
+        } catch (Exception e) {
+            parseUrl = absUrl(prefix, cfgUrl) + enc;
+        }
+        HttpResult res = get(parseUrl, headers);
+        if (res.code < 200 || res.code >= 400 || TextUtils.isEmpty(res.body)) {
+            log("L1 dd miss parse-http=" + res.code);
+            return "";
+        }
+        String u = firstGroup(PARSE_JSON_URL, res.body);
+        if (TextUtils.isEmpty(u)) u = firstGroup(PLAIN_JSON_URL, res.body);
+        if (TextUtils.isEmpty(u)) {
+            try {
+                u = new JSONObject(res.body).optString("url", "");
+            } catch (Exception ignored) {
+            }
+        }
+        if (TextUtils.isEmpty(u)) {
+            log("L1 dd miss no-url-in-parse-resp len=" + res.body.length());
+            return "";
+        }
+        u = u.replace("\\/", "/");
+        log("L1 dd hit stream=" + trunc(u));
+        return u;
+    }
+
+    /** playerconfig.js 的 from → parse 前缀查表（按 host 缓存；值内 \/ 转义还原）。 */
+    private String parsePrefix(String cfgUrl, Map<String, String> headers, String from) {
+        String host = hostOf(cfgUrl).toLowerCase(Locale.ROOT);
+        Map<String, String> table = PARSE_CACHE.get(host);
+        if (table == null) {
+            table = new LinkedHashMap<>();
+            HttpResult res = get(cfgUrl, headers);
+            if (!TextUtils.isEmpty(res.body)) {
+                Matcher m = PARSE_ENTRY.matcher(res.body);
+                while (m.find()) {
+                    if (!TextUtils.isEmpty(m.group(2))) table.put(m.group(1), m.group(2).replace("\\/", "/"));
+                }
+            }
+            if (!table.isEmpty()) PARSE_CACHE.put(host, table);
+        }
+        String prefix = table.get(from);
+        return prefix == null ? "" : prefix;
+    }
+
+    // ================= L2：通用候选 =================
+
+    /**
+     * fuzi 候选链（算法重写）：页内明文直链 / iframe 参数 / iframe 内页 / packer 解包，
+     * 媒体直链优先探活；磁力链剔除（不是播放地址）；非直链候选一律不要——没有 WebView
+     * 兜底，把 HTML 播放器页交给播放器只会黑屏。
+     */
+    private String layer2(String html, Map<String, String> headers, List<String> extraCandidates) {
+        LinkedHashSet<String> candidates = new LinkedHashSet<>();
+        for (String c : extraCandidates) candidates.add(unwrapPlayerUrl(c));
+        candidates.addAll(findPlayUrls(html));
+        String frameRef = "";
+        String framed = findPlayInFrame(html, headers);
+        if (!TextUtils.isEmpty(framed)) {
+            if (!validStream(framed)) frameRef = schemeHost(framed);
+            candidates.add(unwrapPlayerUrl(framed));
+        }
+        candidates.addAll(packerCandidates(html));
+        candidates.removeIf(c -> c != null && (c.contains("magnet:") || c.contains("magnet%3A") || c.contains("magnet%3a")));
+        List<String> ordered = new ArrayList<>();
+        for (String c : candidates) if (validStream(c)) ordered.add(c);
+        log("L2 cands=" + ordered.size() + " raw=" + candidates.size());
+        int tried = 0;
+        for (String cand : ordered) {
+            if (tried++ >= MAX_CANDIDATES) break;
+            if (probeWithReferer(cand, headers, pageUrl)) return cand;
+            if (!TextUtils.isEmpty(frameRef) && probeWithReferer(cand, headers, frameRef)) return cand;
+            log("L2 probe-fail cand=" + trunc(cand));
+        }
+        log("L2 miss");
+        return null;
+    }
+
+    private boolean probeWithReferer(String url, Map<String, String> headers, String referer) {
+        Map<String, String> h = new LinkedHashMap<>(headers);
+        h.put("Referer", referer);
+        return probe(url, h);
+    }
+
+    /** 页内明文直链（先 \/ 还原再抽）；m3u8 与 mp4/flv/mkv 各取，合计封顶。 */
+    private static List<String> findPlayUrls(String html) {
+        List<String> out = new ArrayList<>();
+        if (TextUtils.isEmpty(html)) return out;
+        String text = html.replace("\\/", "/");
+        for (Pattern p : new Pattern[]{P_M3U8, P_MP4}) {
+            Matcher m = p.matcher(text);
+            while (m.find()) {
+                String u = m.group(1);
+                if (!out.contains(u)) out.add(u);
+                if (out.size() >= MAX_CANDIDATES) return out;
+            }
+        }
+        return out;
+    }
+
+    /**
+     * iframe 里挖：① query 参数直接带地址（?video_url=https%3A%2F%2F...index.m3u8）；
+     * ② 跟进 iframe 页再找；③ 再跟一层嵌套 iframe。
+     */
+    private String findPlayInFrame(String html, Map<String, String> headers) {
+        if (TextUtils.isEmpty(html)) return "";
+        Matcher fm = IFRAME_SRC.matcher(html);
+        if (!fm.find()) return "";
+        String frame = absUrl(fm.group(1), pageUrl);
+        Matcher q = QUERY_MEDIA_PARAM.matcher(frame);
+        while (q.find()) {
+            String val = decode(q.group(1));
+            if (val.startsWith("//")) val = "https:" + val;
+            if (val.contains(".m3u8") || val.contains(".mp4") || val.contains(".flv")) return val;
+        }
+        HttpResult inner = get(frame, headers);
+        if (TextUtils.isEmpty(inner.body)) return "";
+        List<String> urls = findPlayUrls(inner.body);
+        if (!urls.isEmpty()) return urls.get(0);
+        Matcher fm2 = IFRAME_SRC.matcher(inner.body);
+        if (!fm2.find()) return "";
+        HttpResult inner2 = get(absUrl(fm2.group(1), frame), headers);
+        List<String> urls2 = findPlayUrls(inner2.body);
+        return urls2.isEmpty() ? "" : urls2.get(0);
+    }
+
+    /**
+     * eval(function(p,a,c,k,e,d){...}) packer 解包找直链（算法重写，见 unpackPacker），
+     * 并应用页面自身的域名改写模板（source.replace(/https:\/\/.../,'https://host/jmpres/$1/')）：
+     * 原样与改写版都进候选，谁通谁上。
+     */
+    private static LinkedHashSet<String> packerCandidates(String html) {
+        LinkedHashSet<String> out = new LinkedHashSet<>();
+        try {
+            if (html == null || !html.contains("eval(function(p,a,c,k,e,d)")) return out;
+            int p = html.indexOf("eval(function(p,a,c,k,e,d)");
+            String unpacked = unpackPacker(html.substring(p, Math.min(html.length(), p + 6000)));
+            if (TextUtils.isEmpty(unpacked)) return out;
+            List<String> urls = findPlayUrls(unpacked);
+            if (urls.isEmpty()) return out;
+            for (int i = 0; i < urls.size(); i++) urls.set(i, urls.get(i).replaceAll("\\\\+$", ""));
+            String tpl = "";
+            Matcher rw = REWRITE_TPL.matcher(html);
+            if (rw.find()) tpl = rw.group(1);
+            for (String u : urls) {
+                if (TextUtils.isEmpty(u) || !u.startsWith("http")) continue;
+                out.add(u);
+                if (TextUtils.isEmpty(tpl)) continue;
+                String sh = schemeHost(u);
+                if (TextUtils.isEmpty(sh)) continue;
+                String host = sh.replaceFirst("^https?://", "").replaceFirst("/$", "");
+                String path = u.substring(sh.length());
+                String rewritten;
+                if (tpl.contains("$1")) rewritten = tpl.replace("$1", host);
+                else rewritten = tpl.endsWith("/") ? tpl + host : tpl + "/" + host;
+                if (!rewritten.endsWith("/")) rewritten += "/";
+                out.add(rewritten + path);
+            }
+        } catch (Throwable ignored) {
+        }
+        return out;
+    }
+
+    /** Dean Edwards packer 解包：payload 按 base36 下标换 k 表里的词（fuzi unpackPacker 算法重写）。 */
+    private static String unpackPacker(String js) {
+        try {
+            if (js == null) return "";
+            Matcher m = PACKER_ARGS.matcher(js);
+            if (!m.find()) return "";
+            String payload = m.group(1);
+            String[] keys = m.group(4).split("\\|", -1);
+            Map<String, String> dict = new LinkedHashMap<>();
+            for (int i = 0; i < keys.length; i++) {
+                if (keys[i].isEmpty()) continue;
+                String id = Integer.toString(i, 36);
+                if (id.length() <= 2) dict.put(id, keys[i]);
+            }
+            StringBuilder out = new StringBuilder(payload.length() * 2);
+            Matcher w = PACKER_WORD.matcher(payload);
+            int last = 0;
+            while (w.find()) {
+                out.append(payload, last, w.start());
+                String rep = dict.get(w.group());
+                out.append(rep != null ? rep : w.group());
+                last = w.end();
+            }
+            out.append(payload.substring(last));
+            return out.toString();
+        } catch (Throwable t) {
+            return "";
+        }
+    }
+
+    /** 把「外层播放器页」拆成真直链：query 参数里带的 video_url / play_url / url / v / src / m3u8。 */
+    private static String unwrapPlayerUrl(String u) {
+        if (TextUtils.isEmpty(u)) return "";
+        String s = u.replace("\\/", "/").replace("&amp;", "&").trim();
+        if (BrowserMeta.isDirectStream(s)) return s;
+        Matcher q = QUERY_MEDIA_PARAM.matcher(s);
+        while (q.find()) {
+            String val = decode(q.group(1));
+            if (val.startsWith("//")) val = "https:" + val;
+            if (BrowserMeta.isDirectStream(val)) return val;
+        }
+        return s;
+    }
+
+    // ================= HTTP 与探活 =================
+
+    /** GET：手动跟随 3xx（共享 OkHttp 默认关自动重定向），单次请求 9 秒超时；返回最终状态码与正文。 */
+    private HttpResult get(String url, Map<String, String> headers) {
+        String cur = url;
+        for (int i = 0; i <= MAX_REDIRECTS; i++) {
+            Request.Builder rb = new Request.Builder().url(cur);
+            if (headers != null) for (Map.Entry<String, String> e : headers.entrySet()) {
+                if (!TextUtils.isEmpty(e.getKey()) && !TextUtils.isEmpty(e.getValue())) rb.header(e.getKey(), e.getValue());
+            }
+            try (Response res = OkHttp.client(TIMEOUT_MS).newCall(rb.build()).execute()) {
+                int code = res.code();
+                if ((code == 301 || code == 302 || code == 303 || code == 307 || code == 308) && i < MAX_REDIRECTS) {
+                    String loc = res.header("Location");
+                    if (TextUtils.isEmpty(loc)) return new HttpResult(code, "");
+                    cur = absUrl(loc, cur);
+                    continue;
+                }
+                ResponseBody body = res.body();
+                return new HttpResult(code, body == null ? "" : body.string());
+            } catch (Exception e) {
+                return new HttpResult(-1, "");
+            }
+        }
+        return new HttpResult(-1, "");
+    }
+
+    /** HEAD：手动跟随 3xx，返回最终状态码；异常/超时返回 -1。 */
+    private int head(String url, Map<String, String> headers) {
+        String cur = url;
+        for (int i = 0; i <= MAX_REDIRECTS; i++) {
+            Request.Builder rb = new Request.Builder().url(cur);
+            if (headers != null) for (Map.Entry<String, String> e : headers.entrySet()) {
+                if (!TextUtils.isEmpty(e.getKey()) && !TextUtils.isEmpty(e.getValue())) rb.header(e.getKey(), e.getValue());
+            }
+            try (Response res = OkHttp.client(TIMEOUT_MS).newCall(rb.head().build()).execute()) {
+                int code = res.code();
+                if ((code == 301 || code == 302 || code == 303 || code == 307 || code == 308) && i < MAX_REDIRECTS) {
+                    String loc = res.header("Location");
+                    if (TextUtils.isEmpty(loc)) return code;
+                    cur = absUrl(loc, cur);
+                    continue;
+                }
+                return code;
+            } catch (Exception e) {
+                return -1;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * 探活（fuzi probe 结论重写）：m3u8 走 GET + #EXTM3U 校验（清单只有几 KB）；
+     * 其余媒体先 HEAD，HEAD 不支持再退 Range GET（bytes=0-0）；m3u8 绝不能带 Range。
+     */
+    private boolean probe(String url, Map<String, String> headers) {
+        if (TextUtils.isEmpty(url) || !url.startsWith("http")) return false;
+        if (isM3u8(url)) {
+            HttpResult res = get(url, headers);
+            if (res.code < 200 || res.code >= 400) return false;
+            return res.body != null && res.body.contains("#EXTM3U");
+        }
+        int code = head(url, headers);
+        if (code >= 200 && code < 400) return true;
+        Request.Builder rb = new Request.Builder().url(url).header("Range", "bytes=0-0");
+        if (headers != null) for (Map.Entry<String, String> e : headers.entrySet()) {
+            if (!TextUtils.isEmpty(e.getKey()) && !TextUtils.isEmpty(e.getValue())) rb.header(e.getKey(), e.getValue());
+        }
+        try (Response res = OkHttp.client(TIMEOUT_MS).newCall(rb.build()).execute()) {
+            int c = res.code();
+            return c == 200 || c == 206;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /** 只认直达流地址（路径末尾真流后缀）且过视频格式判定；两个判定复用现有工具，不自写正则。 */
+    private static boolean validStream(String url) {
+        return BrowserMeta.isDirectStream(url) && Sniffer.isVideoFormat(url);
+    }
+
+    private static boolean isM3u8(String url) {
+        if (TextUtils.isEmpty(url)) return false;
+        String path = url;
+        int q = path.indexOf('?');
+        if (q > 0) path = path.substring(0, q);
+        return path.toLowerCase(Locale.ROOT).endsWith(".m3u8");
+    }
+
+    // ================= 请求头 / 地址 / 收尾 =================
+
+    /** 与旧解析器相同的取头法：Referer=播放页、UA=Setting、Cookie=WebView 同源。 */
+    private Map<String, String> pageHeaders(String url) {
+        Map<String, String> headers = new LinkedHashMap<>();
+        headers.put("Referer", url);
+        headers.put("User-Agent", Setting.getUa());
+        String cookie = getCookie(url);
+        if (!TextUtils.isEmpty(cookie)) headers.put("Cookie", cookie);
+        return headers;
+    }
+
+    private Map<String, String> streamHeaders(String streamUrl, String pageUrl) {
+        Map<String, String> headers = new LinkedHashMap<>();
+        headers.put("Referer", pageUrl);
+        headers.put("User-Agent", Setting.getUa());
+        String cookie = getCookie(streamUrl);
+        if (TextUtils.isEmpty(cookie)) cookie = getCookie(pageUrl);
+        if (!TextUtils.isEmpty(cookie)) headers.put("Cookie", cookie);
+        return headers;
+    }
+
+    private static String getCookie(String url) {
+        try {
+            return CookieManager.getInstance().getCookie(url);
+        } catch (Throwable t) {
+            return "";
+        }
+    }
+
+    private static String absUrl(String url, String base) {
+        if (TextUtils.isEmpty(url)) return "";
+        String u = url.trim();
+        if (u.startsWith("//")) return "https:" + u;
+        if (u.startsWith("http")) return u;
+        if (u.startsWith("/")) return schemeHost(base) + u;
+        String dir = base;
+        int cut = dir.indexOf('?');
+        if (cut >= 0) dir = dir.substring(0, cut);
+        cut = dir.indexOf('#');
+        if (cut >= 0) dir = dir.substring(0, cut);
+        int slash = dir.lastIndexOf('/');
+        if (slash >= 0) dir = dir.substring(0, slash + 1);
+        return dir + u;
+    }
+
+    private static String schemeHost(String url) {
+        if (TextUtils.isEmpty(url)) return "";
+        Matcher m = SCHEME_HOST.matcher(url);
+        return m.find() ? m.group(1) + "/" : "";
+    }
+
+    private static String hostOf(String url) {
+        try {
+            Uri uri = Uri.parse(url);
+            String host = uri == null ? null : uri.getHost();
+            return host == null ? "" : host;
+        } catch (Throwable t) {
+            return "";
+        }
+    }
+
+    private static String decode(String value) {
+        try {
+            return URLDecoder.decode(value, "UTF-8");
+        } catch (Exception e) {
+            return value;
+        }
+    }
+
+    private static String firstGroup(Pattern pattern, String text) {
+        if (TextUtils.isEmpty(text)) return "";
+        Matcher m = pattern.matcher(text);
+        return m.find() ? m.group(1) : "";
+    }
+
+    private static String trunc(String url) {
+        if (url == null) return "";
+        return url.length() <= LOG_URL_LEN ? url : url.substring(0, LOG_URL_LEN) + "...";
+    }
+
+    private static void log(String message) {
+        DebugLogStore.add("HttpResolver", message);
+    }
+
+    private void finish(String url, Map<String, String> headers, String layer) {
+        CACHE.put(pageUrl, new Resolved(url, headers));
+        log("OK layer=" + layer + " stream-domain=" + hostOf(url) + " stream=" + trunc(url));
+        main.post(() -> callback.onResolved(url, headers));
+    }
+
+    private void fail() {
+        main.post(callback::onFailed);
+    }
+}
