@@ -1476,6 +1476,10 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     private volatile boolean mPushPlayPending = false;
     private volatile String mPushPagePic = "";
     private volatile String mPushPageUrl = "";
+    // push v3：探针补跑状态（选集表可能是 JS 后渲染的，页完那一刻还没进 DOM）。
+    private Runnable mPushProbeRetry;
+    private int mPushProbeRetryCount;
+    private String mPushProbeRetryPageUrl = "";
     private ActivityWebPlayBinding mBinding;
     private WebResourceResponse mEmpty;
     private HashSet<String> mBlockedHosts = new HashSet<>();
@@ -1927,6 +1931,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 // push v1：导航开始，清多线探针状态（海报 mPushPagePic 不清，活过详情→播放页一跳）；记当前页地址。
                 mPushPageUrl = url;
                 mPushProbeLines = "";
+                cancelPushProbeRetry();
             }
 
             @Override
@@ -1975,6 +1980,8 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 // push v1：页完探一次多线表（MacCMS 播放页才够格亮起播放按钮）。
                 mPushPageUrl = url;
                 probePageInfo();
+                // push v3：选集表可能是 JS 后渲染的，页完那一刻还没进 DOM——0.5/1.5/3 秒各补跑一次，探到可用线路就停。
+                schedulePushProbeRetry();
                 showBars();
             }
 
@@ -2564,6 +2571,34 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         });
     }
 
+    // push v3：探针补跑——选集表可能是 JS 后渲染的，页完那一刻还没进 DOM，探针跑空表按钮就不亮。
+    // 页完后 0.5/1.5/3 秒各补跑一次，只在还没探到可用线路时跑，探到就停，最多 3 次；页切走或 Activity 销毁时不跑。
+    private void schedulePushProbeRetry() {
+        cancelPushProbeRetry();
+        if (probeLinesUsable()) return;
+        if (mBinding == null || mBinding.web == null) return;
+        mPushProbeRetryCount = 0;
+        mPushProbeRetryPageUrl = mPushPageUrl;
+        mPushProbeRetry = () -> {
+            if (mBinding == null || mBinding.web == null) return;
+            if (!mPushProbeRetryPageUrl.equals(mPushPageUrl)) return;
+            if (probeLinesUsable()) return;
+            probePageInfo();
+            mPushProbeRetryCount++;
+            if (mPushProbeRetryCount < 3) {
+                mBinding.web.postDelayed(mPushProbeRetry, mPushProbeRetryCount == 1 ? 1000 : 1500);
+            }
+        };
+        mBinding.web.postDelayed(mPushProbeRetry, 500);
+    }
+
+    private void cancelPushProbeRetry() {
+        if (mPushProbeRetry != null && mBinding != null && mBinding.web != null) {
+            mBinding.web.removeCallbacks(mPushProbeRetry);
+        }
+        mPushProbeRetry = null;
+    }
+
     /** push v1：线路名去重——重名续号（极速蓝光→极速蓝光2）。改名返回 true（调用方需重新序列化）。 */
     private static boolean dedupePushLineNames(JSONArray lines) {
         HashMap<String, Integer> seen = new HashMap<>();
@@ -2765,6 +2800,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
 
     @Override
     protected void onDestroy() {
+        cancelPushProbeRetry();
         if (mBinding != null) {
             mBinding.web.loadUrl("about:blank");
             mBinding.web.destroy();
