@@ -1,7 +1,7 @@
 package com.muse.android.tv.api.loader;
 
 // push v2 Phase A：纯 HTTP 逐集解析器，替代已删除的隐形 WebView 逐集解析器（fuzi 移植版）。
-// 本文件不含任何 WebView / WebViewClient / evaluateJavascript：三层全部走 OkHttp 纯 HTTP。
+// 本文件不含任何 WebView / WebViewClient / evaluateJavascript：四层全部走 OkHttp 纯 HTTP。
 //
 // 层级（先成功者胜，失败全部如实落日志、绝不交假流）：
 //   L0 Provide API —— {origin}/api.php/provide/vod/?ac=detail&ids={vid}，一次拿全线全集，
@@ -10,6 +10,9 @@ package com.muse.android.tv.api.loader;
 //      走 playerconfig.js 的 from → parse 前缀表再解（fuzi ddPlay 链路，算法重写，见 ddResolve）；
 //      ID 形 url（如 "11602|1"）HTTP 解不了，交给 L2。
 //   L2 通用候选 —— 页内明文直链 / iframe 参数 / iframe 内页 / eval packer 解包，逐个探活。
+//   L4 ArtPlayer 解析播放器 —— 仅 L0/L1/L2 全败后：播放页 iframe → iframe 页
+//      const Url / Sign / From 三行字面量 → {iframe 目录}api.php?url=&sign=&t=
+//      → JSON code==200 取 ret.url（无 ret 时取顶层 url）→ 探活；按形认，不认域名。
 //   全败 → onFailed()，不交假流。
 //
 // 线程：resolve() 在后台线程跑网络，回调一律经主线程 Handler 回调；结果按播放页 URL 缓存。
@@ -72,6 +75,10 @@ public class HttpEpisodeResolver {
     private static final Pattern P_MP4 = Pattern.compile("(https?:\\\\?/\\\\?/[^\\s\"'<>]+?\\.(?:mp4|flv|mkv)[^\\s\"'<>]*)", Pattern.CASE_INSENSITIVE);
     private static final Pattern IFRAME_SRC = Pattern.compile("<iframe[^>]+src=[\"']([^\"']{6,500})[\"']", Pattern.CASE_INSENSITIVE);
     private static final Pattern QUERY_MEDIA_PARAM = Pattern.compile("[?&](?:video_url|play_url|url|v|src|m3u8)=([^&#\"']{6,900})", Pattern.CASE_INSENSITIVE);
+    /** L4 ArtPlayer：iframe 播放器页内的三行字面量（值是字面字符串，不跑 JS）。 */
+    private static final Pattern ART_URL = Pattern.compile("const\\s+Url\\s*=\\s*\"([^\"]+)\"");
+    private static final Pattern ART_SIGN = Pattern.compile("const\\s+Sign\\s*=\\s*\"([^\"]+)\"");
+    private static final Pattern ART_FROM = Pattern.compile("const\\s+From\\s*=\\s*\"([^\"]+)\"");
     private static final Pattern SID_EP = Pattern.compile("-(\\d+)-(\\d+)\\.html");
     private static final Pattern EP_NUMBER = Pattern.compile("(\\d+)");
     private static final Pattern PACKER_ARGS = Pattern.compile("\\('([\\s\\S]*?)',(\\d+),(\\d+),'([\\s\\S]*?)'\\.split\\('\\|'\\)");
@@ -108,10 +115,13 @@ public class HttpEpisodeResolver {
     private static final class HttpResult {
         final int code;
         final String body;
+        /** 跟完 3xx 后的最终地址（无跳转时即请求地址）；L4 由此取 iframe 目录。 */
+        final String url;
 
-        HttpResult(int code, String body) {
+        HttpResult(int code, String body, String url) {
             this.code = code;
             this.body = body;
+            this.url = url == null ? "" : url;
         }
     }
 
@@ -175,6 +185,11 @@ public class HttpEpisodeResolver {
                 stream = layer2(html, headers, extraCandidates);
                 if (stream != null) {
                     finish(stream, streamHeaders(stream, pageUrl), "L2");
+                    return;
+                }
+                stream = layer4(html, headers);
+                if (stream != null) {
+                    finish(stream, streamHeaders(stream, pageUrl), "L4");
                     return;
                 }
             } else {
@@ -455,6 +470,94 @@ public class HttpEpisodeResolver {
         return null;
     }
 
+    // ================= L4：ArtPlayer 解析播放器 =================
+
+    /**
+     * L4 ArtPlayer 解析播放器模式（按形认，不认域名）：
+     * 播放页 iframe → 跟进 iframe 页（常 302 到 player/index.php 之类）→ 页内
+     * const Url / const Sign / const From 三行字面量 → GET {iframe 目录}api.php
+     * ?url=&sign=&t= → JSON code==200 取 ret.url（无 ret 时取顶层 url）→ 探活。
+     * 三行缺任一、页内无 api.php、code 非 200、缺 url、探活不过，一律返回 null。
+     * 只在 L0/L1/L2 全败后调用；不跑 JS、不建 WebView。
+     */
+    private String layer4(String html, Map<String, String> headers) {
+        if (TextUtils.isEmpty(html)) return null;
+        Matcher fm = IFRAME_SRC.matcher(html);
+        while (fm.find()) {
+            String frame = absUrl(fm.group(1), pageUrl);
+            if (!frame.startsWith("http")) continue;
+            String stream = artResolveFrame(frame, headers);
+            if (!TextUtils.isEmpty(stream)) return stream;
+        }
+        log("L4 miss");
+        return null;
+    }
+
+    private String artResolveFrame(String frameUrl, Map<String, String> headers) {
+        HttpResult inner = get(frameUrl, headers);
+        if (inner.code < 200 || inner.code >= 400 || TextUtils.isEmpty(inner.body)) {
+            log("L4 frame miss http=" + inner.code + " frame=" + trunc(frameUrl));
+            return null;
+        }
+        String framePage = TextUtils.isEmpty(inner.url) ? frameUrl : inner.url;
+        String url = firstGroup(ART_URL, inner.body);
+        String sign = firstGroup(ART_SIGN, inner.body);
+        String from = firstGroup(ART_FROM, inner.body);
+        if (TextUtils.isEmpty(url) || TextUtils.isEmpty(sign) || TextUtils.isEmpty(from)
+                || !inner.body.contains("api.php")) {
+            log("L4 miss no-art-vars frame=" + trunc(framePage));
+            return null;
+        }
+        int slash = framePage.lastIndexOf('/');
+        if (slash < 0) return null;
+        String dir = framePage.substring(0, slash + 1);
+        String apiUrl;
+        try {
+            apiUrl = dir + "api.php?url=" + URLEncoder.encode(url, "UTF-8")
+                    + "&sign=" + URLEncoder.encode(sign, "UTF-8")
+                    + "&t=" + URLEncoder.encode(from, "UTF-8");
+        } catch (Exception e) {
+            return null;
+        }
+        Map<String, String> apiHeaders = new LinkedHashMap<>(headers);
+        apiHeaders.put("Referer", framePage);
+        HttpResult res = get(apiUrl, apiHeaders);
+        if (res.code < 200 || res.code >= 400 || TextUtils.isEmpty(res.body)) {
+            log("L4 api miss http=" + res.code);
+            return null;
+        }
+        String stream = artStreamFromJson(res.body);
+        if (TextUtils.isEmpty(stream)) {
+            log("L4 api miss no-url len=" + res.body.length());
+            return null;
+        }
+        stream = stream.replace("\\/", "/");
+        log("L4 api hit stream=" + trunc(stream));
+        if (!validStream(stream)) {
+            log("L4 api hit not-direct");
+            return null;
+        }
+        if (!probe(stream, apiHeaders)) {
+            log("L4 api hit probe-fail");
+            return null;
+        }
+        return stream;
+    }
+
+    /** ArtPlayer api.php 响应：{"code":200,"type":"m3u8","ret":{"url":"..."}}，无 ret 时取顶层 url。 */
+    private static String artStreamFromJson(String body) {
+        try {
+            JSONObject root = new JSONObject(body);
+            if (root.optInt("code", -1) != 200) return "";
+            JSONObject ret = root.optJSONObject("ret");
+            String u = ret == null ? "" : ret.optString("url", "");
+            if (TextUtils.isEmpty(u)) u = root.optString("url", "");
+            return u == null ? "" : u;
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
     private boolean probeWithReferer(String url, Map<String, String> headers, String referer) {
         Map<String, String> h = new LinkedHashMap<>(headers);
         h.put("Referer", referer);
@@ -598,17 +701,17 @@ public class HttpEpisodeResolver {
                 int code = res.code();
                 if ((code == 301 || code == 302 || code == 303 || code == 307 || code == 308) && i < MAX_REDIRECTS) {
                     String loc = res.header("Location");
-                    if (TextUtils.isEmpty(loc)) return new HttpResult(code, "");
+                    if (TextUtils.isEmpty(loc)) return new HttpResult(code, "", cur);
                     cur = absUrl(loc, cur);
                     continue;
                 }
                 ResponseBody body = res.body();
-                return new HttpResult(code, body == null ? "" : body.string());
+                return new HttpResult(code, body == null ? "" : body.string(), cur);
             } catch (Exception e) {
-                return new HttpResult(-1, "");
+                return new HttpResult(-1, "", cur);
             }
         }
-        return new HttpResult(-1, "");
+        return new HttpResult(-1, "", cur);
     }
 
     /** HEAD：手动跟随 3xx，返回最终状态码；异常/超时返回 -1。 */

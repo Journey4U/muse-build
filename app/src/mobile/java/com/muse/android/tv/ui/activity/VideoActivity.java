@@ -2376,7 +2376,9 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private boolean shouldEnterFullscreen(Episode item) {
-        boolean enter = !isFullscreen() && item.isSelected();
+        // push v4：已选集但当前没在播（停播/空播/解析失败后）时不再吞掉这次点击——只进全屏不重播，
+        // 点了等于没点；此时返回 false 走正常 selectEpisode（重播/重试）。播着才进全屏。
+        boolean enter = !isFullscreen() && item.isSelected() && player().isPlaying();
         if (enter) enterFullscreen();
         return enter;
     }

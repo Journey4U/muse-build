@@ -1,10 +1,12 @@
 package com.muse.android.tv.playback.vod;
 
 import android.text.TextUtils;
+import android.webkit.CookieManager;
 
 import androidx.media3.common.C;
 import androidx.media3.common.MediaMetadata;
 
+import com.github.catvod.net.OkHttp;
 import com.muse.android.tv.App;
 import com.muse.android.tv.R;
 import com.muse.android.tv.api.config.VodConfig;
@@ -17,15 +19,29 @@ import com.muse.android.tv.bean.Result;
 import com.muse.android.tv.bean.Vod;
 import com.muse.android.tv.playback.PlaybackResult;
 import com.muse.android.tv.setting.PlayerSetting;
+import com.muse.android.tv.setting.Setting;
 import com.muse.android.tv.utils.Notify;
 
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+
+import okhttp3.Request;
+import okhttp3.Response;
+import okhttp3.ResponseBody;
 
 public class VodPlaybackController {
 
     private static final String PUSH_PREFIX = "push://";
     private static final String SEARCH_PREFIX = "msearch:";
+
+    // push v4：已存直链探活——与 HttpEpisodeResolver.probe 相同的超时/重定向上限。
+    private static final long PROBE_TIMEOUT_MS = 9000;
+    private static final int PROBE_MAX_REDIRECTS = 3;
 
     private final VodPlaybackHost host;
     private final VodDataSource dataSource;
@@ -173,6 +189,8 @@ public class VodPlaybackController {
         renderPlaybackResult(result);
         updatePlaybackPosition(result);
         host.loadDanmaku(result, state.getHistory(), episode);
+        // push v4：新集地址已确认可播，在此才停掉旧流（原先 playEpisode 里先停播，解析失败会杀掉正在播的流）。
+        host.stopPlaybackForRefresh();
         startPlayback(result, startPositionMs(), episode);
         preloader.update(result);
     }
@@ -234,7 +252,7 @@ public class VodPlaybackController {
 
     private void playEpisode(Episode item) {
         Result result = preloader.consume(item);
-        host.stopPlaybackForRefresh();
+        // push v4：切集前不再先停播——解析失败（或探活失败）时旧流继续播；新地址确认可播后才在 applyPlaybackResult 里停旧流。
         if (result == null) requestSelectedEpisode();
         else applyPlaybackResult(result, VodPlayRequest.create(host.getVodKey(), state.getFlag(), item));
     }
@@ -483,12 +501,197 @@ public class VodPlaybackController {
     private void requestPlayer(Flag flag, Episode episode) {
         // push v2：浏览器待解析集（url 为空、pageUrl 为播放页地址）——不进 playerContent，交给宿主走纯 HTTP 解析器取直链；宿主不认（返回 false）才继续走正常播放。
         if (episode != null && TextUtils.isEmpty(episode.getUrl()) && !TextUtils.isEmpty(episode.getPageUrl()) && host.resolveWebEpisode(flag, episode)) return;
+        // push v4：已存直链的推送集——直链可能是限时签名地址，过期后播了也是死链；先在后台探活，活着才直放，死了走重解析。
+        // 只探 http(s) 直链：非 http 地址（如 novel:// / pics://）不进探活，直接走原直放路。
+        if (episode != null && !TextUtils.isEmpty(episode.getUrl()) && episode.getUrl().startsWith("http") && !TextUtils.isEmpty(episode.getPageUrl())) {
+            probeStoredStream(flag, episode);
+            return;
+        }
+        requestPlayerContent(flag, episode);
+    }
+
+    // 原 requestPlayer 的直放体：写历史、建请求、走 playerContent。
+    private void requestPlayerContent(Flag flag, Episode episode) {
         historyPolicy.updateEpisode(state.getHistory(), flag, episode);
         VodPlayRequest request = VodPlayRequest.create(host.getVodKey(), flag, episode);
         state.setPendingRequest(request);
         publishPlaybackMetadata(episode);
         dataSource.playerContent(request);
         host.onPlaybackRequested();
+    }
+
+    // ===== push v4：已存直链探活 =====
+    //
+    // 注意：HttpEpisodeResolver.probe() 是私有实例方法，控制器调不到（改它可见性会动只读文件）；
+    // 下面 probeStream / probeGet / probeHead 是按它原算法移植的等价实现（m3u8 走 GET + #EXTM3U 校验，
+    // 其余先 HEAD、不支持再退 Range GET；共享 OkHttp 默认关自动重定向，所以 3xx 全部手动跟随，上限 3 次）。
+    // 探活只判死活、不改地址；探活期间旧流继续播（停播已移到 applyPlaybackResult）。
+    private void probeStoredStream(Flag flag, Episode episode) {
+        String url = episode.getUrl();
+        String pageUrl = episode.getPageUrl();
+        new Thread(() -> {
+            boolean alive = probeStream(url, pageUrl);
+            App.post(() -> {
+                if (host.isHostFinishing() || !episode.isSelected()) return;
+                if (alive) requestPlayerContent(flag, episode);
+                else if (!host.resolveWebEpisode(flag, episode)) requestPlayerContent(flag, episode);
+            });
+        }).start();
+    }
+
+    private boolean probeStream(String url, String pageUrl) {
+        if (TextUtils.isEmpty(url) || !url.startsWith("http")) return false;
+        Map<String, String> headers = probeHeaders(url, pageUrl);
+        if (probeIsM3u8(url)) {
+            ProbeResult res = probeGet(url, headers);
+            if (res.code < 200 || res.code >= 400) return false;
+            return res.body != null && res.body.contains("#EXTM3U");
+        }
+        int code = probeHead(url, headers);
+        if (code >= 200 && code < 400) return true;
+        return probeRangeGet(url, headers);
+    }
+
+    private boolean probeRangeGet(String url, Map<String, String> headers) {
+        Request.Builder rb = new Request.Builder().url(url).header("Range", "bytes=0-0");
+        if (headers != null) for (Map.Entry<String, String> e : headers.entrySet()) {
+            if (!TextUtils.isEmpty(e.getKey()) && !TextUtils.isEmpty(e.getValue())) rb.header(e.getKey(), e.getValue());
+        }
+        try (Response res = OkHttp.client(PROBE_TIMEOUT_MS).newCall(rb.build()).execute()) {
+            int c = res.code();
+            return c == 200 || c == 206;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    // GET：手动跟随 3xx（上限 3 次）；m3u8 只读前 32KB 验 #EXTM3U，不整包进内存。
+    private ProbeResult probeGet(String url, Map<String, String> headers) {
+        String cur = url;
+        for (int i = 0; i <= PROBE_MAX_REDIRECTS; i++) {
+            Request.Builder rb = new Request.Builder().url(cur);
+            if (headers != null) for (Map.Entry<String, String> e : headers.entrySet()) {
+                if (!TextUtils.isEmpty(e.getKey()) && !TextUtils.isEmpty(e.getValue())) rb.header(e.getKey(), e.getValue());
+            }
+            try (Response res = OkHttp.client(PROBE_TIMEOUT_MS).newCall(rb.build()).execute()) {
+                int code = res.code();
+                if ((code == 301 || code == 302 || code == 303 || code == 307 || code == 308) && i < PROBE_MAX_REDIRECTS) {
+                    String loc = res.header("Location");
+                    if (TextUtils.isEmpty(loc)) return new ProbeResult(code, "");
+                    cur = probeAbsUrl(loc, cur);
+                    continue;
+                }
+                return new ProbeResult(code, probeBodyHead(res.body()));
+            } catch (Exception e) {
+                return new ProbeResult(-1, "");
+            }
+        }
+        return new ProbeResult(-1, "");
+    }
+
+    // HEAD：手动跟随 3xx（上限 3 次），返回最终状态码；异常/超时返回 -1。
+    private int probeHead(String url, Map<String, String> headers) {
+        String cur = url;
+        for (int i = 0; i <= PROBE_MAX_REDIRECTS; i++) {
+            Request.Builder rb = new Request.Builder().url(cur);
+            if (headers != null) for (Map.Entry<String, String> e : headers.entrySet()) {
+                if (!TextUtils.isEmpty(e.getKey()) && !TextUtils.isEmpty(e.getValue())) rb.header(e.getKey(), e.getValue());
+            }
+            try (Response res = OkHttp.client(PROBE_TIMEOUT_MS).newCall(rb.head().build()).execute()) {
+                int code = res.code();
+                if ((code == 301 || code == 302 || code == 303 || code == 307 || code == 308) && i < PROBE_MAX_REDIRECTS) {
+                    String loc = res.header("Location");
+                    if (TextUtils.isEmpty(loc)) return code;
+                    cur = probeAbsUrl(loc, cur);
+                    continue;
+                }
+                return code;
+            } catch (Exception e) {
+                return -1;
+            }
+        }
+        return -1;
+    }
+
+    // 只读响应体前 32KB（#EXTM3U 在清单首行，够了）；体为空返回 ""。
+    private String probeBodyHead(ResponseBody body) {
+        if (body == null) return "";
+        try (InputStream in = body.byteStream()) {
+            byte[] buf = new byte[8192];
+            StringBuilder sb = new StringBuilder();
+            int total = 0;
+            int n;
+            while (total < 32768 && (n = in.read(buf, 0, Math.min(buf.length, 32768 - total))) > 0) {
+                total += n;
+                sb.append(new String(buf, 0, n, StandardCharsets.UTF_8));
+                if (sb.indexOf("#EXTM3U") >= 0) break;
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    // 与解析器取头法相同：Referer=播放页、UA=Setting、Cookie 同源。
+    private Map<String, String> probeHeaders(String streamUrl, String pageUrl) {
+        Map<String, String> headers = new LinkedHashMap<>();
+        headers.put("Referer", pageUrl);
+        headers.put("User-Agent", Setting.getUa());
+        String cookie = probeCookie(streamUrl);
+        if (TextUtils.isEmpty(cookie)) cookie = probeCookie(pageUrl);
+        if (!TextUtils.isEmpty(cookie)) headers.put("Cookie", cookie);
+        return headers;
+    }
+
+    private static String probeCookie(String url) {
+        try {
+            return CookieManager.getInstance().getCookie(url);
+        } catch (Throwable t) {
+            return "";
+        }
+    }
+
+    private static boolean probeIsM3u8(String url) {
+        if (TextUtils.isEmpty(url)) return false;
+        String path = url;
+        int q = path.indexOf('?');
+        if (q > 0) path = path.substring(0, q);
+        return path.toLowerCase(Locale.ROOT).endsWith(".m3u8");
+    }
+
+    private static String probeAbsUrl(String url, String base) {
+        if (TextUtils.isEmpty(url)) return "";
+        String u = url.trim();
+        if (u.startsWith("//")) return "https:" + u;
+        if (u.startsWith("http")) return u;
+        if (u.startsWith("/")) return probeSchemeHost(base) + u;
+        String dir = base;
+        int cut = dir.indexOf('?');
+        if (cut >= 0) dir = dir.substring(0, cut);
+        cut = dir.indexOf('#');
+        if (cut >= 0) dir = dir.substring(0, cut);
+        int slash = dir.lastIndexOf('/');
+        if (slash >= 0) dir = dir.substring(0, slash + 1);
+        return dir + u;
+    }
+
+    private static String probeSchemeHost(String url) {
+        if (TextUtils.isEmpty(url)) return "";
+        int scheme = url.indexOf("://");
+        if (scheme < 0) return "";
+        int slash = url.indexOf('/', scheme + 3);
+        return slash < 0 ? url + "/" : url.substring(0, slash + 1);
+    }
+
+    // 探活用的最小 HTTP 结果（与 HttpEpisodeResolver.HttpResult 同形）。
+    private static final class ProbeResult {
+        final int code;
+        final String body;
+
+        ProbeResult(int code, String body) {
+            this.code = code;
+            this.body = body;
+        }
     }
 
     private Episode findEpisode(VodPlayRequest request) {
