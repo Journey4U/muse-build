@@ -1418,7 +1418,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         CLEAN_JS = sb.toString();
     }
     // push v1: fuzi 多线探针（MacCMS 播放页全部线路 + 每线选集表）与页面 video 直取探针——逐字取自 fuzi BrowserActivity，不转录。
-                private static final String PROBE_JS = "(function(){function txt(el){return el?(el.innerText||'').trim():'';}function cleanName(t){return (t||'').replace(/[\\uE000-\\uF8FF]/g,'').replace(/\\s+/g,' ').trim();}function tabText(el){if(!el)return "
+                    private static final String PROBE_JS = "(function(){function txt(el){return el?(el.innerText||'').trim():'';}function cleanName(t){return (t||'').replace(/[\\uE000-\\uF8FF]/g,'').replace(/\\s+/g,' ').trim();}function tabText(el){if(!el)return "
         + "'';var parts=[];var ns=el.childNodes;for(var i=0;i<ns.length;i++){var n=ns[i];if(n.nodeType===3)parts.push(n.textContent||'');else if(n.nodeType===1){var tg=n.tagName;var cl=n.getAttribute('class')||'';if(tg==='I'||/badge|num|count/i.test(cl))continue;parts.push(n.innerText||n.textContent||'');}}return "
         + "cleanName(parts.join(' '));}function cleanCand(L){var c=L.cand||'';if(!c)return c;var cnt=L.order.length;var m=c.match(/^(.*?)[-_\\s·]*?(\\d+)$/);if(m&&parseInt(m[2],10)===cnt&&m[1]&&m[1].trim())c=m[1].trim();return "
         + "c.replace(/[-_\\s·]+$/,'');}function picOf(){try{var m=document.querySelector('meta[property=\"og:image\"],meta[name=\"twitter:image\"]');if(m&&m.content){try{return new URL(m.content,location.href).href}catch(e){return "
@@ -1464,20 +1464,15 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         + "':'')+'tsel='+tabSel;if(tabNames.length!==sorted.length){var hs=[];var cs=document.querySelectorAll('ul,ol,div');for(var hi=0;hi<cs.length&&hi<80;hi++){var c0=cs[hi];var ch=c0.children;if(!ch||ch.length<2||ch.length>8)continue;var "
         + "ts2=[];var bad=false;for(var hj=0;hj<ch.length;hj++){var tt=tabText(ch[hj]);if(!tt||tt.length>12||epName(tt)){bad=true;break;}ts2.push(tt);}if(bad||ts2.length<2)continue;hs.push(((c0.getAttribute('class')||c0.tagName)||'').slice(0,30)+':'+ts2.slice(0,3).join('~'));if(hs.length>=3)break;}if(hs.length)diag+=(diag?' "
         + "':'')+'hunt='+hs.join('|');}}function articleBody(){try{var a=document.querySelector('.post-content[itemprop=\"articleBody\"]');if(a)return a;return document.querySelector('.post-content');}catch(e){return "
-        + "null;}}
-function inRemovedZone(el){try{var n=el;while(n&&n!==document.body){if(n.matches&&n.matches('.post-near,.content-copyright,.hot-news-section,.tags,.content-tabs,.txt-apps,.horizontal-banner,.article-ads-btn,.btn-app,.line,blockquote,table'))return "
-        + "true;n=n.parentElement;}return false;}catch(e){return false;}}
-function dplayerCfg(el){var c='';try{c=el.getAttribute('data-config')||'';}catch(e){}if(!c)return null;try{return JSON.parse(c);}catch(e){try{var "
+        + "null;}}function inRemovedZone(el){try{var n=el;while(n&&n!==document.body){if(n.matches&&n.matches('.post-near,.content-copyright,.hot-news-section,.tags,.content-tabs,.txt-apps,.horizontal-banner,.article-ads-btn,.btn-app,.line,blockquote,table'))return "
+        + "true;n=n.parentElement;}return false;}catch(e){return false;}}function dplayerCfg(el){var c='';try{c=el.getAttribute('data-config')||'';}catch(e){}if(!c)return null;try{return JSON.parse(c);}catch(e){try{var "
         + "m=/\\\"video\\\"\\s*:\\s*\\{[^}]*?\\\"url\\\"\\s*:\\s*\\\"((?:[^\\\"\\\\]|\\\\.)*)\\\"/.exec(c);if(m)return{video:{url:m[1].replace(/\\\\\\//g,'/')}};var m2=/\\\"video_h265\\\"\\s*:\\s*\\{[^}]*?\\\"url\\\"\\s*:\\s*\\\"((?:[^\\\"\\\\]|\\\\.)*)\\\"/.exec(c);if(m2)return{video_h265:{url:m2[1].replace(/\\\\\\//g,'/')}};}catch(e2){}return "
-        + "null;}}
-function dplayerUrl(cfg){try{var u=cfg&&cfg.video&&cfg.video.url;if(u&&/^https?:/i.test(u))return u;var h=cfg&&cfg.video_h265&&cfg.video_h265.url;if(h&&/^https?:/i.test(h))return h;}catch(e){}return "
-        + "'';}
-function dplayerEpisodes(){try{var dps=document.querySelectorAll('.dplayer[data-config]');if(!dps||!dps.length)return null;var eps=[];for(var i=0;i<dps.length;i++){var el=dps[i];try{if(hasAdMark(el)||inRecCtx(el))continue;}catch(e){}var "
+        + "null;}}function dplayerUrl(cfg){try{var u=cfg&&cfg.video&&cfg.video.url;if(u&&/^https?:/i.test(u))return u;var h=cfg&&cfg.video_h265&&cfg.video_h265.url;if(h&&/^https?:/i.test(h))return h;}catch(e){}return "
+        + "'';}function dplayerEpisodes(){try{var dps=document.querySelectorAll('.dplayer[data-config]');if(!dps||!dps.length)return null;var eps=[];for(var i=0;i<dps.length;i++){var el=dps[i];try{if(hasAdMark(el)||inRecCtx(el))continue;}catch(e){}var "
         + "u=dplayerUrl(dplayerCfg(el));if(!u)continue;eps.push({url:u,el:el});}if(!eps.length)return null;var art=articleBody();var atxt='';try{atxt=art?(art.innerText||art.textContent||''):'';}catch(e){}if(!atxt){try{atxt=document.body?(document.body.innerText||document.body.textContent||''):'';}catch(e){}}var "
         + "epNames=atxt.match(/第[一二三四五六七八九十百]+集/g)||[];var curIdx=0;for(var j=0;j<eps.length;j++){var v=null;try{v=eps[j].el.querySelector('video');}catch(e){}if(v&&v.paused===false){curIdx=j;break;}}var lineName='';try{lineName=cleanName(document.title||'');}catch(e){}if(!lineName)lineName='视频';var "
         + "out_eps=[];for(var k=0;k<eps.length;k++){var nm=epNames.length>=eps.length?epNames[k]:('第'+(k+1)+'集');out_eps.push({name:nm,url:eps[k].url,cur:k===curIdx?1:0});}return{line:{sid:'dp',name:lineName,cur:1,episodes:out_eps},curUrl:eps[curIdx].url,curName:out_eps[curIdx].name};}catch(e){return "
-        + "null;}}
-function subEpsList(){try{var dps=document.querySelectorAll('.dplayer[data-config]');if(dps&&dps.length)return [];}catch(e){}try{var art=articleBody();if(!art)return [];var as=art.querySelectorAll('a[href]');var "
+        + "null;}}function subEpsList(){try{var dps=document.querySelectorAll('.dplayer[data-config]');if(dps&&dps.length)return [];}catch(e){}try{var art=articleBody();if(!art)return [];var as=art.querySelectorAll('a[href]');var "
         + "out2=[],seen={};for(var i=0;i<as.length&&out2.length<20;i++){var a=as[i];if(inRemovedZone(a))continue;var raw='';try{raw=a.getAttribute('href')||'';}catch(e){}if(!raw)continue;var u='';try{u=new URL(raw,location.href).href;}catch(e){continue;}var "
         + "uu=null;try{uu=new URL(u);}catch(e){continue;}if(uu.host!==location.host)continue;if(!/^\\/archives\\/\\d+\\/?$/.test(uu.pathname))continue;var norm=u.split('#')[0].split('?')[0];if(norm.charAt(norm.length-1)==='/')norm=norm.slice(0,-1);var "
         + "cur=location.href.split('#')[0].split('?')[0];if(cur.charAt(cur.length-1)==='/')cur=cur.slice(0,-1);if(norm===cur)continue;if(seen[norm])continue;seen[norm]=1;var nm='';try{nm=cleanName(a.innerText||a.textContent||'');}catch(e){}out2.push({name:nm,url:u});}return "
