@@ -1619,9 +1619,11 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
             @Override
             public void onResolved(String url, Map<String, String> headers) {
                 hideProgress();
+                // push v6 Layer 1：解析中用户已切走别的集时不回切；已选中的集只重跑 playEpisode，不重进 selectEpisode（重进会再写一次历史，旧集位置污染新集槽）。
+                if (isHostFinishing() || !episode.isSelected()) return;
                 mWebEpHeaders = headers == null ? Collections.emptyMap() : headers;
                 episode.setUrl(url);
-                mVod.selectEpisode(episode);
+                mVod.playResolvedEpisode(episode);
             }
 
             @Override

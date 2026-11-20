@@ -262,6 +262,12 @@ public class VodPlaybackController {
         playEpisode(item);
     }
 
+    /** push v6 Layer 1：浏览器解析回调只重跑 playEpisode，不重进 selectEpisode——该集已选中，重进会再跑 saveCurrentHistory（把仍在播的旧集位置写进新集槽）+ updateEpisode（history 集名已是新集，不重置位置）。解析中用户已切走别的集时不回切（isSelected 守卫）。 */
+    public void playResolvedEpisode(Episode item) {
+        if (item == null || !item.isSelected()) return;
+        playEpisode(item);
+    }
+
     private void playEpisode(Episode item) {
         Result result = preloader.consume(item);
         // push v4：切集前不再先停播——解析失败（或探活失败）时旧流继续播；新地址确认可播后才在 applyPlaybackResult 里停旧流。
@@ -434,7 +440,11 @@ public class VodPlaybackController {
 
     public void onTimeChanged(long time, long position, long duration) {
         History history = currentHistory();
-        historyPolicy.updateProgress(history, time, position, duration);
+        // push v6 Layer 1：切集解析窗口内旧集仍在播（停播已移到 applyPlaybackResult），1 秒时钟会把旧集位置写进新集共用的单 History 槽，新集就从旧位置起播；
+        // 播的集与选的集不一致时跳过写历史，applyPlaybackResult 把 playingRequest 切到新集后再恢复写。playing 为空（未开播）时沿旧行为写。
+        VodPlayRequest playing = state.getPlayingRequest();
+        boolean sameEpisode = playing == null || (state.hasEpisode() && playing.matches(host.getVodKey(), state.getFlag(), state.getEpisode()));
+        if (sameEpisode) historyPolicy.updateProgress(history, time, position, duration);
         // push v5：恢复的新流实播满 5 秒（位置越过报错点 5 秒）才重新武装报错恢复；
         // 新流立报错（未实播）时守卫仍在，不重取，防无限循环。
         if (pushErrorRecoveryTried && pushRecoveryBasePosition != C.TIME_UNSET && position > pushRecoveryBasePosition + 5000) clearPushErrorRecovery();
