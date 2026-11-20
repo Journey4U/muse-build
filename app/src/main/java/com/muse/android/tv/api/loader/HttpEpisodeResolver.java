@@ -17,7 +17,7 @@ package com.muse.android.tv.api.loader;
 //      → JSON code==200 取 ret.url（无 ret 时取顶层 url）→ 探活；按形认，不认域名。
 //   L5 子页解析（push v12）：探针 subEps（无 .dplayer 文章的子帖表）——并行取子页，
 //      首个 .dplayer 的 video.url（没有取 video_h265.url）拼完整分集；集名 = 链接文字，
-//      没有就用子页标题/h1，再没有就用「剧集-{帖子id}」；子页取不到视频就跳过该集，
+//      没有就用子页标题/h1，再没有就用「剧集-{帖子id}」，还没有就用「第N集」（push v13 对齐电视）；子页取不到视频就跳过该集，
 //      全部取不到就 onFailed，绝不交假流。直取失败时按 py 请求头（桌面 UA + 站根 Referer）重试一次。
 //   L-direct 直链快路径（push v12）：集地址本身就是直链（多视频/子页合成线的非当前集，
 //      applyBrowserLines 把直链记进 pageUrl）时直接探活返回，不再当播放页解析。
@@ -102,7 +102,7 @@ public class HttpEpisodeResolver {
     private static final Pattern DPLAYER_H265_URL = Pattern.compile("\"video_h265\"\\s*:\\s*\\{[^}]*?\"url\"\\s*:\\s*\"([^\"]+)\"");
     private static final Pattern TITLE_TAG = Pattern.compile("<title>(.*?)</title>", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
     private static final Pattern H1_TAG = Pattern.compile("<h1[^>]*>(.*?)</h1>", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
-    private static final Pattern ARCHIVES_ID = Pattern.compile("/archives/(\\d+)/");
+    private static final Pattern ARCHIVES_ID = Pattern.compile("/archives/(\\d+)");
     private static final int MAX_SUB_PAGES = 20;
     private static final Pattern EP_NUMBER = Pattern.compile("(\\d+)");
     private static final Pattern PACKER_ARGS = Pattern.compile("\\('([\\s\\S]*?)',(\\d+),(\\d+),'([\\s\\S]*?)'\\.split\\('\\|'\\)");
@@ -247,7 +247,7 @@ public class HttpEpisodeResolver {
      * push v12：子页解析层（L5）——探针在无 .dplayer 的文章里取到的 subEps（[{name,url}]），
      * 且无 lines/mainStream 时调用：并行取每个子页，解析首个 .dplayer 的 video.url
      * （没有取 video_h265.url），拼成完整分集。集名 = 链接文字，没有就用子页标题/h1，
-     * 再没有就用「剧集-{帖子id}」。子页取不到视频就跳过该集；全部取不到就 onFailed，
+     * 再没有就用「剧集-{帖子id}」，还没有就用「第N集」（push v13 对齐电视）。子页取不到视频就跳过该集；全部取不到就 onFailed，
      * 绝不交假流。单个子页沿用 TIMEOUT_MS 超时；上限 20 个。
      */
     public static void resolveSubPages(String pageUrl, String subEpsJson, SubPagesCallback callback) {
@@ -318,7 +318,7 @@ public class HttpEpisodeResolver {
             final Ep sub = subs.get(i);
             pool.submit(() -> {
                 try {
-                    results[idx] = resolveOneSubPage(sub);
+                    results[idx] = resolveOneSubPage(sub, idx);
                 } catch (Throwable t) {
                     results[idx] = null;
                 } finally {
@@ -338,7 +338,7 @@ public class HttpEpisodeResolver {
     }
 
     /** 取一个子页：首个 .dplayer 的 video.url（没有取 video_h265.url）；直取失败时按 py 请求头重试一次。 */
-    private Ep resolveOneSubPage(Ep sub) {
+    private Ep resolveOneSubPage(Ep sub, int idx) {
         Map<String, String> headers = subPageHeaders(pageUrl, sub.url);
         HttpResult res = get(sub.url, headers);
         if (res.code < 200 || res.code >= 400 || TextUtils.isEmpty(res.body)) {
@@ -360,10 +360,7 @@ public class HttpEpisodeResolver {
             Matcher m = ARCHIVES_ID.matcher(sub.url);
             name = m.find() ? "剧集-" + m.group(1) : "";
         }
-        if (TextUtils.isEmpty(name)) {
-            log("L5 sub miss no-name sub=" + trunc(sub.url));
-            return null;
-        }
+        if (TextUtils.isEmpty(name)) name = "第" + (idx + 1) + "集";
         log("L5 sub hit name=" + name + " stream=" + trunc(stream));
         return new Ep(name, stream);
     }
