@@ -2807,8 +2807,6 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         String logStream = stream.length() > 90 ? stream.substring(0, 90) : stream;
         DebugLogStore.add("WebPlay", "push 多线转播放 流=" + logStream + " 线路名=" + flag + " 集=" + episode + " 页=" + mPushPageUrl);
         VideoActivity.startWithHeaders(this, stream, headers, title, flag, episode, null, mPushPageUrl, mPushProbeLines, mPushPagePic, origin, vid, sid, nid);
-        // 电视 v1（Liu 定）：推过去就关浏览器——电览内存吃紧，WebView 随 Activity 销毁释放；手机版保持浏览器在后台栈。
-        finish();
     }
 
     /** push v1：嗅探时把该请求的 Referer/UA + 页面 Cookie 记下来，供转播放时带头。后台线程调用，只读请求对象与 Cookie，不碰 WebView 方法。 */
