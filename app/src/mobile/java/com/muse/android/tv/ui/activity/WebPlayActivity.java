@@ -1095,7 +1095,11 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         "mAd(el))hr='isFixedBottomAd';else if(isGenericBottomBanner(el))hr='isGenericBottomBanner';else if(isFixedBottomImageCardRow(el))hr='isFixedBottomImageCardRow';else if(isFixedBotto",
         "mImageAd(el))hr='isFixedBottomImageAd';else if(isGenericMidBanner(el))hr='isGenericMidBanner';else if(isFixedT",
         "opBanner(el))hr='isFixedTopBanner';else if(isBottomPornAd(el))hr='isBottomPornAd';if(hr){noteHide(hr,el);el.st",
-                "yle.display=\'none\';}}hideSpriteBarGroup();var links=document.querySelectorAll(\'a[href]\');for(var q=0;q<links.l",
+                "yle.display=\'none\';}}",
+                "var bare=document.querySelectorAll(\'img,video\');for(var bm=0;bm<bare.length;bm++){var be=bare[bm];if(!be.isCon",
+                "nected)continue;if(isFixedBottomBareMedia(be)){noteHide(\'isFixedBottomBareMedia\',be);be.style.display=\'none\';}",
+                "}",
+                "hideSpriteBarGroup();var links=document.querySelectorAll(\'a[href]\');for(var q=0;q<links.l",
         "ength;q++){var lk=lin",
         "ks[q];if(!lk.isConnected)continue;if(inAgeGate(lk))continue;if(isAdImageLink(lk)||isBottomPornAd(lk)){lk.style",
         ".display='none';continue;}if(foreign(lk.href)||isAdUrl(lk.href)){var fbr=fixedBottomAdRoot(lk);if(fbr){noteHid",
@@ -1210,7 +1214,17 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         "ySelector('img,iframe'))hasVisual=true;if(!hasVisual){var bg=cs.backgroundImage||'';if(bg.indexOf('url(')>=0)h",
         "asVisual=true;}if(!hasVisual){var kids=el.querySelectorAll('*');for(var k=0;k<kids.length;k++){var kb=getCompu",
         "tedStyle(kids[k]).backgroundImage||'';if(kb.indexOf('url(')>=0){hasVisual=true;break;}}}if(!hasVisual)return f",
-                "alse;return true;}\nfunction isImageCard(c){if(!c||c.nodeType!==1)return false;if(c.tagName===\'IMG\')return fals",
+                "alse;return true;}\n",
+                "function isFixedBottomBareMedia(el){if(!el||el===document.body)return false;if(el.tagName!==\'IMG\'&&el.tagName!",
+                "==\'VIDEO\')return false;if(isAgeGate(el))return false;if(isChallenge(el))return false;if(isContent(el))return f",
+                "alse;if(isNavMenu(el))return false;if(el.closest){try{if(el.closest(\'.dplayer\'))return false;}catch(e){}}var c",
+                "s=getComputedStyle(el);if(cs.position!==\'fixed\'&&cs.position!==\'absolute\'&&cs.position!==\'sticky\')return false",
+                ";var r=el.getBoundingClientRect();if(r.width<window.innerWidth*0.4)return false;if(r.bottom<window.innerHeight",
+                "-2)return false;if(r.top<window.innerHeight*0.5)return false;var s=\'\';try{s=el.currentSrc||el.src||\'\';}catch(e",
+                "){s=el.src||\'\';}var cross=false;if(s&&(foreign(s)||isAdUrl(s)))cross=true;var click=false;if(el.getAttribute){",
+                "try{if(el.getAttribute(\'onclick\'))click=true;}catch(e2){}}if(!click){try{if(el.onclick)click=true;}catch(e3){}",
+                "}if(!cross&&!click)return false;return true;}\n",
+                "function isImageCard(c){if(!c||c.nodeType!==1)return false;if(c.tagName===\'IMG\')return fals",
         "e;var hasImg=false;var ch=c.children;for(var i=0;i<ch.length;i++){if(ch[i].tagName===\'IMG\'){hasImg=true;break;",
         "}}if(!hasImg){var b=getComputedStyle(c).backgroundImage||\'\';if(b.indexOf(\'url(\')>=0)hasImg=true;}if(!hasImg)re",
         "turn false;return txt(c).length<=16;}\nfunction isFixedBottomImageCardRow(el){if(!el||el===document.body)return",
@@ -1778,6 +1792,11 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                     if (mBlockedHosts.add(host)) DebugLogStore.add("WebPlay", "blocked ad_poll script=" + request.getUrl());
                     return mEmpty;
                 }
+                // 骚火（v7 net）：/back_flow 是广告加载器劫持返回键的通道，按 path 子串拦，通用。
+                if (path != null && path.toLowerCase(Locale.US).contains("/back_flow")) {
+                    if (mBlockedHosts.add(host)) DebugLogStore.add("WebPlay", "blocked back_flow url=" + request.getUrl());
+                    return mEmpty;
+                }
                 if (!TextUtils.isEmpty(host) && isAd(host)) {
                     // 视频流地址永不拦截：广告是图片/脚本/iframe，流本身不是广告。
                     // 有的站视频走轮换域名，域名单误伤时播放器只剩 0:00 空壳。
@@ -2316,8 +2335,12 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         return false;
     }
 
+    // 骚火（v7 net）：广告加载器域名按日轮换 cdnjs.<数字>.xyz（如 cdnjs.086123.xyz），名单列不进；按形态认。
+    private static final Pattern CDNJS_ROTATING_AD = Pattern.compile("^cdnjs\\.\\d+\\.xyz$", Pattern.CASE_INSENSITIVE);
+
     private boolean isAd(String host) {
         if (AdDomains.isAdDomain(host)) return true;
+        if (!TextUtils.isEmpty(host) && CDNJS_ROTATING_AD.matcher(host).matches()) return true;
         for (String ad : RuleConfig.get().getAds()) if (Util.containOrMatch(host, ad)) return true;
         return false;
     }
