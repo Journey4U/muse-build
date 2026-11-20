@@ -1522,6 +1522,8 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     // push v1: 浏览器转原生播放状态（嗅探到的直链 + 多线探针结果 + 当前页信息）。
     private volatile String mPushLastSniff;
     private volatile long mPushSniffAt;
+    // push v10：嗅流所属页（嗅到流时记 mPushPageUrl；切页时清，与流同生死，免得旧页流串到新页）。
+    private volatile String mPushSniffPageUrl = "";
     // push v8：探针带回的主片流（声明地址）+ 广告流黑名单 + 片头广告播放中（PROBE_JS 新字段；切页时清）。
     private volatile String mPushMainStream = "";
     private volatile java.util.Set<String> mPushAdSrcs = java.util.Collections.emptySet();
@@ -1862,6 +1864,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 if (isPushStreamUrl(reqUrl) && !mPushAdSrcs.contains(reqUrl) && !reqUrl.equals(mPushLastSniff)) {
                     mPushLastSniff = reqUrl;
                     mPushSniffAt = System.currentTimeMillis();
+                    mPushSniffPageUrl = mPushPageUrl;
                     capturePushSniffHeaders(request, reqUrl);
                     probePageInfo();
                 }
@@ -2010,6 +2013,11 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 mPushAdPlaying = false;
                 mPushSubResolving = false;
                 mPushSubResolveUrl = "";
+                // push v10：嗅流与嗅流头是旧页的，切页同清——否则 120 秒内点推会拿旧页流顶上（占位）。
+                mPushLastSniff = null;
+                mPushSniffAt = 0;
+                mPushSniffPageUrl = "";
+                mPushSniffedHeaders = null;
                 cancelPushProbeRetry();
             }
 
@@ -2625,6 +2633,11 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         // push v2：记下本次探针跑在哪一页——回调时页面可能已切走，回调里再记就锚错页。
         mPushProbePageUrl = mPushPageUrl;
         mBinding.web.evaluateJavascript(PROBE_JS, value -> {
+            // push v10：迟到回调（起飞后已切页）直接丢弃——旧页探针结果不许写回新页；pending 属于旧页，一并清掉。
+            if (!mPushProbePageUrl.equals(mPushPageUrl)) {
+                mPushPlayPending = false;
+                return;
+            }
             if (value == null) {
                 if (mPushPlayPending) {
                     mPushPlayPending = false;
@@ -2886,9 +2899,11 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         });
     }
 
-    /** push v8：120 秒内嗅到过流（单片模式的判定口径，与 continuePushPlay 取流窗口一致）。 */
+    /** push v8：120 秒内嗅到过流（单片模式的判定口径，与 continuePushPlay 取流窗口一致）。
+     * push v10：嗅流只在嗅到它的那一页有效——跨页不认，只看 120 秒会拿旧页流顶上。 */
     private boolean hasFreshPushSniff() {
-        return !TextUtils.isEmpty(mPushLastSniff) && System.currentTimeMillis() - mPushSniffAt < 120000;
+        return !TextUtils.isEmpty(mPushLastSniff) && System.currentTimeMillis() - mPushSniffAt < 120000
+                && mPushSniffPageUrl.equals(mPushPageUrl);
     }
 
     /** TV push v4 fix 3(b)：120 秒内探针在同源 iframe 里见过视频流（电视原生 HLS 下嗅探抓不到时，按钮亮灯的第三条路）。 */
@@ -3023,7 +3038,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 String stream = "";
                 if (!TextUtils.isEmpty(mPushMainStream) && isPushStreamUrl(mPushMainStream)) stream = mPushMainStream;
                 else if (!TextUtils.isEmpty(src) && !"null".equals(src) && src.startsWith("http") && isPushStreamUrl(src) && !mPushAdPlaying && !mPushAdSrcs.contains(src)) stream = src;
-                else if (!TextUtils.isEmpty(mPushLastSniff) && System.currentTimeMillis() - mPushSniffAt < 120000 && !mPushAdSrcs.contains(mPushLastSniff)) stream = mPushLastSniff;
+                else if (!TextUtils.isEmpty(mPushLastSniff) && System.currentTimeMillis() - mPushSniffAt < 120000 && !mPushAdSrcs.contains(mPushLastSniff) && mPushSniffPageUrl.equals(mPushPageUrl)) stream = mPushLastSniff;
                 if (!stream.isEmpty()) {
                     startProbedPlay(stream);
                     return;
