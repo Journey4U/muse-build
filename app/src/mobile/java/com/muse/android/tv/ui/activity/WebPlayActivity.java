@@ -1523,6 +1523,8 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     // push v1: 浏览器转原生播放状态（嗅探到的直链 + 多线探针结果 + 当前页信息）。
     private volatile String mPushLastSniff;
     private volatile long mPushSniffAt;
+    // push v14：嗅流所属页——只认本页嗅到的流，跨页一律不认。
+    private volatile String mPushSniffPageUrl = "";
     // push v11：探针带回的主片流（声明地址）+ 广告流黑名单 + 片头广告播放中（PROBE_JS 新字段；切页时清）。
     private volatile String mPushMainStream = "";
     private volatile java.util.Set<String> mPushAdSrcs = java.util.Collections.emptySet();
@@ -1854,6 +1856,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 if (isPushStreamUrl(reqUrl) && !mPushAdSrcs.contains(reqUrl) && !reqUrl.equals(mPushLastSniff)) {
                     mPushLastSniff = reqUrl;
                     mPushSniffAt = System.currentTimeMillis();
+                    mPushSniffPageUrl = mPushPageUrl;
                     capturePushSniffHeaders(request, reqUrl);
                     probePageInfo();
                 }
@@ -1996,6 +1999,14 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 mPushMainStream = "";
                 mPushAdSrcs = java.util.Collections.emptySet();
                 mPushAdPlaying = false;
+                // push v14：嗅流按页隔离——切页即清旧流/旧头/嗅流页与待续播，旧页的流绝不许占位到新页。
+                mPushLastSniff = null;
+                mPushSniffAt = 0;
+                mPushSniffPageUrl = "";
+                mPushSniffedHeaders = null;
+                mPushPlayPending = false;
+                // push v14：导航开始先藏推送钮——旧页嗅流亮起的钮不许带到新页，等新页探针跑完再由 updatePushButton 决定。
+                if (mBinding != null && mBinding.pushPlay != null) mBinding.pushPlay.setVisibility(View.GONE);
                 cancelPushProbeRetry();
             }
 
@@ -2609,6 +2620,11 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         // push v2：记下本次探针跑在哪一页——回调时页面可能已切走，回调里再记就锚错页。
         mPushProbePageUrl = mPushPageUrl;
         mBinding.web.evaluateJavascript(PROBE_JS, value -> {
+            // push v14：迟到的旧页探针回调直接丢弃——不许把旧页的表/主片流写回已切走的新页。
+            if (!mPushProbePageUrl.equals(mPushPageUrl)) {
+                mPushPlayPending = false;
+                return;
+            }
             if (value == null) {
                 if (mPushPlayPending) {
                     mPushPlayPending = false;
@@ -2759,7 +2775,8 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
 
     /** push v8：120 秒内嗅到过流（单片模式的判定口径，与 continuePushPlay 取流窗口一致）。 */
     private boolean hasFreshPushSniff() {
-        return !TextUtils.isEmpty(mPushLastSniff) && System.currentTimeMillis() - mPushSniffAt < 120000;
+        // push v14：只认本页 120 秒内嗅到的流——嗅流页不是当前页时一律不算新鲜。
+        return !TextUtils.isEmpty(mPushLastSniff) && !TextUtils.isEmpty(mPushSniffPageUrl) && mPushSniffPageUrl.equals(mPushPageUrl) && System.currentTimeMillis() - mPushSniffAt < 120000;
     }
 
     /**
@@ -2837,10 +2854,12 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
             return;
         }
         Notify.show("正在解析子页视频…");
+        // push v14：记下解析起点的页——解析回来时页已切走就丢弃，不把旧页子集写进新页。
+        final String subPageUrl = mPushPageUrl;
         HttpEpisodeResolver.resolveSubPages(mPushPageUrl, subJson, new HttpEpisodeResolver.SubPagesCallback() {
             @Override
             public void onResolved(String episodesJson) {
-                if (mBinding == null || mBinding.web == null) return;
+                if (mBinding == null || mBinding.web == null || !subPageUrl.equals(mPushPageUrl)) return;
                 try {
                     JSONArray eps = new JSONArray(episodesJson);
                     if (eps.length() == 0) {
@@ -2928,7 +2947,9 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     /** push v2：探针就绪后的续跑——取流顺位见方法内注释（探针 mainStream 优先），转原生播放器；无流则留在网页。 */
     private void continuePushPlay() {
         // push v8：单片模式（无线路表但 120 秒内嗅到过流）也放行。
-        if (!probeLinesUsable() && !hasFreshPushSniff()) {
+        // push v14：探针已带回本页主片流时也放行——playNative 单片模式本就认 hasPushMainStream，
+        // 入口门必须一致，否则 v14 按页隔离后、无本页嗅流的单 .dplayer 页会被误拒（jsdom 两推复现实锤）。
+        if (!probeLinesUsable() && !hasFreshPushSniff() && !hasPushMainStream()) {
             Notify.show("当前页面未识别到线路/集数");
             return;
         }
@@ -2936,7 +2957,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         // push v11：点推那一刻现跑 PROBE_JS（主片声明地址 + 广告黑名单 + 片头广告标志现取现用，
         // 不吃页完那次探针的旧值——片头广告是按秒变的），再取 VIDEO_PROBE 的主元素直链。
         // 取流顺位（不用时长）：① 探针 mainStream → ② 主元素 http 直链（非 blob、非广告播放中、
-        // 不在黑名单、过 isPushStreamUrl 门）→ ③ 已过滤的 mPushLastSniff。
+        // 不在黑名单、过 isPushStreamUrl 门）→ ③ 已过滤的 mPushLastSniff（本页 120 秒内，v14 跨页不认）。
         mBinding.web.evaluateJavascript(PROBE_JS, pvalue -> {
             JSONObject pobj = parseProbeJson(pvalue);
             if (pobj != null) storePushStreamFields(pobj);
@@ -2950,7 +2971,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 String stream = "";
                 if (!TextUtils.isEmpty(mPushMainStream) && isPushStreamUrl(mPushMainStream)) stream = mPushMainStream;
                 else if (!TextUtils.isEmpty(src) && !"null".equals(src) && src.startsWith("http") && isPushStreamUrl(src) && !mPushAdPlaying && !mPushAdSrcs.contains(src)) stream = src;
-                else if (!TextUtils.isEmpty(mPushLastSniff) && System.currentTimeMillis() - mPushSniffAt < 120000 && !mPushAdSrcs.contains(mPushLastSniff)) stream = mPushLastSniff;
+                else if (hasFreshPushSniff() && !mPushAdSrcs.contains(mPushLastSniff)) stream = mPushLastSniff;
                 if (!stream.isEmpty()) {
                     startProbedPlay(stream);
                     return;
