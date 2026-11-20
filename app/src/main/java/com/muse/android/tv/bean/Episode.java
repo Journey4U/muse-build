@@ -22,6 +22,9 @@ public class Episode implements Parcelable, Diffable<Episode> {
     @SerializedName("url")
     private String url;
 
+    /** push v2：push 交接会话元数据（该集播放页地址），不进 Parcelable；每次交接由探针 JSON 重建。 */
+    private String pageUrl;
+
     private int index;
     private int number;
     private boolean selected;
@@ -66,6 +69,20 @@ public class Episode implements Parcelable, Diffable<Episode> {
 
     public String getUrl() {
         return TextUtils.isEmpty(url) ? "" : url;
+    }
+
+    /** push v2：解析成功后把直链写回该集（原地改 url，不重建 Episode）。 */
+    public void setUrl(String url) {
+        this.url = url;
+    }
+
+    /** push v2：该集播放页地址（push 交接会话元数据，不进 Parcelable）。 */
+    public String getPageUrl() {
+        return TextUtils.isEmpty(pageUrl) ? "" : pageUrl;
+    }
+
+    public void setPageUrl(String pageUrl) {
+        this.pageUrl = pageUrl;
     }
 
     public int getIndex() {

@@ -27,6 +27,8 @@
     <!-- Push -->
     <string name="push_clip">推送剪贴板内容</string>
     <string name="push_info">使用手机扫描二维码，或于浏览器访问地址\n<xliff:g name="name">%s</xliff:g></string>
+    <string name="browser_resolving_episode">正在打开网页解析「%1$s」的播放地址…</string>
+    <string name="browser_resolve_failed">「%1$s」没能解析出播放地址，可以回网页里看</string>
 
     <string name="detail_episode">选集</string>
 

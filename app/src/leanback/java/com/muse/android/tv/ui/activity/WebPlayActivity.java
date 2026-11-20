@@ -34,6 +34,7 @@ import androidx.viewbinding.ViewBinding;
 
 import com.muse.android.tv.R;
 import com.muse.android.tv.api.config.RuleConfig;
+import com.muse.android.tv.api.loader.BrowserMeta;
 import com.muse.android.tv.bean.Episode;
 import com.muse.android.tv.databinding.ActivityWebPlayBinding;
 import com.muse.android.tv.setting.Setting;
@@ -49,11 +50,13 @@ import com.google.common.net.HttpHeaders;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.json.JSONTokener;
 
 import java.io.ByteArrayInputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -1400,6 +1403,84 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         for (String p : CLEAN_JS_PARTS) sb.append(p);
         CLEAN_JS = sb.toString();
     }
+    // push v1: fuzi 多线探针（MacCMS 播放页全部线路 + 每线选集表）与页面 video 直取探针——逐字取自 fuzi BrowserActivity，不转录。
+    private static final String PROBE_JS = "(function(){function txt(el){return el?(el.innerText||'').trim():'';}function cleanName(t){return (t||'').replace(/[\\uE000-\\uF8FF]/g,'').replace(/\\s+/g,' ').trim();"
+        + "}function tabText(el){if(!el)return '';var parts=[];var ns=el.childNodes;for(var i=0;i<ns.length;i++){var n=ns[i];"
+        + "if(n.nodeType===3)parts.push(n.textContent||'');else if(n.nodeType===1){var tg=n.tagName;var cl=n.getAttribute('class')||'';"
+        + "if(tg==='I'||/badge|num|count/i.test(cl))continue;parts.push(n.innerText||n.textContent||'');}}return cleanName(parts.join(' '));"
+        + "}function cleanCand(L){var c=L.cand||'';if(!c)return c;var cnt=L.order.length;var m=c.match(/^(.*?)[-_\\s·]*?(\\d+)$/);"
+        + "if(m&&parseInt(m[2],10)===cnt&&m[1]&&m[1].trim())c=m[1].trim();return c.replace(/[-_\\s·]+$/,'');}function picOf(){try{var m=document.querySelector('meta[property=\"og:image\"],meta[name=\"twitter:image\"]');"
+        + "if(m&&m.content){try{return new URL(m.content,location.href).href}catch(e){return m.content}}var ps=['.vodpic img','.detail-pic img','.poster img','[class*=\"vodpic\"] img','[class*=\"poster\"] img','.detail .pic img','.video-info .pic img','.stui-content__thumb img','.myui-content__thumb img','.vod-detail img','.detail-box img','.play-pic img','[class*=\"thumb\"] img','[class*=\"cover\"] img','.thumb img','.cover img'];"
+        + "for(var i=0;i<ps.length;i++){var im=document.querySelector(ps[i]);if(!im)continue;var u=im.getAttribute('data-src')||im.getAttribute('data-original')||im.getAttribute('src')||'';"
+        + "if(u&&u.indexOf('data:')!==0){try{return new URL(u,location.href).href}catch(e){return u}}}var imgs=document.images;"
+        + "for(var g=0;g<imgs.length&&g<6;g++){var gi=imgs[g];var gu=gi.getAttribute('data-src')||gi.getAttribute('src')||'';"
+        + "if(!gu||gu.indexOf('data:')===0)continue;var okN=(gi.naturalWidth||0)>=400&&(gi.naturalHeight||0)>=150;"
+        + "var okC=(gi.clientWidth||0)>=300&&(gi.clientHeight||0)>=140;if(!okN&&!okC)continue;var ga=gi.closest?gi.closest('a'):null;"
+        + "if(ga){var gh=ga.getAttribute('href')||'';if(/^https?:\\/\\//i.test(gh)&&gh.indexOf(location.host)<0)continue;"
+        + "}try{return new URL(gu,location.href).href}catch(e){return gu}}var bs=['.this-pic-bj','[class*=\"pic-bj\"]','[class*=\"backdrop\"]'];"
+        + "for(var j=0;j<bs.length;j++){var be=document.querySelector(bs[j]);if(!be)continue;var bg='';try{bg=getComputedStyle(be).backgroundImage||''}"
+        + "catch(e){}var bm=/url\\([\"']?([^\"')]+)[\"']?\\)/.exec(bg);if(bm&&bm[1]&&bm[1].indexOf('data:')!==0){try{return new URL(bm[1],location.href).href}"
+        + "catch(e){return bm[1]}}}}catch(e){}return '';}function epName(t){var m=t.match(/第\\s*\\d+\\s*[集期话回]|\\d+\\s*[集期]/);"
+        + "if(m)return m[0].replace(/\\s+/g,'');if(/^\\d{1,3}$/.test(t))return '第'+parseInt(t,10)+'集';return '';"
+        + "}var STOP=/上一|下一|预告|播放|详情|首页|返回|收藏|分享|评论|清空|倒序|正序|排序|切换|展开|收起|更多|全部|点赞|纠错|下载|下集|上集/;function stopWord(t){return STOP.test(t)||/^(线路|来源)\\d{0,2}"
+        + "$/.test(t);}var pm=location.pathname.match(/(\\d+)-(\\d+)-(\\d+)\\.html/);var vid=pm?pm[1]:'',sid=pm?pm[2]:'',curEp=pm?parseInt(pm[3],10):-1;"
+        + "if(!vid){var dv=location.pathname.match(/\\/(?:voddetail|vodplay|movie|detail|view|watch)\\/(\\d+)/);"
+        + "if(dv)vid=dv[1];}var lines={},lineOrder=[];function lineOf(s){if(!lines[s]){lines[s]={sid:s,cand:'',candRaw:'',raws:[],eps:{}"
+        + ",order:[]};lineOrder.push(lines[s]);}return lines[s];}function put(s,aep,name,url){var L=lineOf(s);var old=L.eps[aep];"
+        + "if(old){if(!old.clean&&name.clean){old.name=name.text;old.clean=true;old.url=url;}return;}var en={name:name.text,url:url,ep:aep,cur:(sid!==''&&s===sid&&aep===curEp),clean:name.clean}"
+        + ";L.eps[aep]=en;L.order.push(en);}function nameOf(raw){var en=epName(raw);if(en)return{text:en,clean:true}"
+        + ";return{text:raw,clean:false};}var links=document.querySelectorAll('a[href]');for(var j=0;j<links.length;"
+        + "j++){var a=links[j];var h=a.href||'';var m=h.match(/(\\d+)-(\\d+)-(\\d+)\\.html($|\\?)/);if(!m)continue;"
+        + "if(vid&&m[1]!==vid)continue;var raw=txt(a);if(!raw)continue;var aep=parseInt(m[3],10);if(epName(raw)){put(m[2],aep,nameOf(raw),h);"
+        + "}else{var craw=tabText(a);if(craw&&craw.length<=20&&!stopWord(craw)&&!/^[[【]/.test(craw)){var L2=lineOf(m[2]);"
+        + "if(!L2.cand){L2.cand=craw;L2.candRaw=craw;}}else{var L3=lineOf(m[2]);var rt=(raw||'').replace(/\\s+/g,' ').trim().slice(0,30);"
+        + "if(rt&&L3.raws.length<2&&L3.raws.indexOf(rt)<0)L3.raws.push(rt);}}}var nids=document.querySelectorAll('[data-nid]');"
+        + "for(var q=0;q<nids.length;q++){var el2=nids[q];var nid=parseInt(el2.getAttribute('data-nid'),10);if(isNaN(nid))continue;"
+        + "var oc=el2.getAttribute('onclick')||(el2.parentElement?el2.parentElement.getAttribute('onclick')||'':'');"
+        + "var om=oc.match(/play\\((\\d+)\\D+(\\d+)\\)/);var esid=om?om[1]:(el2.getAttribute('data-sid')||sid);"
+        + "if(!esid||!pm)continue;var raw2=txt(el2);if(!epName(raw2))continue;var url2=location.origin+location.pathname.replace(/(\\d+)-(\\d+)-(\\d+)\\.html/,vid+'-'+esid+'-'+nid+'.html');"
+        + "put(esid,nid,nameOf(raw2),url2);}var sels=['.play_source .active','.play-source .active','.player_source .active','.myui-player__source .active','.stui-player__source .active','.source-list .active','[class*=\"source\"] .active','[class*=\"source\"] .on','[class*=\"source\"] .current'];"
+        + "var activeName='';for(var i=0;i<sels.length;i++){var e=document.querySelector(sels[i]);if(e){var t=tabText(e);"
+        + "if(t&&t.length<=24&&!epName(t)&&!stopWord(t)){activeName=t;break;}}}var sorted=lineOrder.filter(function(L){return L.order.length>0;"
+        + "});sorted.sort(function(a,b){return parseInt(a.sid,10)-parseInt(b.sid,10);});var tabNames=[],tabActive=-1,tabRaw=[],tabSel=-1;"
+        + "(function(){var ts=['.anthology-tab a','[class*=\"anthology-tab\"] a','[class*=\"anthology-tab\"] li','a[data-form]','[class*=\"source\"] a','[class*=\"source\"] li','[class*=\"from_list\"] li','[class*=\"from_list\"] a','[class*=\"play_from\"] li'];"
+        + "var tabs=null;for(var i=0;i<ts.length;i++){var c=document.querySelectorAll(ts[i]);if(c.length>=2){tabs=c;"
+        + "tabSel=i;break;}}if(!tabs)return;for(var j=0;j<tabs.length;j++){var el=tabs[j];var nm2=tabText(el);if(!nm2||nm2.length>24||epName(nm2)||stopWord(nm2)||/^[[【]/.test(nm2)){if(nm2&&tabRaw.length<3)tabRaw.push(nm2.slice(0,24));"
+        + "nm2='';}tabNames.push(nm2);var cls=el.getAttribute('class')||'';if(tabActive<0&&/(^|\\s)(on|active|current|cur|selected)(\\s|$)/.test(cls))tabActive=j;"
+        + "}})();var tabFor={};if(tabNames.length===sorted.length){for(var k=0;k<sorted.length;k++)tabFor[sorted[k].sid]=tabNames[k];"
+        + "}else if(tabActive>=0&&sid!==''){var ci=-1;for(var k2=0;k2<sorted.length;k2++)if(sorted[k2].sid===sid)ci=k2;"
+        + "if(ci>=0){var off=tabActive-ci;for(var k3=0;k3<sorted.length;k3++){var ti=k3+off;if(ti>=0&&ti<tabNames.length)tabFor[sorted[k3].sid]=tabNames[ti];"
+        + "}}}var out=[];for(var z=0;z<sorted.length&&z<8;z++){var L=sorted[z];L.order.sort(function(x,y){return x.ep-y.ep;"
+        + "});L.cand=cleanCand(L);var tn=tabFor[L.sid]||'';var nm=tn||((sid!==''&&L.sid===sid&&activeName)?activeName:(L.cand||('线路'+(out.length+1))));"
+        + "var eps=[];for(var w=0;w<L.order.length&&w<300;w++){var o=L.order[w];eps.push({name:o.name,url:o.url,cur:o.cur?1:0}"
+        + ");}out.push({sid:L.sid,name:nm,cur:(sid!==''&&L.sid===sid)?1:0,episodes:eps});}var diag='';if((sorted.length>1&&tabNames.length!==sorted.length)||tabRaw.length){var dc=[];"
+        + "for(var d1=0;d1<sorted.length;d1++)dc.push(sorted[d1].sid+':'+(sorted[d1].candRaw||'-'));diag='tabs='+tabNames.length+' srcA='+document.querySelectorAll('[class*=\"source\"] a').length+' srcLi='+document.querySelectorAll('[class*=\"source\"] li').length+' cand='+dc.join('|');"
+        + "var dr=[];for(var d2=0;d2<sorted.length;d2++){var Lr=sorted[d2];if(!Lr.candRaw&&Lr.raws.length)dr.push(Lr.sid+'='+Lr.raws.join('~'));"
+        + "}if(dr.length)diag+=(diag?' ':'')+'raw='+dr.join('|');if(tabRaw.length)diag+=(diag?' ':'')+'tabRaw='+tabRaw.join('|');"
+        + "if(tabSel>=0)diag+=(diag?' ':'')+'tsel='+tabSel;if(tabNames.length!==sorted.length){var hs=[];var cs=document.querySelectorAll('ul,ol,div');"
+        + "for(var hi=0;hi<cs.length&&hi<80;hi++){var c0=cs[hi];var ch=c0.children;if(!ch||ch.length<2||ch.length>8)continue;"
+        + "var ts2=[];var bad=false;for(var hj=0;hj<ch.length;hj++){var tt=tabText(ch[hj]);if(!tt||tt.length>12||epName(tt)){bad=true;"
+        + "break;}ts2.push(tt);}if(bad||ts2.length<2)continue;hs.push(((c0.getAttribute('class')||c0.tagName)||'').slice(0,30)+':'+ts2.slice(0,3).join('~'));"
+        + "if(hs.length>=3)break;}if(hs.length)diag+=(diag?' ':'')+'hunt='+hs.join('|');}}function playerCfg(){try{var c=window.player_aaaa||window.player_data||window.player_config||window.MacPlayer;if(!c)return '';return JSON.stringify(c);}catch(e){return '';}}return JSON.stringify({lines:out,diag:diag,pic:picOf(),player:playerCfg(),origin:location.origin,vid:vid,sid:sid,ep:curEp}"
+        + ");})()";
+    private static final String VIDEO_PROBE =
+            "(function(){try{var v=document.querySelector('video');if(!v)return '';"
+                    + "var s=v.currentSrc||v.src||'';"
+                    + "if(!s&&v.querySelector){var q=v.querySelector('source');if(q)s=q.currentSrc||q.src||''}"
+                    + "return s}catch(e){return ''}})()";
+    // push v1: 浏览器转原生播放状态（嗅探到的直链 + 多线探针结果 + 当前页信息）。
+    private volatile String mPushLastSniff;
+    private volatile long mPushSniffAt;
+    private volatile Map<String, String> mPushSniffedHeaders;
+    private volatile String mPushProbeLines = "";
+    private volatile String mPushProbePageUrl = "";
+    private volatile boolean mPushPlayPending = false;
+    private volatile String mPushPagePic = "";
+    private volatile String mPushPageUrl = "";
+    // push v3：探针补跑状态（选集表可能是 JS 后渲染的，页完那一刻还没进 DOM）。
+    private Runnable mPushProbeRetry;
+    private int mPushProbeRetryCount;
+    private String mPushProbeRetryPageUrl = "";
     private ActivityWebPlayBinding mBinding;
     private WebResourceResponse mEmpty;
     // 1080 视口：本页是否已注过 width=1920（onPageStarted 重置，onPageCommitVisible 只注一次）。
@@ -1592,6 +1673,8 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         });
         mBinding.flag.setOnClickListener(view -> showFlags());
         mBinding.episodes.setOnClickListener(view -> showEpisodes());
+        // push v1（电视 v1）：悬浮「播放视频」钮——布局里 focusable，遥控器 D-pad 可聚焦操作；MacCMS 播放页探到可用线路表或 120 秒内嗅到过流时才亮起，点后转原生播放器。
+        mBinding.pushPlay.setOnClickListener(view -> playNative());
         // 点页面只用来唤回/续住上下栏，手势原样透传给页面（不消费）
         mBinding.web.setOnTouchListener((view, event) -> {
             if (event.getAction() == MotionEvent.ACTION_UP) showBars();
@@ -1708,6 +1791,15 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                     if (isMediaUrl(request.getUrl().getPath())) return super.shouldInterceptRequest(view, request);
                     if (mBlockedHosts.add(host)) DebugLogStore.add("WebPlay", "blocked host=" + host + " url=" + request.getUrl());
                     return mEmpty;
+                }
+                // push v1：嗅探 MacCMS 播放页媒体直链——只记录、不拦截（媒体地址永不拦）；嗅到新流后探一次多线表。
+                // push v8：放宽——流地址的 .m3u8/.mp4 后缀可能在问号后的参数里（麦田 NB 真流
+                // getM3u8?name=…&url=NBY-xxx.m3u8，路径是 /nby/m3u8/getM3u8）；见 isPushStreamUrl。
+                if (isPushStreamUrl(reqUrl) && !reqUrl.equals(mPushLastSniff)) {
+                    mPushLastSniff = reqUrl;
+                    mPushSniffAt = System.currentTimeMillis();
+                    capturePushSniffHeaders(request, reqUrl);
+                    probePageInfo();
                 }
                 return super.shouldInterceptRequest(view, request);
             }
@@ -1843,6 +1935,10 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 if (mForceShowWeb != null) view.removeCallbacks(mForceShowWeb);
                 mForceShowWeb = () -> view.setVisibility(View.VISIBLE);
                 view.postDelayed(mForceShowWeb, 5000);
+                // push v1：导航开始，清多线探针状态（海报 mPushPagePic 不清，活过详情→播放页一跳）；记当前页地址。
+                mPushPageUrl = url;
+                mPushProbeLines = "";
+                cancelPushProbeRetry();
             }
 
             @Override
@@ -1893,6 +1989,11 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                         view.loadUrl(mAnchorUrl);
                     }
                 });
+                // push v1：页完探一次多线表（MacCMS 播放页才够格亮起播放按钮）。
+                mPushPageUrl = url;
+                probePageInfo();
+                // push v3：选集表可能是 JS 后渲染的，页完那一刻还没进 DOM——0.5/1.5/3 秒各补跑一次，探到可用线路就停。
+                schedulePushProbeRetry();
                 showBars();
             }
 
@@ -2422,6 +2523,323 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         mBinding.episodes.setVisibility(multi ? View.VISIBLE : View.GONE);
     }
 
+    // ===== push v1：MacCMS 浏览器转原生播放（嗅探 + 多线探针）=====
+    // 只认 MacCMS 播放页（vodplay/{vid}-{sid}-{ep}.html）；非 MacCMS 站不亮按钮、不转播。
+
+    /** push v1：当前页是否 MacCMS 播放页（-剧号-线路-集数.html），只有这种页才转播放。 */
+    private boolean isMacCmsPlayPage(String url) {
+        if (url == null) return false;
+        int q = url.indexOf('?');
+        int h = url.indexOf('#');
+        int cut = q >= 0 && h >= 0 ? Math.min(q, h) : Math.max(q, h);
+        String path = cut >= 0 ? url.substring(0, cut) : url;
+        if (!path.endsWith(".html")) return false;
+        int slash = path.lastIndexOf('/');
+        String last = slash >= 0 ? path.substring(slash + 1) : path;
+        String core = last.substring(0, last.length() - 5);
+        String[] parts = core.split("-");
+        if (parts.length != 3) return false;
+        for (String p : parts) if (p.isEmpty() || !TextUtils.isDigitsOnly(p)) return false;
+        return true;
+    }
+
+    /** push v1：多线探针——探当前播放页全部线路与选集表，存 mPushProbeLines；够格才亮播放按钮。后台线程进来时先 post 到主线程（evaluateJavascript 必须在主线程调）。 */
+    private void probePageInfo() {
+        if (mBinding.web == null) return;
+        if (android.os.Looper.myLooper() != android.os.Looper.getMainLooper()) {
+            mBinding.web.post(this::probePageInfo);
+            return;
+        }
+        // push v2：记下本次探针跑在哪一页——回调时页面可能已切走，回调里再记就锚错页。
+        mPushProbePageUrl = mPushPageUrl;
+        mBinding.web.evaluateJavascript(PROBE_JS, value -> {
+            if (value == null) {
+                if (mPushPlayPending) {
+                    mPushPlayPending = false;
+                    continuePushPlay();
+                }
+                return;
+            }
+            try {
+                String json = new JSONTokener(value).nextValue().toString();
+                JSONObject obj = new JSONObject(json);
+                JSONArray lines = obj.optJSONArray("lines");
+                String pic = obj.optString("pic");
+                if (!pic.isEmpty()) mPushPagePic = pic;
+                if (lines != null && lines.length() > 0) {
+                    boolean renamed = dedupePushLineNames(lines);
+                    mPushProbeLines = renamed ? obj.toString() : json;
+                    DebugLogStore.add("WebPlay", "push 多线探针 线路=" + lines.length());
+                    String diag = obj.optString("diag");
+                    if (!diag.isEmpty()) DebugLogStore.add("WebPlay", "push 探针诊断 " + diag);
+                } else if (mPushPlayPending) {
+                    // 重探回来是空表：旧表是上一页的，不能留给续跑用。
+                    mPushProbeLines = "";
+                }
+                updatePushButton();
+            } catch (Throwable ignored) {
+            }
+            if (mPushPlayPending) {
+                mPushPlayPending = false;
+                continuePushPlay();
+            }
+        });
+    }
+
+    // push v3：探针补跑——选集表可能是 JS 后渲染的，页完那一刻还没进 DOM，探针跑空表按钮就不亮。
+    // 页完后 0.5/1.5/3 秒各补跑一次，只在还没探到可用线路时跑，探到就停，最多 3 次；页切走或 Activity 销毁时不跑。
+    private void schedulePushProbeRetry() {
+        cancelPushProbeRetry();
+        if (probeLinesUsable() || hasFreshPushSniff()) return;
+        if (mBinding == null || mBinding.web == null) return;
+        mPushProbeRetryCount = 0;
+        mPushProbeRetryPageUrl = mPushPageUrl;
+        mPushProbeRetry = () -> {
+            if (mBinding == null || mBinding.web == null) return;
+            if (!mPushProbeRetryPageUrl.equals(mPushPageUrl)) return;
+            if (probeLinesUsable() || hasFreshPushSniff()) return;
+            probePageInfo();
+            mPushProbeRetryCount++;
+            if (mPushProbeRetryCount < 3) {
+                mBinding.web.postDelayed(mPushProbeRetry, mPushProbeRetryCount == 1 ? 1000 : 1500);
+            }
+        };
+        mBinding.web.postDelayed(mPushProbeRetry, 500);
+    }
+
+    private void cancelPushProbeRetry() {
+        if (mPushProbeRetry != null && mBinding != null && mBinding.web != null) {
+            mBinding.web.removeCallbacks(mPushProbeRetry);
+        }
+        mPushProbeRetry = null;
+    }
+
+    /** push v1：线路名去重——重名续号（极速蓝光→极速蓝光2）。改名返回 true（调用方需重新序列化）。 */
+    private static boolean dedupePushLineNames(JSONArray lines) {
+        HashMap<String, Integer> seen = new HashMap<>();
+        HashSet<String> used = new HashSet<>();
+        boolean changed = false;
+        try {
+            for (int i = 0; i < lines.length(); i++) {
+                JSONObject line = lines.getJSONObject(i);
+                String name = line.optString("name");
+                if (name.isEmpty()) continue;
+                if (used.add(name)) {
+                    seen.put(name, 1);
+                    continue;
+                }
+                int n = seen.containsKey(name) ? seen.get(name) + 1 : 2;
+                String candidate = name + n;
+                while (!used.add(candidate)) {
+                    n++;
+                    candidate = name + n;
+                }
+                seen.put(name, n);
+                line.put("name", candidate);
+                changed = true;
+            }
+        } catch (Throwable ignored) {
+        }
+        return changed;
+    }
+
+    /** push v1：mPushProbeLines 是否够格走多线落地（≥2 条线，或单线 ≥2 集）。 */
+    private boolean probeLinesUsable() {
+        try {
+            if (TextUtils.isEmpty(mPushProbeLines)) return false;
+            JSONArray lines = new JSONObject(mPushProbeLines).optJSONArray("lines");
+            if (lines == null || lines.length() == 0) return false;
+            if (lines.length() >= 2) return true;
+            JSONArray eps = lines.getJSONObject(0).optJSONArray("episodes");
+            return eps != null && eps.length() >= 2;
+        } catch (Throwable e) {
+            return false;
+        }
+    }
+
+    /** push v8：120 秒内嗅到过流（单片模式的判定口径，与 continuePushPlay 取流窗口一致）。 */
+    private boolean hasFreshPushSniff() {
+        return !TextUtils.isEmpty(mPushLastSniff) && System.currentTimeMillis() - mPushSniffAt < 120000;
+    }
+
+    /**
+     * push v8：嗅探放宽——流地址的 .m3u8/.mp4 后缀可能在问号后的参数里
+     * （麦田 NB 真流 getM3u8?name=…&url=NBY-xxx.m3u8，路径是 /nby/m3u8/getM3u8）。
+     * 口径：① 路径末尾是 .m3u8/.mp4（原口径）；② 参数里带 .m3u8/.mp4 文件名，
+     * 后跟串尾、& 或 #（通用，不认域名/站点）。只记录、不拦截；真假由播放前
+     * 探活 / 解析兜底（解析失败不放死链，见 v5 报错重取）。
+     */
+    private static boolean isPushStreamUrl(String url) {
+        if (TextUtils.isEmpty(url)) return false;
+        String low = url.toLowerCase(Locale.US);
+        int q = low.indexOf('?');
+        String path = q > 0 ? low.substring(0, q) : low;
+        if (path.endsWith(".m3u8") || path.endsWith(".mp4")) return true;
+        return hasMediaSuffix(low, ".m3u8") || hasMediaSuffix(low, ".mp4");
+    }
+
+    /** 后缀后跟串尾、& 或 # 才算文件名（避免 art.php?url=<令牌> 这类无后缀地址误判）。 */
+    private static boolean hasMediaSuffix(String low, String suffix) {
+        int i = low.indexOf(suffix);
+        while (i >= 0) {
+            int after = i + suffix.length();
+            if (after >= low.length() || low.charAt(after) == '&' || low.charAt(after) == '#') return true;
+            i = low.indexOf(suffix, after);
+        }
+        return false;
+    }
+
+    /** push v1：MacCMS 播放页且探到可用线路表时亮起「播放视频」悬浮钮，否则隐藏。 */
+    private void updatePushButton() {
+        if (mBinding.pushPlay == null) return;
+        // push v8：按钮亮的条件放宽——(a) MacCMS 播放页且探针有多线表（原行为），或
+        // (b) 120 秒内嗅到过流（单片模式：hsck/MissAV 类单片，无线路表也推当前一部）。
+        // URL 门（isMacCmsPlayPage）不拦 (b)——MissAV 播放页 /cn/mxgs-1453 无 .html、无 3 段数字。
+        boolean show = (isMacCmsPlayPage(mPushPageUrl) && probeLinesUsable()) || hasFreshPushSniff();
+        mBinding.pushPlay.setVisibility(show ? View.VISIBLE : View.GONE);
+    }
+
+    /** push v1：悬浮钮点击——多线探针够格时取当前集直达流（页面 video src 优先，120 秒内嗅探次之），转原生播放器；无流则留在网页。 */
+    private void playNative() {
+        // push v8：单片模式（无线路表但 120 秒内嗅到过流）也放行，推当前一部；单片跳过重探针（无表可探）。
+        boolean multi = probeLinesUsable();
+        boolean single = !multi && hasFreshPushSniff();
+        if (!multi && !single) {
+            Notify.show("当前页面未识别到线路/集数");
+            return;
+        }
+        if (single) {
+            continuePushPlay();
+            return;
+        }
+        // push v2：探针是旧页的（用户已切集/切页但重探还没跑），强制重探、探完再续跑。
+        if (!mPushProbePageUrl.equals(mPushPageUrl)) {
+            mPushPlayPending = true;
+            probePageInfo();
+            return;
+        }
+        continuePushPlay();
+    }
+
+    /** push v2：探针就绪后的续跑——取当前集直达流（页面 video src 优先，120 秒内嗅探次之），转原生播放器；无流则留在网页。 */
+    private void continuePushPlay() {
+        // push v8：单片模式（无线路表但 120 秒内嗅到过流）也放行。
+        if (!probeLinesUsable() && !hasFreshPushSniff()) {
+            Notify.show("当前页面未识别到线路/集数");
+            return;
+        }
+        mBinding.web.evaluateJavascript(VIDEO_PROBE, value -> {
+            String src = value == null ? "" : value.replace("\"", "").trim();
+            String stream = "";
+            if (!TextUtils.isEmpty(src) && !"null".equals(src) && src.startsWith("http")) stream = src;
+            else if (!TextUtils.isEmpty(mPushLastSniff) && System.currentTimeMillis() - mPushSniffAt < 120000) stream = mPushLastSniff;
+            if (!stream.isEmpty()) {
+                startProbedPlay(stream);
+                return;
+            }
+            Notify.show("未检测到可提取的视频地址");
+        });
+    }
+
+    /** push v1：MacCMS 播放页转播放——当前集直达流 + 全部线路表进原生播放器。 */
+    private void startProbedPlay(String stream) {
+        String rawTitle = mBinding.web.getTitle();
+        if (rawTitle == null) rawTitle = "";
+        String title = BrowserMeta.cleanTitle(rawTitle);
+        if (title.isEmpty()) title = mTitle;
+        String flag = "";
+        try {
+            JSONArray lines = new JSONObject(mPushProbeLines).optJSONArray("lines");
+            if (lines != null && lines.length() > 0) {
+                flag = lines.getJSONObject(0).optString("name");
+                for (int i = 0; i < lines.length(); i++) {
+                    if (lines.getJSONObject(i).optInt("cur", 0) == 1) {
+                        flag = lines.getJSONObject(i).optString("name");
+                        break;
+                    }
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        if (flag.isEmpty()) flag = BrowserMeta.siteName(rawTitle, mTitle);
+        String episode = BrowserMeta.episodeName(mPushPageUrl, rawTitle);
+        // push v8：单片模式（无线路表）时集名取不到（无第X集、无 -n-n.html），用片名兜底，免得集名空着。
+        if (episode.isEmpty() && !probeLinesUsable()) episode = title;
+        Map<String, String> headers = mPushSniffedHeaders;
+        if (headers == null) {
+            headers = new LinkedHashMap<>();
+            if (!mPushPageUrl.isEmpty()) headers.put("Referer", mPushPageUrl);
+            String ua = Setting.getUa();
+            if (!TextUtils.isEmpty(ua)) headers.put("User-Agent", ua);
+        }
+        // push v2：探针带的 origin/vid/sid/ep（当前线路 sid + 当前集号），供 HttpEpisodeResolver 回落用；缺失时从页 URL 解析。
+        String origin = "";
+        String vid = "";
+        String sid = "";
+        String nid = "";
+        try {
+            JSONObject probe = new JSONObject(mPushProbeLines);
+            origin = probe.optString("origin");
+            vid = probe.optString("vid");
+            sid = probe.optString("sid");
+            int ep = probe.optInt("ep", -1);
+            if (ep >= 0) nid = String.valueOf(ep);
+        } catch (Throwable ignored) {
+        }
+        if (origin.isEmpty() || vid.isEmpty() || sid.isEmpty() || nid.isEmpty()) {
+            try {
+                Matcher pm = Pattern.compile("(\\d+)-(\\d+)-(\\d+)\\.html").matcher(mPushPageUrl);
+                if (pm.find()) {
+                    if (vid.isEmpty()) vid = pm.group(1);
+                    if (sid.isEmpty()) sid = pm.group(2);
+                    if (nid.isEmpty()) nid = pm.group(3);
+                }
+            } catch (Throwable ignored) {
+            }
+            if (origin.isEmpty() && !mPushPageUrl.isEmpty()) {
+                try {
+                    Uri pageUri = Uri.parse(mPushPageUrl);
+                    if (pageUri.getScheme() != null && pageUri.getHost() != null) origin = pageUri.getScheme() + "://" + pageUri.getHost();
+                } catch (Throwable ignored) {
+                }
+            }
+        }
+        String logStream = stream.length() > 90 ? stream.substring(0, 90) : stream;
+        DebugLogStore.add("WebPlay", "push 多线转播放 流=" + logStream + " 线路名=" + flag + " 集=" + episode + " 页=" + mPushPageUrl);
+        VideoActivity.startWithHeaders(this, stream, headers, title, flag, episode, null, mPushPageUrl, mPushProbeLines, mPushPagePic, origin, vid, sid, nid);
+        // 电视 v1（Liu 定）：推过去就关浏览器——电览内存吃紧，WebView 随 Activity 销毁释放；手机版保持浏览器在后台栈。
+        finish();
+    }
+
+    /** push v1：嗅探时把该请求的 Referer/UA + 页面 Cookie 记下来，供转播放时带头。后台线程调用，只读请求对象与 Cookie，不碰 WebView 方法。 */
+    private void capturePushSniffHeaders(WebResourceRequest request, String url) {
+        Map<String, String> headers = new LinkedHashMap<>();
+        Map<String, String> reqHeaders = request.getRequestHeaders();
+        if (reqHeaders != null) {
+            for (Map.Entry<String, String> entry : reqHeaders.entrySet()) {
+                if (entry.getKey() == null || entry.getValue() == null) continue;
+                if (entry.getKey().equalsIgnoreCase("Referer") || entry.getKey().equalsIgnoreCase("User-Agent"))
+                    headers.put(entry.getKey(), entry.getValue());
+            }
+        }
+        if (!hasPushHeader(headers, "Referer") && !mPushPageUrl.isEmpty()) headers.put("Referer", mPushPageUrl);
+        if (!hasPushHeader(headers, "User-Agent")) {
+            String ua = Setting.getUa();
+            if (!TextUtils.isEmpty(ua)) headers.put("User-Agent", ua);
+        }
+        try {
+            String cookie = CookieManager.getInstance().getCookie(url);
+            if (!TextUtils.isEmpty(cookie)) headers.put("Cookie", cookie);
+        } catch (Throwable ignored) {
+        }
+        mPushSniffedHeaders = headers;
+    }
+
+    private static boolean hasPushHeader(Map<String, String> headers, String name) {
+        for (String key : headers.keySet()) if (key.equalsIgnoreCase(name)) return true;
+        return false;
+    }
+
     @Override
     protected void onBackInvoked() {
         if (mCustomView != null) mChromeClient.onHideCustomView();
@@ -2444,6 +2862,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
 
     @Override
     protected void onDestroy() {
+        cancelPushProbeRetry();
         if (mBinding != null) {
             mBinding.web.loadUrl("about:blank");
             mBinding.web.destroy();

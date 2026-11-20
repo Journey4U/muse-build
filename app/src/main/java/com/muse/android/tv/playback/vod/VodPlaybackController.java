@@ -1,5 +1,7 @@
 package com.muse.android.tv.playback.vod;
 
+import android.text.TextUtils;
+
 import androidx.media3.common.C;
 import androidx.media3.common.MediaMetadata;
 
@@ -171,6 +173,8 @@ public class VodPlaybackController {
         renderPlaybackResult(result);
         updatePlaybackPosition(result);
         host.loadDanmaku(result, state.getHistory(), episode);
+        // push v4（电视 v1）：新集地址已确认可播，在此才停掉旧流（原先 playEpisode 里先停播，解析失败会杀掉正在播的流）。
+        host.stopPlaybackForRefresh();
         startPlayback(result, startPositionMs(), episode);
         preloader.update(result);
     }
@@ -238,7 +242,7 @@ public class VodPlaybackController {
 
     private void playEpisode(Episode item) {
         Result result = preloader.consume(item);
-        host.stopPlaybackForRefresh();
+        // push v4（电视 v1）：切集前不再先停播——解析失败（或探活失败）时旧流继续播；新地址确认可播后才在 applyPlaybackResult 里停旧流。本分支此前注释已写“停播已移到 applyPlaybackResult”，此处补齐移位。
         if (result == null) requestSelectedEpisode();
         else applyPlaybackResult(result, VodPlayRequest.create(host.getVodKey(), state.getFlag(), item));
     }
@@ -489,6 +493,8 @@ public class VodPlaybackController {
     }
 
     private void requestPlayer(Flag flag, Episode episode) {
+        // push v2（电视 v1）：浏览器待解析集（url 为空、pageUrl 为播放页地址）——不进 playerContent，交给宿主走纯 HTTP 解析器取直链；宿主不认（返回 false）才继续走正常播放。
+        if (episode != null && TextUtils.isEmpty(episode.getUrl()) && !TextUtils.isEmpty(episode.getPageUrl()) && host.resolveWebEpisode(flag, episode)) return;
         historyPolicy.updateEpisode(state.getHistory(), flag, episode);
         VodPlayRequest request = VodPlayRequest.create(host.getVodKey(), flag, episode);
         state.setPendingRequest(request);

@@ -100,5 +100,21 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center"
         android:visibility="gone" />
+
+    <!-- push v1（电视 v1）：悬浮「播放视频」钮——遥控器 D-pad 可聚焦（focusable + selector_chip 可见焦点），初始隐藏，探到流/线路表时才亮起 -->
+    <TextView
+        android:id="@+id/pushPlay"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_margin="16dp"
+        android:background="@drawable/selector_chip"
+        android:focusable="true"
+        android:focusableInTouchMode="true"
+        android:padding="8dp"
+        android:text="▶ 播放视频"
+        android:textColor="#FFFFFF"
+        android:textSize="16sp"
+        android:visibility="gone" />
 </FrameLayout>
 
