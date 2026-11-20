@@ -102,6 +102,15 @@ public class BrowserMeta {
         return Math.max(0, Math.min(255, Math.round(v)));
     }
 
+    /** 集名：只从标题找「第X集」（单片模式用；网址里的 -n-n.html 序号不是真集名）。 */
+    public static String episodeNameFromTitle(String rawTitle) {
+        if (rawTitle != null) {
+            Matcher m = EPISODE_IN_TITLE.matcher(rawTitle);
+            if (m.find()) return "第" + parse(m.group(1)) + "集";
+        }
+        return "";
+    }
+
     /** 集名：先从标题找「第X集」，再从播放页网址找 -线路号-集号.html。 */
     public static String episodeName(String pageUrl, String rawTitle) {
         if (rawTitle != null) {
