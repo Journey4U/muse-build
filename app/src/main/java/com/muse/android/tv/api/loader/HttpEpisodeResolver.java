@@ -8,6 +8,8 @@ package com.muse.android.tv.api.loader;
 //      命中即用；API 失败/无可用数据则记「API closed」，本会话内同一 (origin, vid) 永不重试。
 //   L1 播放页 player_aaaa / player_data / player_config —— 明文直链直接探活；密文 + from
 //      走 playerconfig.js 的 from → parse 前缀表再解（fuzi ddPlay 链路，算法重写，见 ddResolve）；
+//      密文无 parse 前缀时再试 art.php 后端签名链（push v8，见 artPhpResolve）：
+//      令牌 → art.php?get_signed_url=1 → fetch_data → jmurl，按内容探活（不用密钥）；
 //      ID 形 url（如 "11602|1"）HTTP 解不了，交给 L2。
 //   L2 通用候选 —— 页内明文直链 / iframe 参数 / iframe 内页 / eval packer 解包，逐个探活。
 //   L4 ArtPlayer 解析播放器 —— 仅 L0/L1/L2 全败后：播放页 iframe → iframe 页
@@ -79,6 +81,10 @@ public class HttpEpisodeResolver {
     private static final Pattern ART_URL = Pattern.compile("const\\s+Url\\s*=\\s*\"([^\"]+)\"");
     private static final Pattern ART_SIGN = Pattern.compile("const\\s+Sign\\s*=\\s*\"([^\"]+)\"");
     private static final Pattern ART_FROM = Pattern.compile("const\\s+From\\s*=\\s*\"([^\"]+)\"");
+    /** push v8：art.php 链——播放页 maccms.path（线路播放器 JS 的目录前缀）。 */
+    private static final Pattern MACCMS_PATH = Pattern.compile("var\\s+maccms\\s*=\\s*\\{[^}]*?\"path\"\\s*:\\s*\"([^\"]*)\"");
+    /** push v8：art.php 链——线路播放器 JS（如 NBY.js）里的 art.php 相对路径。 */
+    private static final Pattern ART_PHP_PATH = Pattern.compile("([^\\s\"']*art\\.php)");
     private static final Pattern SID_EP = Pattern.compile("-(\\d+)-(\\d+)\\.html");
     private static final Pattern EP_NUMBER = Pattern.compile("(\\d+)");
     private static final Pattern PACKER_ARGS = Pattern.compile("\\('([\\s\\S]*?)',(\\d+),(\\d+),'([\\s\\S]*?)'\\.split\\('\\|'\\)");
@@ -366,10 +372,118 @@ public class HttpEpisodeResolver {
             String stream = ddResolve(html, headers, url, from);
             if (!TextUtils.isEmpty(stream) && validStream(stream) && probe(stream, headers)) return stream;
             if (!TextUtils.isEmpty(stream)) log("L1 dd stream invalid/probe-fail " + trunc(stream));
+            // push v8：art.php 后端签名链（麦田 NB 式）：密文令牌 + from 对应播放器 JS 里含 art.php；
+            // 令牌 → get_signed_url → fetch_data → jmurl，纯 HTTP，不用密钥；jmurl 按内容探活。
+            String art = artPhpResolve(html, headers, url, from);
+            if (!TextUtils.isEmpty(art)) return art;
             return null;
         }
         log("L1 url id-form=" + trunc(url));
         return null;
+    }
+
+    /**
+     * push v8：art.php 后端签名链（按形认，不认域名/站点）：
+     * 播放页 player_data.url 是加密令牌（如 NBY-XMYAES…|…）、from 是线路代码（如 NBY）；
+     * 线路播放器 JS（{origin}{maccms.path}/static/player/{from}.js）里含 art.php 路径；
+     * GET art.php?get_signed_url=1&url=<令牌> → JSON {signed_url}；
+     * GET 该 signed_url（相对地址按 art.php 解析）→ JSON {jmurl}；
+     * jmurl 按内容探活（GET + #EXTM3U，路径不带 .m3u8 后缀，不走 validStream）。
+     * 任一步失败返回 null，不交假流。2026-11-20 沙箱实测走通（麦田 NB 新鲜令牌 → 真清单）。
+     */
+    private String artPhpResolve(String html, Map<String, String> headers, String token, String from) {
+        if (TextUtils.isEmpty(token) || TextUtils.isEmpty(from)) return null;
+        String playerJs = playerJsUrl(from, firstGroup(MACCMS_PATH, html));
+        if (TextUtils.isEmpty(playerJs)) {
+            log("L1 art miss no-player-js from=" + from);
+            return null;
+        }
+        HttpResult js = get(playerJs, headers);
+        if (js.code < 200 || js.code >= 400 || TextUtils.isEmpty(js.body) || !js.body.contains("art.php")) {
+            log("L1 art miss no-art-php js-http=" + js.code);
+            return null;
+        }
+        String artPath = firstGroup(ART_PHP_PATH, js.body);
+        if (TextUtils.isEmpty(artPath)) {
+            log("L1 art miss no-art-path");
+            return null;
+        }
+        String artPhp = absUrl(artPath, playerJs);
+        if (!artPhp.startsWith("http")) {
+            log("L1 art miss bad-art-url");
+            return null;
+        }
+        String signedUrl = "";
+        try {
+            String u1 = artPhp + "?get_signed_url=1&url=" + URLEncoder.encode(token, "UTF-8");
+            HttpResult r1 = get(u1, headers);
+            if (r1.code < 200 || r1.code >= 400 || TextUtils.isEmpty(r1.body)) {
+                log("L1 art miss sign-http=" + r1.code);
+                return null;
+            }
+            signedUrl = new JSONObject(r1.body).optString("signed_url", "");
+        } catch (Exception e) {
+            log("L1 art miss sign-ex");
+            return null;
+        }
+        if (TextUtils.isEmpty(signedUrl)) {
+            log("L1 art miss no-signed-url");
+            return null;
+        }
+        String jmurl = "";
+        try {
+            // signed_url 是纯查询串（以 ? 开头，如 ?url=…&fetch_data=1…），须直接缀在 art.php 后；
+            // absUrl 会把它当相对路径拼进目录（…/player/?url=…），服务器不认。
+            String u2 = signedUrl.startsWith("?") ? artPhp + signedUrl : absUrl(signedUrl, artPhp);
+            HttpResult r2 = get(u2, headers);
+            if (r2.code < 200 || r2.code >= 400 || TextUtils.isEmpty(r2.body)) {
+                log("L1 art miss fetch-http=" + r2.code);
+                return null;
+            }
+            jmurl = new JSONObject(r2.body).optString("jmurl", "");
+        } catch (Exception e) {
+            log("L1 art miss fetch-ex");
+            return null;
+        }
+        if (TextUtils.isEmpty(jmurl)) {
+            log("L1 art miss no-jmurl");
+            return null;
+        }
+        jmurl = jmurl.replace("\\/", "/");
+        if (!probeM3u8Content(jmurl, headers)) {
+            log("L1 art miss probe-fail jmurl=" + trunc(jmurl));
+            return null;
+        }
+        log("L1 art hit jmurl=" + trunc(jmurl));
+        return jmurl;
+    }
+
+    /** 线路播放器 JS 地址：{origin}{maccms.path}/static/player/{from}.js（MacCMS 惯例，路径从播放页读，不写死）。 */
+    private String playerJsUrl(String from, String maccmsPath) {
+        if (TextUtils.isEmpty(from)) return "";
+        String base = origin;
+        if (TextUtils.isEmpty(base)) {
+            base = schemeHost(pageUrl);
+            if (base.endsWith("/")) base = base.substring(0, base.length() - 1);
+        }
+        if (TextUtils.isEmpty(base)) return "";
+        String p = maccmsPath == null ? "" : maccmsPath;
+        StringBuilder sb = new StringBuilder(base);
+        if (!p.isEmpty()) {
+            if (!p.startsWith("/")) sb.append('/');
+            sb.append(p);
+        }
+        String s = sb.toString();
+        if (s.endsWith("/")) s = s.substring(0, s.length() - 1);
+        return s + "/static/player/" + from + ".js";
+    }
+
+    /** 按内容探活 m3u8（GET + #EXTM3U）：专供路径不带 .m3u8 后缀的清单地址（如 art.php 链的 jmurl）；不放宽 validStream 的路径口径。 */
+    private boolean probeM3u8Content(String url, Map<String, String> headers) {
+        if (TextUtils.isEmpty(url) || !url.startsWith("http")) return false;
+        HttpResult res = get(url, headers);
+        if (res.code < 200 || res.code >= 400) return false;
+        return res.body != null && res.body.contains("#EXTM3U");
     }
 
     /**

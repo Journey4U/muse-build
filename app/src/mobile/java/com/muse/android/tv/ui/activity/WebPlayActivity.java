@@ -1805,10 +1805,9 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                     return mEmpty;
                 }
                 // push v1：嗅探 MacCMS 播放页媒体直链——只记录、不拦截（媒体地址永不拦）；嗅到新流后探一次多线表。
-                String pushLow = reqUrl.toLowerCase(Locale.US);
-                int pushQ = pushLow.indexOf('?');
-                String pushPath = pushQ > 0 ? pushLow.substring(0, pushQ) : pushLow;
-                if ((pushPath.endsWith(".m3u8") || pushPath.endsWith(".mp4")) && !reqUrl.equals(mPushLastSniff)) {
+                // push v8：放宽——流地址的 .m3u8/.mp4 后缀可能在问号后的参数里（麦田 NB 真流
+                // getM3u8?name=…&url=NBY-xxx.m3u8，路径是 /nby/m3u8/getM3u8）；见 isPushStreamUrl。
+                if (isPushStreamUrl(reqUrl) && !reqUrl.equals(mPushLastSniff)) {
                     mPushLastSniff = reqUrl;
                     mPushSniffAt = System.currentTimeMillis();
                     capturePushSniffHeaders(request, reqUrl);
@@ -2600,14 +2599,14 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     // 页完后 0.5/1.5/3 秒各补跑一次，只在还没探到可用线路时跑，探到就停，最多 3 次；页切走或 Activity 销毁时不跑。
     private void schedulePushProbeRetry() {
         cancelPushProbeRetry();
-        if (probeLinesUsable()) return;
+        if (probeLinesUsable() || hasFreshPushSniff()) return;
         if (mBinding == null || mBinding.web == null) return;
         mPushProbeRetryCount = 0;
         mPushProbeRetryPageUrl = mPushPageUrl;
         mPushProbeRetry = () -> {
             if (mBinding == null || mBinding.web == null) return;
             if (!mPushProbeRetryPageUrl.equals(mPushPageUrl)) return;
-            if (probeLinesUsable()) return;
+            if (probeLinesUsable() || hasFreshPushSniff()) return;
             probePageInfo();
             mPushProbeRetryCount++;
             if (mPushProbeRetryCount < 3) {
@@ -2667,17 +2666,59 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         }
     }
 
+    /** push v8：120 秒内嗅到过流（单片模式的判定口径，与 continuePushPlay 取流窗口一致）。 */
+    private boolean hasFreshPushSniff() {
+        return !TextUtils.isEmpty(mPushLastSniff) && System.currentTimeMillis() - mPushSniffAt < 120000;
+    }
+
+    /**
+     * push v8：嗅探放宽——流地址的 .m3u8/.mp4 后缀可能在问号后的参数里
+     * （麦田 NB 真流 getM3u8?name=…&url=NBY-xxx.m3u8，路径是 /nby/m3u8/getM3u8）。
+     * 口径：① 路径末尾是 .m3u8/.mp4（原口径）；② 参数里带 .m3u8/.mp4 文件名，
+     * 后跟串尾、& 或 #（通用，不认域名/站点）。只记录、不拦截；真假由播放前
+     * 探活 / 解析兜底（解析失败不放死链，见 v5 报错重取）。
+     */
+    private static boolean isPushStreamUrl(String url) {
+        if (TextUtils.isEmpty(url)) return false;
+        String low = url.toLowerCase(Locale.US);
+        int q = low.indexOf('?');
+        String path = q > 0 ? low.substring(0, q) : low;
+        if (path.endsWith(".m3u8") || path.endsWith(".mp4")) return true;
+        return hasMediaSuffix(low, ".m3u8") || hasMediaSuffix(low, ".mp4");
+    }
+
+    /** 后缀后跟串尾、& 或 # 才算文件名（避免 art.php?url=<令牌> 这类无后缀地址误判）。 */
+    private static boolean hasMediaSuffix(String low, String suffix) {
+        int i = low.indexOf(suffix);
+        while (i >= 0) {
+            int after = i + suffix.length();
+            if (after >= low.length() || low.charAt(after) == '&' || low.charAt(after) == '#') return true;
+            i = low.indexOf(suffix, after);
+        }
+        return false;
+    }
+
     /** push v1：MacCMS 播放页且探到可用线路表时亮起「播放视频」悬浮钮，否则隐藏。 */
     private void updatePushButton() {
         if (mBinding.pushPlay == null) return;
-        boolean show = isMacCmsPlayPage(mPushPageUrl) && probeLinesUsable();
+        // push v8：按钮亮的条件放宽——(a) MacCMS 播放页且探针有多线表（原行为），或
+        // (b) 120 秒内嗅到过流（单片模式：hsck/MissAV 类单片，无线路表也推当前一部）。
+        // URL 门（isMacCmsPlayPage）不拦 (b)——MissAV 播放页 /cn/mxgs-1453 无 .html、无 3 段数字。
+        boolean show = (isMacCmsPlayPage(mPushPageUrl) && probeLinesUsable()) || hasFreshPushSniff();
         mBinding.pushPlay.setVisibility(show ? View.VISIBLE : View.GONE);
     }
 
     /** push v1：悬浮钮点击——多线探针够格时取当前集直达流（页面 video src 优先，120 秒内嗅探次之），转原生播放器；无流则留在网页。 */
     private void playNative() {
-        if (!probeLinesUsable()) {
+        // push v8：单片模式（无线路表但 120 秒内嗅到过流）也放行，推当前一部；单片跳过重探针（无表可探）。
+        boolean multi = probeLinesUsable();
+        boolean single = !multi && hasFreshPushSniff();
+        if (!multi && !single) {
             Notify.show("当前页面未识别到线路/集数");
+            return;
+        }
+        if (single) {
+            continuePushPlay();
             return;
         }
         // push v2：探针是旧页的（用户已切集/切页但重探还没跑），强制重探、探完再续跑。
@@ -2691,7 +2732,8 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
 
     /** push v2：探针就绪后的续跑——取当前集直达流（页面 video src 优先，120 秒内嗅探次之），转原生播放器；无流则留在网页。 */
     private void continuePushPlay() {
-        if (!probeLinesUsable()) {
+        // push v8：单片模式（无线路表但 120 秒内嗅到过流）也放行。
+        if (!probeLinesUsable() && !hasFreshPushSniff()) {
             Notify.show("当前页面未识别到线路/集数");
             return;
         }
@@ -2730,6 +2772,8 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         }
         if (flag.isEmpty()) flag = BrowserMeta.siteName(rawTitle, mTitle);
         String episode = BrowserMeta.episodeName(mPushPageUrl, rawTitle);
+        // push v8：单片模式（无线路表）时集名取不到（无第X集、无 -n-n.html），用片名兜底，免得集名空着。
+        if (episode.isEmpty() && !probeLinesUsable()) episode = title;
         Map<String, String> headers = mPushSniffedHeaders;
         if (headers == null) {
             headers = new LinkedHashMap<>();
