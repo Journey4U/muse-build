@@ -1633,6 +1633,33 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         return true;
     }
 
+    /** push v5：过期流报错恢复——重取新鲜流（纯 HTTP 解析器），取到后重选该集续播（控制器用报错时捕获的位置续播）；取失败回落正常报错路（mVod.playbackError 再进时守卫已置位，直接 reset + showError + fallback，不再重取）。恢复中用户已切走别的集时不回切（isSelected 守卫）。 */
+    @Override
+    public boolean resolveWebEpisodeForErrorRecovery(Flag flag, Episode episode, String errorMsg) {
+        if (episode == null || TextUtils.isEmpty(episode.getPageUrl())) return false;
+        showProgress();
+        Notify.show(getString(R.string.browser_resolving_episode, episode.getName()));
+        HttpEpisodeResolver.resolve(this, episode.getPageUrl(), getIntent().getStringExtra("browserOrigin"), getIntent().getStringExtra("browserVid"), new HttpEpisodeResolver.Callback() {
+            @Override
+            public void onResolved(String url, Map<String, String> headers) {
+                hideProgress();
+                if (isHostFinishing() || !episode.isSelected()) return;
+                mWebEpHeaders = headers == null ? Collections.emptyMap() : headers;
+                episode.setUrl(url);
+                mVod.selectEpisode(episode);
+            }
+
+            @Override
+            public void onFailed() {
+                hideProgress();
+                if (isHostFinishing()) return;
+                Notify.show(getString(R.string.browser_resolve_failed, episode.getName()));
+                mVod.playbackError(errorMsg);
+            }
+        });
+        return true;
+    }
+
     /** push v2：浏览器转播放落地——网页侧的片名/线路名/集名覆盖推送详情的写死值；普通入口无这些参数、零影响。返回当前集在当前线路里的下标（-1 表示未摆线）。 */
     private int applyBrowserMeta(Vod vod) {
         if (vod == null) return -1;

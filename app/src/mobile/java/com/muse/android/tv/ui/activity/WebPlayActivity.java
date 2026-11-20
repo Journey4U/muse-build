@@ -2517,7 +2517,9 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     private boolean isMacCmsPlayPage(String url) {
         if (url == null) return false;
         int q = url.indexOf('?');
-        String path = q >= 0 ? url.substring(0, q) : url;
+        int h = url.indexOf('#');
+        int cut = q >= 0 && h >= 0 ? Math.min(q, h) : Math.max(q, h);
+        String path = cut >= 0 ? url.substring(0, cut) : url;
         if (!path.endsWith(".html")) return false;
         int slash = path.lastIndexOf('/');
         String last = slash >= 0 ? path.substring(slash + 1) : path;

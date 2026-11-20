@@ -34,6 +34,11 @@ public interface VodPlaybackHost {
         return false;
     }
 
+    /** push v5：推送集限时流过期报错后的重取恢复（手机版 VideoActivity 实现；默认不认，走正常报错路）。返回 true 表示宿主已接手重取（异步回调里自行续播或回落报错路），控制器暂缓 reset 与 fallback；errorMsg 供重取失败时回落原样报错。 */
+    default boolean resolveWebEpisodeForErrorRecovery(Flag flag, Episode episode, String errorMsg) {
+        return false;
+    }
+
     String getHistoryKey();
 
     boolean isSiteChangeable();

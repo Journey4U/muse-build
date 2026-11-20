@@ -689,7 +689,7 @@ public class HttpEpisodeResolver {
 
     // ================= HTTP 与探活 =================
 
-    /** GET：手动跟随 3xx（共享 OkHttp 默认关自动重定向），单次请求 9 秒超时；返回最终状态码与正文。 */
+    /** GET：应用层拦截器 ProxyRedirectInterceptor 已先跟随 3xx，最终 URL 以 res.request().url() 为准；单次请求 9 秒超时；返回最终状态码与正文。 */
     private HttpResult get(String url, Map<String, String> headers) {
         String cur = url;
         for (int i = 0; i <= MAX_REDIRECTS; i++) {
@@ -701,14 +701,14 @@ public class HttpEpisodeResolver {
                 int code = res.code();
                 if ((code == 301 || code == 302 || code == 303 || code == 307 || code == 308) && i < MAX_REDIRECTS) {
                     String loc = res.header("Location");
-                    if (TextUtils.isEmpty(loc)) return new HttpResult(code, "", cur);
+                    if (TextUtils.isEmpty(loc)) return new HttpResult(code, "", res.request().url().toString());
                     cur = absUrl(loc, cur);
                     continue;
                 }
                 ResponseBody body = res.body();
-                return new HttpResult(code, body == null ? "" : body.string(), cur);
+                return new HttpResult(code, body == null ? "" : body.string(), res.request().url().toString());
             } catch (Exception e) {
-                return new HttpResult(-1, "", cur);
+                return new HttpResult(-1, "", res.request().url().toString());
             }
         }
         return new HttpResult(-1, "", cur);

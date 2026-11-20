@@ -53,6 +53,12 @@ public class VodPlaybackController {
     private Runnable pendingAutoPlay;
     private Episode pendingEpisode;
     private boolean forcePlayOnce;
+    // push v5：过期流报错恢复守卫——一次报错只重取一次。重取的新流须实播满 5 秒（onTimeChanged 计）
+    // 才重新武装，否则新流立报错会无限重取；pushRecoveryEpisode 记本次恢复的集，换集即清守卫。
+    private boolean pushErrorRecoveryTried;
+    private Episode pushRecoveryEpisode;
+    private long pushErrorResumePosition = C.TIME_UNSET;
+    private long pushRecoveryBasePosition = C.TIME_UNSET;
 
     public VodPlaybackController(VodPlaybackHost host, VodDataSource dataSource, VodPlaybackState state) {
         this.host = host;
@@ -65,6 +71,7 @@ public class VodPlaybackController {
 
     public void reset() {
         cancelAutoPlay();
+        clearPushErrorRecovery();
         preloader.clear();
         state.reset();
     }
@@ -191,7 +198,10 @@ public class VodPlaybackController {
         host.loadDanmaku(result, state.getHistory(), episode);
         // push v4：新集地址已确认可播，在此才停掉旧流（原先 playEpisode 里先停播，解析失败会杀掉正在播的流）。
         host.stopPlaybackForRefresh();
-        startPlayback(result, startPositionMs(), episode);
+        // push v5：过期流报错恢复——用报错时捕获的位置续播（不用历史位：历史位可能已被结果位覆盖或滞后）；只用一次。
+        long startPosition = pushErrorResumePosition != C.TIME_UNSET ? pushErrorResumePosition : startPositionMs();
+        pushErrorResumePosition = C.TIME_UNSET;
+        startPlayback(result, startPosition, episode);
         preloader.update(result);
     }
 
@@ -241,6 +251,8 @@ public class VodPlaybackController {
     public void selectEpisode(Episode item) {
         if (!state.hasFlags()) return;
         cancelAutoPlay();
+        // push v5：换到别的集即清报错恢复守卫（恢复中的旧集重取结果不再续播该集，见 VideoActivity 恢复回调的 isSelected 守卫）。
+        if (pushRecoveryEpisode != null && item != pushRecoveryEpisode) clearPushErrorRecovery();
         saveCurrentHistory();
         Flag selected = state.getFlag();
         for (Flag flag : state.getFlags()) flag.toggle(flag == selected, item);
@@ -311,8 +323,40 @@ public class VodPlaybackController {
 
     public void playbackError(String msg) {
         preloader.clear();
+        // push v5：推送集限时流过期报错——先重取新鲜流续播；重取失败才走正常报错路（reset + showError + fallback）。
+        if (tryPushErrorRecovery(msg)) return;
         host.resetPlaybackForError(msg);
         fallbackPolicy.playbackError();
+    }
+
+    /**
+     * push v5：过期流报错恢复。当前集是推送集（pageUrl 非空）且本次报错尚未重取过时，
+     * 捕获报错位置、经宿主走 HttpEpisodeResolver 重取新鲜流；返回 true 表示已接手恢复
+     * （reset 与 fallback 均暂缓，等异步回调定夺），false 表示走正常报错路。
+     * 宿主不认（返回 false）时清守卫、回落正常路；重取失败时宿主再调 playbackError，
+     * 此时守卫已置位，直接走正常路，不会再次重取。
+     */
+    private boolean tryPushErrorRecovery(String msg) {
+        if (pushErrorRecoveryTried || !state.hasEpisode()) return false;
+        Episode episode = state.getEpisode();
+        if (episode == null || TextUtils.isEmpty(episode.getPageUrl())) return false;
+        pushErrorRecoveryTried = true;
+        pushRecoveryEpisode = episode;
+        long position = host.getPlayerPosition();
+        pushErrorResumePosition = position;
+        pushRecoveryBasePosition = position;
+        if (!host.resolveWebEpisodeForErrorRecovery(state.getFlag(), episode, msg)) {
+            clearPushErrorRecovery();
+            return false;
+        }
+        return true;
+    }
+
+    private void clearPushErrorRecovery() {
+        pushErrorRecoveryTried = false;
+        pushRecoveryEpisode = null;
+        pushErrorResumePosition = C.TIME_UNSET;
+        pushRecoveryBasePosition = C.TIME_UNSET;
     }
 
     public void playbackEnded() {
@@ -391,6 +435,9 @@ public class VodPlaybackController {
     public void onTimeChanged(long time, long position, long duration) {
         History history = currentHistory();
         historyPolicy.updateProgress(history, time, position, duration);
+        // push v5：恢复的新流实播满 5 秒（位置越过报错点 5 秒）才重新武装报错恢复；
+        // 新流立报错（未实播）时守卫仍在，不重取，防无限循环。
+        if (pushErrorRecoveryTried && pushRecoveryBasePosition != C.TIME_UNSET && position > pushRecoveryBasePosition + 5000) clearPushErrorRecovery();
         if (history != null && history.getEnding() > 0 && history.getEnding() + position >= duration) nextEpisode(false);
     }
 
