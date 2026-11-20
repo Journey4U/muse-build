@@ -1421,7 +1421,9 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         + "for(var j=0;j<bs.length;j++){var be=document.querySelector(bs[j]);if(!be)continue;var bg='';try{bg=getComputedStyle(be).backgroundImage||''}"
         + "catch(e){}var bm=/url\\([\"']?([^\"')]+)[\"']?\\)/.exec(bg);if(bm&&bm[1]&&bm[1].indexOf('data:')!==0){try{return new URL(bm[1],location.href).href}"
         + "catch(e){return bm[1]}}}}catch(e){}return '';}function epName(t){var m=t.match(/第\\s*\\d+\\s*[集期话回]|\\d+\\s*[集期]/);"
-        + "if(m)return m[0].replace(/\\s+/g,'');if(/^\\d{1,3}$/.test(t))return '第'+parseInt(t,10)+'集';return '';"
+        + "if(m)return m[0].replace(/\\s+/g,'');if(/^\\d{1,3}$/.test(t))return '第'+parseInt(t,10)+'集';"
+        + "var dm=t.match(/^(\\d{4})[-/.年](\\d{1,2})[-/.月](\\d{1,2})[日]?$/);if(dm)return dm[1]+'-'+('0'+dm[2]).slice(-2)+'-'+('0'+dm[3]).slice(-2);"
+        + "if(/^\\d{8}$/.test(t))return t.slice(0,4)+'-'+t.slice(4,6)+'-'+t.slice(6,8);return '';"
         + "}var STOP=/上一|下一|预告|播放|详情|首页|返回|收藏|分享|评论|清空|倒序|正序|排序|切换|展开|收起|更多|全部|点赞|纠错|下载|下集|上集/;function stopWord(t){return STOP.test(t)||/^(线路|来源)\\d{0,2}"
         + "$/.test(t);}var pm=location.pathname.match(/(\\d+)-(\\d+)-(\\d+)\\.html/);var vid=pm?pm[1]:'',sid=pm?pm[2]:'',curEp=pm?parseInt(pm[3],10):-1;"
         + "if(!vid){var dv=location.pathname.match(/\\/(?:voddetail|vodplay|movie|detail|view|watch)\\/(\\d+)/);"
@@ -1461,18 +1463,34 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         + "for(var hi=0;hi<cs.length&&hi<80;hi++){var c0=cs[hi];var ch=c0.children;if(!ch||ch.length<2||ch.length>8)continue;"
         + "var ts2=[];var bad=false;for(var hj=0;hj<ch.length;hj++){var tt=tabText(ch[hj]);if(!tt||tt.length>12||epName(tt)){bad=true;"
         + "break;}ts2.push(tt);}if(bad||ts2.length<2)continue;hs.push(((c0.getAttribute('class')||c0.tagName)||'').slice(0,30)+':'+ts2.slice(0,3).join('~'));"
-        + "if(hs.length>=3)break;}if(hs.length)diag+=(diag?' ':'')+'hunt='+hs.join('|');}}function playerCfg(){try{var c=window.player_aaaa||window.player_data||window.player_config||window.MacPlayer;if(!c)return '';return JSON.stringify(c);}catch(e){return '';}}return JSON.stringify({lines:out,diag:diag,pic:picOf(),player:playerCfg(),origin:location.origin,vid:vid,sid:sid,ep:curEp}"
+        + "if(hs.length>=3)break;}if(hs.length)diag+=(diag?' ':'')+'hunt='+hs.join('|');}}function iframeVideo(){try{var fs=document.querySelectorAll('iframe');for(var i=0;i<fs.length;i++){try{var d=fs[i].contentDocument;if(!d)continue;var v=d.querySelector('video');if(!v)continue;var s=v.currentSrc||v.src||'';if(s&&/\\.m3u8|\\.mp4/i.test(s))return s;}catch(e){}}return '';}catch(e){return '';}}function playerCfg(){try{var c=window.player_aaaa||window.player_data||window.player_config||window.MacPlayer;if(!c)return '';return JSON.stringify(c);}catch(e){return '';}}return JSON.stringify({lines:out,diag:diag,pic:picOf(),player:playerCfg(),iframeVideo:iframeVideo(),origin:location.origin,vid:vid,sid:sid,ep:curEp}"
         + ");})()";
     private static final String VIDEO_PROBE =
             "(function(){try{var v=document.querySelector('video');if(!v)return '';"
                     + "var s=v.currentSrc||v.src||'';"
                     + "if(!s&&v.querySelector){var q=v.querySelector('source');if(q)s=q.currentSrc||q.src||''}"
                     + "return s}catch(e){return ''}})()";
+    // TV push v4 fix 3(a)：点推时现扫——同源 iframe 里的 video.currentSrc（dplayer/ArtPlayer
+    // 在 iframe 里播；电视原生 HLS 时 .m3u8 不走 shouldInterceptRequest，嗅探抓不到）。
+    // 只读一层 iframe，跨域取 contentDocument 会抛，由每层 try/catch 吞掉；只回流地址
+    // （含 .m3u8/.mp4），Java 侧再过 isPushStreamUrl 精确门。探针跑时播放器可能还没挂载，
+    // 所以不在 PROBE_JS 里只读一次，而是在点推那一刻现扫。
+    private static final String IFRAME_VIDEO_PROBE =
+            "(function(){try{var fs=document.querySelectorAll('iframe');"
+                    + "for(var i=0;i<fs.length;i++){try{var d=fs[i].contentDocument;if(!d)continue;"
+                    + "var v=d.querySelector('video');if(!v)continue;"
+                    + "var s=v.currentSrc||v.src||'';if(s&&/\\.m3u8|\\.mp4/i.test(s))return s;}catch(e){}}"
+                    + "return ''}catch(e){return ''}})()";
     // push v1: 浏览器转原生播放状态（嗅探到的直链 + 多线探针结果 + 当前页信息）。
     private volatile String mPushLastSniff;
     private volatile long mPushSniffAt;
     private volatile Map<String, String> mPushSniffedHeaders;
     private volatile String mPushProbeLines = "";
+    // TV push v4 fix 1：探针 player.url（player_aaaa 直链等），探针无 player 时清空；取流时过 isPushStreamUrl 门。
+    private volatile String mPushProbePlayerUrl = "";
+    // TV push v4 fix 3(b)：探针在同源 iframe 里见到的视频流 + 时间戳（120 秒窗口，与 hasFreshPushSniff 同口径）。
+    private volatile String mPushIframeVideo = "";
+    private volatile long mPushIframeVideoAt;
     private volatile String mPushProbePageUrl = "";
     private volatile boolean mPushPlayPending = false;
     private volatile String mPushPagePic = "";
@@ -1938,6 +1956,9 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 // push v1：导航开始，清多线探针状态（海报 mPushPagePic 不清，活过详情→播放页一跳）；记当前页地址。
                 mPushPageUrl = url;
                 mPushProbeLines = "";
+                // TV push v4：player.url 与 iframe 视频流也是本页的，切页同清，免得旧页流串到新页。
+                mPushProbePlayerUrl = "";
+                mPushIframeVideo = "";
                 cancelPushProbeRetry();
             }
 
@@ -2566,6 +2587,35 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 JSONArray lines = obj.optJSONArray("lines");
                 String pic = obj.optString("pic");
                 if (!pic.isEmpty()) mPushPagePic = pic;
+                // TV push v4 fix 1：探针已把 player_aaaa/player_data 整个 JSON 带回来（playerCfg），
+                // Java 侧此前从没读过 player 字段。取 url 存下来（相对地址按 origin 补全），
+                // 探针无 player 时清空；取流时过 isPushStreamUrl 门（NB 的令牌不是 URL，必被门拦住）。
+                String playerJson = obj.optString("player");
+                if (playerJson.isEmpty()) {
+                    mPushProbePlayerUrl = "";
+                } else {
+                    try {
+                        String pu = new JSONObject(playerJson).optString("url");
+                        if (!pu.isEmpty() && !pu.startsWith("http") && pu.startsWith("/")) {
+                            try {
+                                pu = new java.net.URL(new java.net.URL(obj.optString("origin")), pu).toString();
+                            } catch (Throwable ignored) {
+                                pu = "";
+                            }
+                        }
+                        mPushProbePlayerUrl = pu;
+                    } catch (Throwable ignored) {
+                        mPushProbePlayerUrl = "";
+                    }
+                }
+                // TV push v4 fix 3(b)：探针在同源 iframe 里见到的视频流（hsck/dplayer 类）。
+                // 只在探针给了过门地址时刷新时间戳；探针没见到时不清旧值（新鲜度只由 120 秒窗口管，
+                // 与 mPushLastSniff 同口径）；切页时清（见 onPageStarted）。
+                String iv = obj.optString("iframeVideo");
+                if (!iv.isEmpty() && isPushStreamUrl(iv)) {
+                    mPushIframeVideo = iv;
+                    mPushIframeVideoAt = System.currentTimeMillis();
+                }
                 if (lines != null && lines.length() > 0) {
                     boolean renamed = dedupePushLineNames(lines);
                     mPushProbeLines = renamed ? obj.toString() : json;
@@ -2588,20 +2638,25 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
 
     // push v3：探针补跑——选集表可能是 JS 后渲染的，页完那一刻还没进 DOM，探针跑空表按钮就不亮。
     // 页完后 0.5/1.5/3 秒各补跑一次，只在还没探到可用线路时跑，探到就停，最多 3 次；页切走或 Activity 销毁时不跑。
+    // TV push v4 fix 3(b)：hsck 类播放器 iframe 在倒计时+点按后才挂载（页完 6 秒后），快补跑
+    // （0.5/1.5/3 秒）跑完时 iframe 还不存在。按钮未亮且是 MacCMS 播放页时，每 5 秒再补跑，
+    // 最多到第 14 次（约 60 秒），亮灯/切页/销毁即停——有界，绝不无界跑。
     private void schedulePushProbeRetry() {
         cancelPushProbeRetry();
-        if (probeLinesUsable() || hasFreshPushSniff()) return;
+        if (probeLinesUsable() || hasFreshPushSniff() || hasFreshIframeVideo()) return;
         if (mBinding == null || mBinding.web == null) return;
         mPushProbeRetryCount = 0;
         mPushProbeRetryPageUrl = mPushPageUrl;
         mPushProbeRetry = () -> {
             if (mBinding == null || mBinding.web == null) return;
             if (!mPushProbeRetryPageUrl.equals(mPushPageUrl)) return;
-            if (probeLinesUsable() || hasFreshPushSniff()) return;
+            if (probeLinesUsable() || hasFreshPushSniff() || hasFreshIframeVideo()) return;
             probePageInfo();
             mPushProbeRetryCount++;
             if (mPushProbeRetryCount < 3) {
                 mBinding.web.postDelayed(mPushProbeRetry, mPushProbeRetryCount == 1 ? 1000 : 1500);
+            } else if (mPushProbeRetryCount < 14 && isMacCmsPlayPage(mPushProbeRetryPageUrl)) {
+                mBinding.web.postDelayed(mPushProbeRetry, 5000);
             }
         };
         mBinding.web.postDelayed(mPushProbeRetry, 500);
@@ -2662,6 +2717,11 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         return !TextUtils.isEmpty(mPushLastSniff) && System.currentTimeMillis() - mPushSniffAt < 120000;
     }
 
+    /** TV push v4 fix 3(b)：120 秒内探针在同源 iframe 里见过视频流（电视原生 HLS 下嗅探抓不到时，按钮亮灯的第三条路）。 */
+    private boolean hasFreshIframeVideo() {
+        return !TextUtils.isEmpty(mPushIframeVideo) && System.currentTimeMillis() - mPushIframeVideoAt < 120000;
+    }
+
     /**
      * push v8：嗅探放宽——流地址的 .m3u8/.mp4 后缀可能在问号后的参数里
      * （麦田 NB 真流 getM3u8?name=…&url=NBY-xxx.m3u8，路径是 /nby/m3u8/getM3u8）。
@@ -2695,15 +2755,18 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         // push v8：按钮亮的条件放宽——(a) MacCMS 播放页且探针有多线表（原行为），或
         // (b) 120 秒内嗅到过流（单片模式：hsck/MissAV 类单片，无线路表也推当前一部）。
         // URL 门（isMacCmsPlayPage）不拦 (b)——MissAV 播放页 /cn/mxgs-1453 无 .html、无 3 段数字。
-        boolean show = (isMacCmsPlayPage(mPushPageUrl) && probeLinesUsable()) || hasFreshPushSniff();
+        // TV push v4 fix 3(b)：(c) 120 秒内探针在同源 iframe 里见过视频流（hsck 类：无选集表、
+        // 电视原生 HLS 又嗅不到流，按钮否则永不亮）。
+        boolean show = (isMacCmsPlayPage(mPushPageUrl) && probeLinesUsable()) || hasFreshPushSniff() || hasFreshIframeVideo();
         mBinding.pushPlay.setVisibility(show ? View.VISIBLE : View.GONE);
     }
 
     /** push v1：悬浮钮点击——多线探针够格时取当前集直达流（页面 video src 优先，120 秒内嗅探次之），转原生播放器；无流则留在网页。 */
     private void playNative() {
         // push v8：单片模式（无线路表但 120 秒内嗅到过流）也放行，推当前一部；单片跳过重探针（无表可探）。
+        // TV push v4 fix 3(b)：单片模式第三条路——探针在同源 iframe 里见过视频流（hsck 类）。
         boolean multi = probeLinesUsable();
-        boolean single = !multi && hasFreshPushSniff();
+        boolean single = !multi && (hasFreshPushSniff() || hasFreshIframeVideo());
         if (!multi && !single) {
             Notify.show("当前页面未识别到线路/集数");
             return;
@@ -2724,20 +2787,33 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     /** push v2：探针就绪后的续跑——取当前集直达流（页面 video src 优先，120 秒内嗅探次之），转原生播放器；无流则留在网页。 */
     private void continuePushPlay() {
         // push v8：单片模式（无线路表但 120 秒内嗅到过流）也放行。
-        if (!probeLinesUsable() && !hasFreshPushSniff()) {
+        // TV push v4 fix 3(b)：单片模式第三条路——探针在同源 iframe 里见过视频流。
+        if (!probeLinesUsable() && !hasFreshPushSniff() && !hasFreshIframeVideo()) {
             Notify.show("当前页面未识别到线路/集数");
             return;
         }
         mBinding.web.evaluateJavascript(VIDEO_PROBE, value -> {
             String src = value == null ? "" : value.replace("\"", "").trim();
-            String stream = "";
-            if (!TextUtils.isEmpty(src) && !"null".equals(src) && src.startsWith("http")) stream = src;
-            else if (!TextUtils.isEmpty(mPushLastSniff) && System.currentTimeMillis() - mPushSniffAt < 120000) stream = mPushLastSniff;
-            if (!stream.isEmpty()) {
-                startProbedPlay(stream);
+            if (!TextUtils.isEmpty(src) && !"null".equals(src) && src.startsWith("http")) {
+                startProbedPlay(src);
                 return;
             }
-            Notify.show("未检测到可提取的视频地址");
+            // TV push v4 fix 3(a)：顶层无 video 时，点推那一刻现扫同源 iframe 里的 video
+            // （播放器挂载晚，探针跑时可能还没进 DOM；电视原生 HLS 下 .m3u8 不走嗅探）。
+            mBinding.web.evaluateJavascript(IFRAME_VIDEO_PROBE, ivalue -> {
+                String isrc = ivalue == null ? "" : ivalue.replace("\"", "").trim();
+                String stream = "";
+                if (!TextUtils.isEmpty(isrc) && !"null".equals(isrc) && isPushStreamUrl(isrc)) stream = isrc;
+                else if (!TextUtils.isEmpty(mPushLastSniff) && System.currentTimeMillis() - mPushSniffAt < 120000) stream = mPushLastSniff;
+                else if (!TextUtils.isEmpty(mPushIframeVideo) && System.currentTimeMillis() - mPushIframeVideoAt < 120000 && isPushStreamUrl(mPushIframeVideo)) stream = mPushIframeVideo;
+                // TV push v4 fix 1：探针 player.url 兜底（player_aaaa 直链；NB 的令牌不是 URL，过不了 isPushStreamUrl 门）。
+                else if (!TextUtils.isEmpty(mPushProbePlayerUrl) && isPushStreamUrl(mPushProbePlayerUrl)) stream = mPushProbePlayerUrl;
+                if (!stream.isEmpty()) {
+                    startProbedPlay(stream);
+                    return;
+                }
+                Notify.show("未检测到可提取的视频地址");
+            });
         });
     }
 
