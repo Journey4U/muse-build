@@ -1691,7 +1691,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         });
         mBinding.flag.setOnClickListener(view -> showFlags());
         mBinding.episodes.setOnClickListener(view -> showEpisodes());
-        // push v1（电视 v1）：悬浮「播放视频」钮——布局里 focusable，遥控器 D-pad 可聚焦操作；MacCMS 播放页探到可用线路表或 120 秒内嗅到过流时才亮起，点后转原生播放器。
+        // TV push v5：顶栏「推送」钮（由右下角悬浮移入顶栏）——布局里 focusable，遥控器 D-pad 可聚焦操作；MacCMS 播放页探到可用线路表或 120 秒内嗅到过流时才亮起，点后转原生播放器。
         mBinding.pushPlay.setOnClickListener(view -> playNative());
         // 点页面只用来唤回/续住上下栏，手势原样透传给页面（不消费）
         mBinding.web.setOnTouchListener((view, event) -> {
@@ -2749,7 +2749,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         return false;
     }
 
-    /** push v1：MacCMS 播放页且探到可用线路表时亮起「播放视频」悬浮钮，否则隐藏。 */
+    /** push v1：MacCMS 播放页且探到可用线路表时亮起顶栏「推送」钮，否则隐藏。 */
     private void updatePushButton() {
         if (mBinding.pushPlay == null) return;
         // push v8：按钮亮的条件放宽——(a) MacCMS 播放页且探针有多线表（原行为），或
@@ -2761,7 +2761,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         mBinding.pushPlay.setVisibility(show ? View.VISIBLE : View.GONE);
     }
 
-    /** push v1：悬浮钮点击——多线探针够格时取当前集直达流（页面 video src 优先，120 秒内嗅探次之），转原生播放器；无流则留在网页。 */
+    /** push v1：顶栏「推送」钮点击——多线探针够格时取当前集直达流（页面 video src 优先，120 秒内嗅探次之），转原生播放器；无流则留在网页。 */
     private void playNative() {
         // push v8：单片模式（无线路表但 120 秒内嗅到过流）也放行，推当前一部；单片跳过重探针（无表可探）。
         // TV push v4 fix 3(b)：单片模式第三条路——探针在同源 iframe 里见过视频流（hsck 类）。
