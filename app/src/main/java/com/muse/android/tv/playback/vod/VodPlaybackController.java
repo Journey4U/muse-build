@@ -344,6 +344,8 @@ public class VodPlaybackController {
      */
     private boolean tryPushErrorRecovery(String msg) {
         if (pushErrorRecoveryTried || !state.hasEpisode()) return false;
+        // push v11 A2：只对 HTTP 错重取（过期签名报 Bad HTTP Status/403/410 类）；解码/DRM/超时等非 HTTP 错不重取，直接走正常报错路。
+        if (!isHttpPlaybackError(msg)) return false;
         Episode episode = state.getEpisode();
         if (episode == null || TextUtils.isEmpty(episode.getPageUrl())) return false;
         pushErrorRecoveryTried = true;
@@ -356,6 +358,14 @@ public class VodPlaybackController {
             return false;
         }
         return true;
+    }
+
+    /** push v11 A2：播放器异常文本是否 HTTP 错——含 http/Response code 字样，或含 HTTP 状态码（400/401/403/404/405/410/429/500/502/503/504）。 */
+    private static boolean isHttpPlaybackError(String msg) {
+        if (TextUtils.isEmpty(msg)) return false;
+        String lower = msg.toLowerCase(Locale.ROOT);
+        if (lower.contains("http") || lower.contains("response code") || lower.contains("status code")) return true;
+        return java.util.regex.Pattern.compile("\\b(400|401|403|404|405|410|429|500|502|503|504)\\b").matcher(msg).find();
     }
 
     private void clearPushErrorRecovery() {

@@ -364,6 +364,13 @@ public class HttpEpisodeResolver {
      * v2 不再建 WebView，解析全程不需要它（可传 null 以外的任意 Activity）。
      * origin / vid 为空时跳过 L0。
      */
+    /** push v11 A2：报错重取前清掉本集的解析缓存——否则 resolve() 直接回旧地址（签名已过期），重取等于没取。
+     * 清 L1/L2/L4 的页缓存与 L0 的整剧表缓存，下一轮重新拉取拿新签名；不碰 API_CLOSED（已证实关闭的 Provide API 仍不重试）。 */
+    public static void invalidateForRetry(String pageUrl, String origin, String vid) {
+        if (!TextUtils.isEmpty(pageUrl)) CACHE.remove(pageUrl);
+        if (!TextUtils.isEmpty(origin) && !TextUtils.isEmpty(vid)) SHOW_CACHE.remove(origin + "\n" + vid);
+    }
+
     public static void resolve(Activity activity, String pageUrl, String origin, String vid, Callback callback) {
         if (callback == null || TextUtils.isEmpty(pageUrl)) {
             if (callback != null) new Handler(Looper.getMainLooper()).post(callback::onFailed);

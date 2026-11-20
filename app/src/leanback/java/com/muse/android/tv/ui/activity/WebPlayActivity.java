@@ -1481,12 +1481,13 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         + "sc||document;}function adPlaying(){try{var mv=mainVideo();if(!mv)return false;var sc=playerScope(mv);var sk=sc.querySelectorAll('[class*=skip],[id*=skip]');for(var i=0;i<sk.length;i++){if(!elHidden(sk[i]))return "
         + "true;}var els=sc.querySelectorAll('button,a,div,span');for(var j=0;j<els.length;j++){var e=els[j];if(e.children&&e.children.length>0)continue;var t=txt(e);if(t&&t.length<40&&/^(skip|跳过)/i.test(t))return "
         + "true;}var ovs=sc.querySelectorAll('[class*=preroll],[class*=vast],[id*=preroll],[id*=vast]');for(var k=0;k<ovs.length;k++){if(!elHidden(ovs[k]))return true;}return false;}catch(e){return false;}}function "
-        + "adSrcs(){var out=[],seen={};function add(u){if(!u)return;u=absUrl(u);if(!/^https?:/i.test(u))return;if(!isStreamUrl(u))return;if(seen[u])return;seen[u]=1;out.push(u);}try{var vs=document.querySelectorAll('video');for(var "
-        + "i=0;i<vs.length;i++){var v=vs[i];var dm=v.getAttribute('data-mp4');if(dm)add(dm);if(isGifPrev(v)||hasAdMark(v)||inRecCtx(v)||(v.loop&&v.muted))add(vidSrcAny(v));}if(adPlaying()){var mv=mainVideo();if(mv)add(vidSrcAny(mv));}}catch(e){}return "
-        + "out.slice(0,50);}function mediaDefDefault(){try{var ss=document.querySelectorAll('script');for(var i=0;i<ss.length;i++){var t=ss[i].textContent||'';if(t.indexOf('mediaDefinitions')<0)continue;var m;var "
-        + "re1=/\"defaultQuality\"\\s*:\\s*true[^}]{0,300}?\"videoUrl\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"/g;while((m=re1.exec(t))!==null){var u=m[1].replace(/\\\\\\//g,'/');if(isStreamUrl(u))return u;}var re2=/\"videoUrl\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"[^}]{0,300}?\"defaultQuality\"\\s*:\\s*true/g;while((m=re2.exec(t))!==null){var "
-        + "u2=m[1].replace(/\\\\\\//g,'/');if(isStreamUrl(u2))return u2;}}return '';}catch(e){return '';}}function parseQuoted(s,pos){var q=s.charAt(pos);if(q!==\"'\"&&q!=='\"')return null;var out='',i=pos+1;while(i<s.length){var "
-        + "ch=s.charAt(i);if(ch==='\\\\'){var nx=s.charAt(i+1);if(nx==='u'){out+=String.fromCharCode(parseInt(s.substr(i+2,4),16));i+=6;continue;}if(nx==='x'){out+=String.fromCharCode(parseInt(s.substr(i+2,2),16));i+=4;continue;}if(nx==='n'){out+='\\n';i+=2;continue;}if(nx==='r'){out+='\\r';i+=2;continue;}if(nx==='t'){out+='\\t';i+=2;continue;}out+=nx;i+=2;continue;}if(ch===q)return "
+        + "adSrcs(){var out=[],seen={};function add(u){if(!u)return;u=absUrl(u);if(!/^https?:/i.test(u))return;if(!isStreamUrl(u))return;if(seen[u])return;seen[u]=1;out.push(u);}try{var vs=document.querySelectorAll('video');var "
+        + "ms0='';try{var _mv=mainVideo();if(_mv){var _s=vidSrc(_mv);if(_s)ms0=absUrl(_s);}}catch(e){}for(var i=0;i<vs.length;i++){var v=vs[i];var dm=v.getAttribute('data-mp4');if(dm)add(dm);var ds=v.getAttribute('data-src');if(ds){var "
+        + "a1=absUrl(ds);if(a1!==ms0)add(a1);}var du=v.getAttribute('data-url');if(du){var a2=absUrl(du);if(a2!==ms0)add(a2);}if(isGifPrev(v)||hasAdMark(v)||inRecCtx(v)||(v.loop&&v.muted))add(vidSrcAny(v));}if(adPlaying()){var "
+        + "mv=mainVideo();if(mv)add(vidSrcAny(mv));}}catch(e){}return out.slice(0,50);}function mediaDefDefault(){try{var ss=document.querySelectorAll('script');for(var i=0;i<ss.length;i++){var t=ss[i].textContent||'';if(t.indexOf('mediaDefinitions')<0)continue;var "
+        + "m;var re1=/\"defaultQuality\"\\s*:\\s*true[^}]{0,300}?\"videoUrl\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"/g;while((m=re1.exec(t))!==null){var u=m[1].replace(/\\\\\\//g,'/');if(isStreamUrl(u))return u;}var "
+        + "re2=/\"videoUrl\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"[^}]{0,300}?\"defaultQuality\"\\s*:\\s*true/g;while((m=re2.exec(t))!==null){var u2=m[1].replace(/\\\\\\//g,'/');if(isStreamUrl(u2))return u2;}}return "
+        + "'';}catch(e){return '';}}function parseQuoted(s,pos){var q=s.charAt(pos);if(q!==\"'\"&&q!=='\"')return null;var out='',i=pos+1;while(i<s.length){var ch=s.charAt(i);if(ch==='\\\\'){var nx=s.charAt(i+1);if(nx==='u'){out+=String.fromCharCode(parseInt(s.substr(i+2,4),16));i+=6;continue;}if(nx==='x'){out+=String.fromCharCode(parseInt(s.substr(i+2,2),16));i+=4;continue;}if(nx==='n'){out+='\\n';i+=2;continue;}if(nx==='r'){out+='\\r';i+=2;continue;}if(nx==='t'){out+='\\t';i+=2;continue;}out+=nx;i+=2;continue;}if(ch===q)return "
         + "[out,i+1];out+=ch;i++;}return null;}function tokOf(n,a){if(a<=36)return n.toString(a);var s='',c=n;do{var r=c%a;s=((r>35?String.fromCharCode(r+29):r.toString(36))+s);c=Math.floor(c/a);}while(c>0);return "
         + "s;}function decodePacker(t){var start=t.indexOf('eval(function(p,a,c,k,e,d)');if(start<0)return '';var call=-1;for(var i=start;i<t.length-2;i++){if(t.charAt(i)==='}'){var j=i+1;while(j<t.length&&(t.charAt(j)===' "
         + "'||t.charAt(j)==='\\t'||t.charAt(j)==='\\n'||t.charAt(j)==='\\r'))j++;if(t.charAt(j)==='('){var k2=j+1;while(k2<t.length&&(t.charAt(k2)===' '||t.charAt(k2)==='\\t'||t.charAt(k2)==='\\n'||t.charAt(k2)==='\\r'))k2++;if(t.charAt(k2)===\"'\"||t.charAt(k2)==='\"'){call=k2;break;}}}}if(call<0)return "
@@ -1496,8 +1497,11 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         + "m=/source\\s*[:=]\\s*[^;]{0,400}?(https?:\\/\\/[^'\"\\s;]+\\.(?:m3u8|mp4)[^'\"\\s;]*)/.exec(dec);if(m&&isStreamUrl(m[1]))return m[1];}}catch(e){}return '';}function perfM3u8(){try{if(!window.performance||!performance.getEntriesByType)return "
         + "'';var es=performance.getEntriesByType('resource');var found=[];for(var i=0;i<es.length;i++){var u=es[i].name||'';if(/\\.m3u8($|[?&#])/i.test(u)&&found.indexOf(u)<0)found.push(u);}if(found.length===1)return "
         + "found[0];return '';}catch(e){return '';}}function mainStream(){try{var mv=mainVideo();if(mv&&!adPlaying()){var s=vidSrc(mv);if(s&&/^https?:/i.test(s)&&isStreamUrl(s))return s;}try{var c=window.player_aaaa||window.player_data||window.player_config||window.MacPlayer;if(c&&c.url&&isStreamUrl(c.url))return "
-        + "absUrl(c.url);}catch(e){}var md=mediaDefDefault();if(md)return md;var pk=packedSource();if(pk)return pk;var pf=perfM3u8();if(pf)return pf;return '';}catch(e){return '';}}function playerCfg(){try{var c=window.player_aaaa||window.player_data||window.player_config||window.MacPlayer;if(!c)return "
-        + "'';return JSON.stringify(c);}catch(e){return '';}}return JSON.stringify({lines:out,diag:diag,pic:picOf(),player:playerCfg(),curEpName:(dp&&dp.curName)||curEpName,iframeVideo:iframeVideo(),origin:location.origin,vid:vid,sid:sid,ep:curEp,mainStream:(dp&&dp.curUrl)||mainStream(),mainVideo:mainVideoSrc(),adSrcs:adSrcs(),adPlaying:adPlaying()?1:0,subEps:subs});})()";
+        + "absUrl(c.url);}catch(e){}var md=mediaDefDefault();if(md)return md;var pk=packedSource();if(pk)return pk;var pf=perfM3u8();if(pf)return pf;return '';}catch(e){return '';}}function hasMainPlayer(){try{if(mainVideoSrc())return "
+        + "true;}catch(e){}try{var c=window.player_aaaa;if(c)return true;}catch(e){}try{if(mediaDefDefault())return true;}catch(e){}try{if(packedSource())return true;}catch(e){}try{if(dp&&dp.line)return true;}catch(e){}try{if(out&&out.length)return "
+        + "true;}catch(e){}try{if(subs&&subs.length)return true;}catch(e){}try{var fs=document.querySelectorAll('iframe');for(var i=0;i<fs.length;i++){var s='';try{s=fs[i].getAttribute('src')||fs[i].src||'';}catch(e2){}if(s&&(/\\/static\\/player\\//i.test(s)||/dplayer\\.html/i.test(s)||/artplayer\\.html/i.test(s)||/ckplayer\\.html/i.test(s)||/art\\.php/i.test(s)))return "
+        + "true;}}catch(e){}return false;}function playerCfg(){try{var c=window.player_aaaa||window.player_data||window.player_config||window.MacPlayer;if(!c)return '';return JSON.stringify(c);}catch(e){return '';}}return "
+        + "JSON.stringify({lines:out,diag:diag,pic:picOf(),player:playerCfg(),curEpName:(dp&&dp.curName)||curEpName,iframeVideo:iframeVideo(),origin:location.origin,vid:vid,sid:sid,ep:curEp,mainStream:(dp&&dp.curUrl)||mainStream(),mainVideo:mainVideoSrc(),adSrcs:adSrcs(),adPlaying:adPlaying()?1:0,subEps:subs,hasMainPlayer:hasMainPlayer()?1:0});})()";
     private static final String VIDEO_PROBE = "(function(){try{function hasM(el){var n=el;while(n&&n!==document.body){var c=((n.getAttribute('class')||'')+' '+(n.getAttribute('id')||''));if(/(^|[\\s_\\-])(ad|ads|advert|advertisement|banner|sponsor|sponsored|promotion)([\\s_\\-]|$)/i.test(c))return "
                     + "true;n=n.parentElement;}return false;}function gif(v){var c=v.getAttribute('class')||'';if(/gifVideo|lazyVideo/i.test(c))return true;if(v.hasAttribute&&v.hasAttribute('data-mp4'))return true;return false;}function "
                     + "rec(el){var n=el;while(n&&n!==document.body){var c=((n.getAttribute('class')||'')+' '+(n.getAttribute('id')||''));if(/(^|[\\s_\\-])(recommend|recommended|related|thumbnail|thumbnails|preview|previews|more-videos|sidebar|also-watch)([\\s_\\-]|$)/i.test(c))return "
@@ -1528,6 +1532,8 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     private volatile String mPushMainStream = "";
     private volatile java.util.Set<String> mPushAdSrcs = java.util.Collections.emptySet();
     private volatile boolean mPushAdPlaying = false;
+    // push v11 B2：探针判定本页有主播放器（主视频直链 / player_aaaa / packed source / .dplayer / 有线路表 / 有子帖表 / 播放器型 iframe 任一成立）；切页时清，不许留旧页的 true。
+    private volatile boolean mPushHasMainPlayer = false;
     private volatile Map<String, String> mPushSniffedHeaders;
     private volatile String mPushProbeLines = "";
     // push v9：子页解析进行中守卫（同页重复点推只解析一次；切页时清）。
@@ -2011,6 +2017,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 mPushMainStream = "";
                 mPushAdSrcs = java.util.Collections.emptySet();
                 mPushAdPlaying = false;
+                mPushHasMainPlayer = false;
                 mPushSubResolving = false;
                 mPushSubResolveUrl = "";
                 // push v10：嗅流与嗅流头是旧页的，切页同清——否则 120 秒内点推会拿旧页流顶上（占位）。
@@ -2906,6 +2913,12 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 && mPushSniffPageUrl.equals(mPushPageUrl);
     }
 
+    /** push v11 B2：探针判定本页有主播放器（见 mPushHasMainPlayer 注释）。嗅流点亮按钮/放行续跑须同时满足此门——
+     * 列表页只有卡片预告/广告窗的嗅流、没有主播放器，钮不再亮。 */
+    private boolean hasMainPlayer() {
+        return mPushHasMainPlayer;
+    }
+
     /** TV push v4 fix 3(b)：120 秒内探针在同源 iframe 里见过视频流（电视原生 HLS 下嗅探抓不到时，按钮亮灯的第三条路）。 */
     private boolean hasFreshIframeVideo() {
         return !TextUtils.isEmpty(mPushIframeVideo) && System.currentTimeMillis() - mPushIframeVideoAt < 120000;
@@ -2948,7 +2961,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         // 电视原生 HLS 又嗅不到流，按钮否则永不亮）。
         // push v9：(c) 探针主片流可用（多视频单集/单片声明地址）或 (d) 有子帖表可解析时也亮起——
         // 51吃瓜类文章页不是 MacCMS 播放页、也不会嗅到流，旧条件永远不亮。
-        boolean show = (isMacCmsPlayPage(mPushPageUrl) && probeLinesUsable()) || hasFreshPushSniff() || hasFreshIframeVideo() || hasPushMainStream() || hasSubEps();
+        boolean show = (isMacCmsPlayPage(mPushPageUrl) && probeLinesUsable()) || (hasFreshPushSniff() && hasMainPlayer()) || hasFreshIframeVideo() || hasPushMainStream() || hasSubEps();
         mBinding.pushPlay.setVisibility(show ? View.VISIBLE : View.GONE);
     }
 
@@ -2958,7 +2971,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         // TV push v4 fix 3(b)：单片模式第三条路——探针在同源 iframe 里见过视频流（hsck 类）。
         // push v9：单片第四条路——探针主片流可用（多视频单集/单片声明地址）；子帖页走子页解析。
         boolean multi = probeLinesUsable();
-        boolean single = !multi && (hasFreshPushSniff() || hasFreshIframeVideo() || hasPushMainStream());
+        boolean single = !multi && ((hasFreshPushSniff() && hasMainPlayer()) || hasFreshIframeVideo() || hasPushMainStream());
         boolean sub = !multi && !single && hasSubEps();
         if (!multi && !single && !sub) {
             Notify.show("当前页面未识别到线路/集数");
@@ -2998,6 +3011,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
             }
             mPushAdSrcs = java.util.Collections.unmodifiableSet(ads);
             mPushAdPlaying = obj.optInt("adPlaying", 0) == 1;
+            mPushHasMainPlayer = obj.optInt("hasMainPlayer", 0) == 1;
         } catch (Throwable ignored) {
         }
     }
@@ -3016,7 +3030,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     private void continuePushPlay() {
         // push v8：单片模式（无线路表但 120 秒内嗅到过流）也放行。
         // TV push v4 fix 3(b)：单片模式第三条路——探针在同源 iframe 里见过视频流。
-        if (!probeLinesUsable() && !hasFreshPushSniff() && !hasFreshIframeVideo() && !hasPushMainStream()) {
+        if (!probeLinesUsable() && !(hasFreshPushSniff() && hasMainPlayer()) && !hasFreshIframeVideo() && !hasPushMainStream()) {
             Notify.show("当前页面未识别到线路/集数");
             return;
         }
@@ -3032,6 +3046,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 mPushMainStream = "";
                 mPushAdSrcs = java.util.Collections.emptySet();
                 mPushAdPlaying = false;
+                mPushHasMainPlayer = false;
             }
             mBinding.web.evaluateJavascript(VIDEO_PROBE, value -> {
                 String src = value == null ? "" : value.replace("\"", "").trim();
@@ -3094,13 +3109,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 episode = titleEp.isEmpty() ? "正片" : titleEp;
             }
         }
-        Map<String, String> headers = mPushSniffedHeaders;
-        if (headers == null) {
-            headers = new LinkedHashMap<>();
-            if (!mPushPageUrl.isEmpty()) headers.put("Referer", mPushPageUrl);
-            String ua = Setting.getUa();
-            if (!TextUtils.isEmpty(ua)) headers.put("User-Agent", ua);
-        }
+        Map<String, String> headers = validatedPushHeaders();
         // push v2：探针带的 origin/vid/sid/ep（当前线路 sid + 当前集号），供 HttpEpisodeResolver 回落用；缺失时从页 URL 解析。
         String origin = "";
         String vid = "";
@@ -3136,6 +3145,44 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         String logStream = stream.length() > 90 ? stream.substring(0, 90) : stream;
         DebugLogStore.add("WebPlay", "push 多线转播放 流=" + logStream + " 线路名=" + flag + " 集=" + episode + " 页=" + mPushPageUrl);
         VideoActivity.startWithHeaders(this, stream, headers, title, flag, episode, null, mPushPageUrl, mPushProbeLines, mPushPagePic, origin, vid, sid, nid);
+    }
+
+    /** push v11 A1：嗅头里的 Referer 若是别的域（正片没点播过时最后嗅到的只能是预告/广告窗的流，
+     * 广告在跨域 iframe 内，Referer 是广告域），整份嗅头不可信，丢弃重建——MissAV 媒体 CDN
+     * 空 Referer 放行、错 Referer 403。Referer 为空不算错，保持原样。 */
+    private Map<String, String> validatedPushHeaders() {
+        Map<String, String> headers = mPushSniffedHeaders;
+        String ref = headers == null ? null : getPushHeader(headers, "Referer");
+        if (!TextUtils.isEmpty(ref)) {
+            String refHost = hostOfUrl(ref);
+            String pageHost = hostOfUrl(mPushPageUrl);
+            if (refHost != null && pageHost != null && !refHost.equalsIgnoreCase(pageHost)) {
+                headers = null;
+            }
+        }
+        if (headers == null) {
+            headers = new LinkedHashMap<>();
+            if (!mPushPageUrl.isEmpty()) headers.put("Referer", mPushPageUrl);
+            String ua = Setting.getUa();
+            if (!TextUtils.isEmpty(ua)) headers.put("User-Agent", ua);
+        }
+        return headers;
+    }
+
+    private static String getPushHeader(Map<String, String> headers, String name) {
+        for (Map.Entry<String, String> entry : headers.entrySet()) {
+            if (entry.getKey() != null && entry.getKey().equalsIgnoreCase(name)) return entry.getValue();
+        }
+        return null;
+    }
+
+    private static String hostOfUrl(String url) {
+        if (TextUtils.isEmpty(url)) return null;
+        try {
+            return Uri.parse(url).getHost();
+        } catch (Throwable ignored) {
+            return null;
+        }
     }
 
     /** push v1：嗅探时把该请求的 Referer/UA + 页面 Cookie 记下来，供转播放时带头。后台线程调用，只读请求对象与 Cookie，不碰 WebView 方法。 */

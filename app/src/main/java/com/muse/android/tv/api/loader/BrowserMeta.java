@@ -141,8 +141,18 @@ public class BrowserMeta {
 
     private static String cutSuffix(String t) {
         for (String sep : SEPARATORS) {
-            int i = t.indexOf(sep);
-            if (i >= 2 && i < t.length() - 1) return t.substring(0, i).trim();
+            int from = 0;
+            while (true) {
+                int i = t.indexOf(sep, from);
+                if (i < 0) break;
+                // push v11 A3：'-' 后跟数字是编号的一部分（FWAY-104、SNOS-334），不在此处截断，继续找下一个分隔符。
+                if ("-".equals(sep) && i + 1 < t.length() && Character.isDigit(t.charAt(i + 1))) {
+                    from = i + 1;
+                    continue;
+                }
+                if (i >= 2 && i < t.length() - 1) return t.substring(0, i).trim();
+                break;
+            }
         }
         return t;
     }

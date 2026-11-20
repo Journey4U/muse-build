@@ -746,6 +746,8 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     @Override
     public boolean resolveWebEpisodeForErrorRecovery(Flag flag, Episode episode, String errorMsg) {
         if (episode == null || TextUtils.isEmpty(episode.getPageUrl())) return false;
+        // push v11 A2：先清本集解析缓存再重取——缓存里是旧签名地址，不清就等于原地重播过期流。
+        HttpEpisodeResolver.invalidateForRetry(episode.getPageUrl(), getIntent().getStringExtra("browserOrigin"), getIntent().getStringExtra("browserVid"));
         showProgress();
         Notify.show(getString(R.string.browser_resolving_episode, episode.getName()));
         HttpEpisodeResolver.resolve(this, episode.getPageUrl(), getIntent().getStringExtra("browserOrigin"), getIntent().getStringExtra("browserVid"), new HttpEpisodeResolver.Callback() {
