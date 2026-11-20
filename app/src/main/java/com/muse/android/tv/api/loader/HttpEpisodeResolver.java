@@ -181,6 +181,19 @@ public class HttpEpisodeResolver {
         new Thread(new HttpEpisodeResolver(pageUrl, origin, vid, callback)::run).start();
     }
 
+    /**
+     * push v15：绕过 CACHE 的重解析——缓存的地址可能是已过期的限时签名，
+     * v4 探活判死 / v5 报错恢复时重取必须拿新签名；取到后仍由 finish() 写回 CACHE。
+     * 其余行为与 resolve 完全一致。
+     */
+    public static void resolveFresh(Activity activity, String pageUrl, String origin, String vid, Callback callback) {
+        if (callback == null || TextUtils.isEmpty(pageUrl)) {
+            if (callback != null) new Handler(Looper.getMainLooper()).post(callback::onFailed);
+            return;
+        }
+        new Thread(new HttpEpisodeResolver(pageUrl, origin, vid, callback)::run).start();
+    }
+
     private void run() {
         try {
             log("resolve page=" + trunc(pageUrl) + " vid=" + vid);

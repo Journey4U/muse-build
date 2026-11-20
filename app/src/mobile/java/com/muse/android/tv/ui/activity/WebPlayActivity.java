@@ -1483,8 +1483,9 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         + "s||'';}function vidSrcAny(v){var s='';try{s=v.currentSrc||v.src||'';}catch(e){}if(s===location.href)s='';if(s)return s;if(v.querySelector){try{var q=v.querySelector('source');if(q){var qs2=q.currentSrc||q.src||'';if(qs2&&qs2!==location.href)s=qs2;}}catch(e){}}return "
         + "s||'';}function ctxStr(el){return ((el.getAttribute('class')||'')+' '+(el.getAttribute('id')||''));}function hasAdMark(el){var n=el;while(n&&n!==document.body){if(/(^|[\\s_\\-])(ad|ads|advert|advertisement|banner|sponsor|sponsored|promotion)([\\s_\\-]|$)/i.test(ctxStr(n)))return "
         + "true;n=n.parentElement;}return false;}function inRecCtx(el){var n=el;while(n&&n!==document.body){if(/(^|[\\s_\\-])(recommend|recommended|related|thumbnail|thumbnails|preview|previews|more-videos|sidebar|also-watch)([\\s_\\-]|$)/i.test(ctxStr(n)))return "
-        + "true;n=n.parentElement;}return false;}function isGifPrev(v){var c=v.getAttribute('class')||'';if(/gifVideo|lazyVideo/i.test(c))return true;if(v.hasAttribute&&v.hasAttribute('data-mp4'))return true;return "
-        + "false;}function elHidden(el){if(!el)return true;if(el.hidden)return true;if(/(^|[\\s_\\-])(displayNone|display-none|hidden|hide|invisible|collapsed)([\\s_\\-]|$)/i.test(ctxStr(el)))return true;var s=el.getAttribute?el.getAttribute('style')||'':'';if(/display\\s*:\\s*none/i.test(s)||/visibility\\s*:\\s*hidden/i.test(s))return "
+        + "true;n=n.parentElement;}return false;}function inPlayerCtx(el){var n=el;while(n&&n!==document.body){if(/(^|[\\s_\\-])(player|playbox|dplayer)([\\s_\\-]|$)/i.test(ctxStr(n)))return true;n=n.parentElement;}return "
+        + "false;}function isGifPrev(v){var c=v.getAttribute('class')||'';if(/gifVideo|lazyVideo/i.test(c))return true;if(v.hasAttribute&&v.hasAttribute('data-mp4'))return true;return false;}function elHidden(el){if(!el)return "
+        + "true;if(el.hidden)return true;if(/(^|[\\s_\\-])(displayNone|display-none|hidden|hide|invisible|collapsed)([\\s_\\-]|$)/i.test(ctxStr(el)))return true;var s=el.getAttribute?el.getAttribute('style')||'':'';if(/display\\s*:\\s*none/i.test(s)||/visibility\\s*:\\s*hidden/i.test(s))return "
         + "true;try{var cs=getComputedStyle(el);if(cs&&(cs.display==='none'||cs.visibility==='hidden'))return true;}catch(e){}if(el.tagName==='VIDEO'){var w=el.getAttribute('width'),h=el.getAttribute('height');if((w!==null&&parseInt(w,10)===0)||(h!==null&&parseInt(h,10)===0))return "
         + "true;}return false;}function vidArea(v){try{var r=v.getBoundingClientRect();if(r&&r.width>0&&r.height>0)return r.width*r.height;}catch(e){}var w=parseInt(v.getAttribute('width')||'0',10),h=parseInt(v.getAttribute('height')||'0',10);if(w>0&&h>0)return "
         + "w*h;try{var a=v.videoWidth||0,b=v.videoHeight||0;if(a>0&&b>0)return a*b;}catch(e){}return 0;}function mainVideo(){var vs=document.querySelectorAll('video');var best=null,bs=-1;for(var i=0;i<vs.length;i++){var "
@@ -1494,11 +1495,11 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         + "true;}var els=sc.querySelectorAll('button,a,div,span');for(var j=0;j<els.length;j++){var e=els[j];if(e.children&&e.children.length>0)continue;var t=txt(e);if(t&&t.length<40&&/^(skip|跳过)/i.test(t))return "
         + "true;}var ovs=sc.querySelectorAll('[class*=preroll],[class*=vast],[id*=preroll],[id*=vast]');for(var k=0;k<ovs.length;k++){if(!elHidden(ovs[k]))return true;}return false;}catch(e){return false;}}function "
         + "adSrcs(){var out=[],seen={};function add(u){if(!u)return;u=absUrl(u);if(!/^https?:/i.test(u))return;if(!isStreamUrl(u))return;if(seen[u])return;seen[u]=1;out.push(u);}try{var vs=document.querySelectorAll('video');for(var "
-        + "i=0;i<vs.length;i++){var v=vs[i];var dm=v.getAttribute('data-mp4');if(dm)add(dm);if(isGifPrev(v)||hasAdMark(v)||inRecCtx(v)||(v.loop&&v.muted))add(vidSrcAny(v));}if(adPlaying()){var mv=mainVideo();if(mv)add(vidSrcAny(mv));}}catch(e){}return "
-        + "out.slice(0,50);}function mediaDefDefault(){try{var ss=document.querySelectorAll('script');for(var i=0;i<ss.length;i++){var t=ss[i].textContent||'';if(t.indexOf('mediaDefinitions')<0)continue;var m;var "
-        + "re1=/\"defaultQuality\"\\s*:\\s*true[^}]{0,300}?\"videoUrl\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"/g;while((m=re1.exec(t))!==null){var u=m[1].replace(/\\\\\\//g,'/');if(isStreamUrl(u))return u;}var re2=/\"videoUrl\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"[^}]{0,300}?\"defaultQuality\"\\s*:\\s*true/g;while((m=re2.exec(t))!==null){var "
-        + "u2=m[1].replace(/\\\\\\//g,'/');if(isStreamUrl(u2))return u2;}}return '';}catch(e){return '';}}function parseQuoted(s,pos){var q=s.charAt(pos);if(q!==\"'\"&&q!=='\"')return null;var out='',i=pos+1;while(i<s.length){var "
-        + "ch=s.charAt(i);if(ch==='\\\\'){var nx=s.charAt(i+1);if(nx==='u'){out+=String.fromCharCode(parseInt(s.substr(i+2,4),16));i+=6;continue;}if(nx==='x'){out+=String.fromCharCode(parseInt(s.substr(i+2,2),16));i+=4;continue;}if(nx==='n'){out+='\\n';i+=2;continue;}if(nx==='r'){out+='\\r';i+=2;continue;}if(nx==='t'){out+='\\t';i+=2;continue;}out+=nx;i+=2;continue;}if(ch===q)return "
+        + "i=0;i<vs.length;i++){var v=vs[i];var dm=v.getAttribute('data-mp4');if(dm)add(dm);if(!vidSrcAny(v)){var ds=v.getAttribute('data-src');if(ds)add(ds);var du=v.getAttribute('data-url');if(du)add(du);}if(isGifPrev(v)||hasAdMark(v)||inRecCtx(v)||(v.loop&&v.muted))add(vidSrcAny(v));}if(adPlaying()){var "
+        + "mv=mainVideo();if(mv)add(vidSrcAny(mv));}}catch(e){}return out.slice(0,50);}function mediaDefDefault(){try{var ss=document.querySelectorAll('script');for(var i=0;i<ss.length;i++){var t=ss[i].textContent||'';if(t.indexOf('mediaDefinitions')<0)continue;var "
+        + "m;var re1=/\"defaultQuality\"\\s*:\\s*true[^}]{0,300}?\"videoUrl\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"/g;while((m=re1.exec(t))!==null){var u=m[1].replace(/\\\\\\//g,'/');if(isStreamUrl(u))return u;}var "
+        + "re2=/\"videoUrl\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"[^}]{0,300}?\"defaultQuality\"\\s*:\\s*true/g;while((m=re2.exec(t))!==null){var u2=m[1].replace(/\\\\\\//g,'/');if(isStreamUrl(u2))return u2;}}return "
+        + "'';}catch(e){return '';}}function parseQuoted(s,pos){var q=s.charAt(pos);if(q!==\"'\"&&q!=='\"')return null;var out='',i=pos+1;while(i<s.length){var ch=s.charAt(i);if(ch==='\\\\'){var nx=s.charAt(i+1);if(nx==='u'){out+=String.fromCharCode(parseInt(s.substr(i+2,4),16));i+=6;continue;}if(nx==='x'){out+=String.fromCharCode(parseInt(s.substr(i+2,2),16));i+=4;continue;}if(nx==='n'){out+='\\n';i+=2;continue;}if(nx==='r'){out+='\\r';i+=2;continue;}if(nx==='t'){out+='\\t';i+=2;continue;}out+=nx;i+=2;continue;}if(ch===q)return "
         + "[out,i+1];out+=ch;i++;}return null;}function tokOf(n,a){if(a<=36)return n.toString(a);var s='',c=n;do{var r=c%a;s=((r>35?String.fromCharCode(r+29):r.toString(36))+s);c=Math.floor(c/a);}while(c>0);return "
         + "s;}function decodePacker(t){var start=t.indexOf('eval(function(p,a,c,k,e,d)');if(start<0)return '';var call=-1;for(var i=start;i<t.length-2;i++){if(t.charAt(i)==='}'){var j=i+1;while(j<t.length&&(t.charAt(j)===' "
         + "'||t.charAt(j)==='\\t'||t.charAt(j)==='\\n'||t.charAt(j)==='\\r'))j++;if(t.charAt(j)==='('){var k2=j+1;while(k2<t.length&&(t.charAt(k2)===' '||t.charAt(k2)==='\\t'||t.charAt(k2)==='\\n'||t.charAt(k2)==='\\r'))k2++;if(t.charAt(k2)===\"'\"||t.charAt(k2)==='\"'){call=k2;break;}}}}if(call<0)return "
@@ -1508,8 +1509,12 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         + "m=/source\\s*[:=]\\s*[^;]{0,400}?(https?:\\/\\/[^'\"\\s;]+\\.(?:m3u8|mp4)[^'\"\\s;]*)/.exec(dec);if(m&&isStreamUrl(m[1]))return m[1];}}catch(e){}return '';}function perfM3u8(){try{if(!window.performance||!performance.getEntriesByType)return "
         + "'';var es=performance.getEntriesByType('resource');var found=[];for(var i=0;i<es.length;i++){var u=es[i].name||'';if(/\\.m3u8($|[?&#])/i.test(u)&&found.indexOf(u)<0)found.push(u);}if(found.length===1)return "
         + "found[0];return '';}catch(e){return '';}}function mainStream(){try{var mv=mainVideo();if(mv&&!adPlaying()){var s=vidSrc(mv);if(s&&/^https?:/i.test(s)&&isStreamUrl(s))return s;}try{var c=window.player_aaaa||window.player_data||window.player_config||window.MacPlayer;if(c&&c.url&&isStreamUrl(c.url))return "
-        + "absUrl(c.url);}catch(e){}var md=mediaDefDefault();if(md)return md;var pk=packedSource();if(pk)return pk;var pf=perfM3u8();if(pf)return pf;return '';}catch(e){return '';}}function playerCfg(){try{var c=window.player_aaaa||window.player_data||window.player_config||window.MacPlayer;if(!c)return "
-        + "'';return JSON.stringify(c);}catch(e){return '';}}return JSON.stringify({lines:out,diag:diag,pic:picOf(),player:playerCfg(),curEpName:(dp&&dp.curName)||curEpName,origin:location.origin,vid:vid,sid:sid,ep:curEp,mainStream:(dp&&dp.curUrl)||mainStream(),mainVideo:mainVideoSrc(),adSrcs:adSrcs(),adPlaying:adPlaying()?1:0,subEps:subs});})()";
+        + "absUrl(c.url);}catch(e){}var md=mediaDefDefault();if(md)return md;var pk=packedSource();if(pk)return pk;var pf=perfM3u8();if(pf)return pf;return '';}catch(e){return '';}}function hasMainPlayer(){try{var "
+        + "mv=mainVideo();if(mv){var s=vidSrc(mv);if(s&&/^https?:/i.test(s))return true;}try{var c=window.player_aaaa||window.player_data||window.player_config||window.MacPlayer;if(c&&c.url)return true;}catch(e){}if(packedSource())return "
+        + "true;try{var dps=document.querySelectorAll('.dplayer[data-config]');for(var i=0;i<dps.length;i++){if(dplayerUrl(dplayerCfg(dps[i])))return true;}}catch(e){}if(out&&out.length)return true;if(subs&&subs.length)return "
+        + "true;try{var frs=document.querySelectorAll('iframe[src]');for(var j=0;j<frs.length;j++){var f=frs[j].getAttribute('src')||'';if(/\\/static\\/player\\//i.test(f)||/dplayer\\.html/i.test(f))return true;if(/^https?:/i.test(absUrl(f))&&!hasAdMark(frs[j])&&inPlayerCtx(frs[j]))return "
+        + "true;}}catch(e){}return false;}catch(e){return false;}}function playerCfg(){try{var c=window.player_aaaa||window.player_data||window.player_config||window.MacPlayer;if(!c)return '';return JSON.stringify(c);}catch(e){return "
+        + "'';}}return JSON.stringify({lines:out,diag:diag,pic:picOf(),player:playerCfg(),curEpName:(dp&&dp.curName)||curEpName,origin:location.origin,vid:vid,sid:sid,ep:curEp,mainStream:(dp&&dp.curUrl)||mainStream(),mainVideo:mainVideoSrc(),adSrcs:adSrcs(),adPlaying:adPlaying()?1:0,subEps:subs,hasMainPlayer:hasMainPlayer()?1:0});})()";
     private static final String VIDEO_PROBE = "(function(){try{function hasM(el){var n=el;while(n&&n!==document.body){var c=((n.getAttribute('class')||'')+' '+(n.getAttribute('id')||''));if(/(^|[\\s_\\-])(ad|ads|advert|advertisement|banner|sponsor|sponsored|promotion)([\\s_\\-]|$)/i.test(c))return "
                     + "true;n=n.parentElement;}return false;}function gif(v){var c=v.getAttribute('class')||'';if(/gifVideo|lazyVideo/i.test(c))return true;if(v.hasAttribute&&v.hasAttribute('data-mp4'))return true;return false;}function "
                     + "rec(el){var n=el;while(n&&n!==document.body){var c=((n.getAttribute('class')||'')+' '+(n.getAttribute('id')||''));if(/(^|[\\s_\\-])(recommend|recommended|related|thumbnail|thumbnails|preview|previews|more-videos|sidebar|also-watch)([\\s_\\-]|$)/i.test(c))return "
@@ -1525,6 +1530,10 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     private volatile long mPushSniffAt;
     // push v14：嗅流所属页——只认本页嗅到的流，跨页一律不认。
     private volatile String mPushSniffPageUrl = "";
+    // push v15：探针判定的本页主播放器（主视频直链 / player_aaaa / packed source /
+    // .dplayer 有效地址 / 线路表 / 子帖表 / 播放器型 iframe 任一成立，iframe 认 src
+    // 含 /static/player/ 或 dplayer.html、或处在 player/playbox 容器内）；切页时重置。
+    private volatile boolean mPushHasMainPlayer = false;
     // push v11：探针带回的主片流（声明地址）+ 广告流黑名单 + 片头广告播放中（PROBE_JS 新字段；切页时清）。
     private volatile String mPushMainStream = "";
     private volatile java.util.Set<String> mPushAdSrcs = java.util.Collections.emptySet();
@@ -2003,6 +2012,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 mPushLastSniff = null;
                 mPushSniffAt = 0;
                 mPushSniffPageUrl = "";
+                mPushHasMainPlayer = false;
                 mPushSniffedHeaders = null;
                 mPushPlayPending = false;
                 // push v14：导航开始先藏推送钮——旧页嗅流亮起的钮不许带到新页，等新页探针跑完再由 updatePushButton 决定。
@@ -2762,6 +2772,11 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         return !TextUtils.isEmpty(mPushMainStream);
     }
 
+    /** push v15：探针判定的本页主播放器是否存在（见 PROBE_JS hasMainPlayer）。 */
+    private boolean hasMainPlayer() {
+        return mPushHasMainPlayer;
+    }
+
     /** push v12：探针带回的子帖表 JSON（供子页解析层用）。 */
     private String probeSubEpsJson() {
         try {
@@ -2814,7 +2829,8 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         // URL 门（isMacCmsPlayPage）不拦 (b)——MissAV 播放页 /cn/mxgs-1453 无 .html、无 3 段数字。
         // push v12：(c) 探针主片流可用（多视频单集/单片声明地址）或 (d) 有子帖表可解析时也亮起——
         // 51吃瓜类文章页不是 MacCMS 播放页、也不会嗅到流，旧条件永远不亮。
-        boolean show = (isMacCmsPlayPage(mPushPageUrl) && probeLinesUsable()) || hasFreshPushSniff() || hasPushMainStream() || hasSubEps();
+        // push v15：嗅流单亮须有本页主播放器——列表页卡片预告/广告窗的嗅流再新鲜也不亮钮。
+        boolean show = (isMacCmsPlayPage(mPushPageUrl) && probeLinesUsable()) || (hasFreshPushSniff() && hasMainPlayer()) || hasPushMainStream() || hasSubEps();
         mBinding.pushPlay.setVisibility(show ? View.VISIBLE : View.GONE);
     }
 
@@ -2822,7 +2838,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     private void playNative() {
         // push v8：单片模式（无线路表但 120 秒内嗅到过流）也放行，推当前一部；单片跳过重探针（无表可探）。
         boolean multi = probeLinesUsable();
-        boolean single = !multi && (hasFreshPushSniff() || hasPushMainStream());
+        boolean single = !multi && ((hasFreshPushSniff() && hasMainPlayer()) || hasPushMainStream());
         boolean sub = !multi && !single && hasSubEps();
         if (!multi && !single && !sub) {
             Notify.show("当前页面未识别到线路/集数");
@@ -2929,6 +2945,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
             }
             mPushAdSrcs = java.util.Collections.unmodifiableSet(ads);
             mPushAdPlaying = obj.optInt("adPlaying", 0) == 1;
+            mPushHasMainPlayer = obj.optInt("hasMainPlayer", 0) == 1;
         } catch (Throwable ignored) {
         }
     }
@@ -2949,7 +2966,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         // push v8：单片模式（无线路表但 120 秒内嗅到过流）也放行。
         // push v14：探针已带回本页主片流时也放行——playNative 单片模式本就认 hasPushMainStream，
         // 入口门必须一致，否则 v14 按页隔离后、无本页嗅流的单 .dplayer 页会被误拒（jsdom 两推复现实锤）。
-        if (!probeLinesUsable() && !hasFreshPushSniff() && !hasPushMainStream()) {
+        if (!probeLinesUsable() && !(hasFreshPushSniff() && hasMainPlayer()) && !hasPushMainStream()) {
             Notify.show("当前页面未识别到线路/集数");
             return;
         }
@@ -3013,13 +3030,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 episode = titleEp.isEmpty() ? "正片" : titleEp;
             }
         }
-        Map<String, String> headers = mPushSniffedHeaders;
-        if (headers == null) {
-            headers = new LinkedHashMap<>();
-            if (!mPushPageUrl.isEmpty()) headers.put("Referer", mPushPageUrl);
-            String ua = Setting.getUa();
-            if (!TextUtils.isEmpty(ua)) headers.put("User-Agent", ua);
-        }
+        Map<String, String> headers = pushPlayHeaders();
         // push v2：探针带的 origin/vid/sid/ep（当前线路 sid + 当前集号），供 HttpEpisodeResolver 回落用；缺失时从页 URL 解析。
         String origin = "";
         String vid = "";
@@ -3055,6 +3066,48 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         String logStream = stream.length() > 90 ? stream.substring(0, 90) : stream;
         DebugLogStore.add("WebPlay", "push 多线转播放 流=" + logStream + " 线路名=" + flag + " 集=" + episode + " 页=" + mPushPageUrl);
         VideoActivity.startWithHeaders(this, stream, headers, title, flag, episode, null, mPushPageUrl, mPushProbeLines, mPushPagePic, origin, vid, sid, nid);
+    }
+
+    /**
+     * push v15：转播放用的请求头——嗅到的 Referer 必须与当前页同 host 才用；
+     * 预告/广告窗跨域 iframe 的 Referer 是广告域，带上会被 MissAV 媒体 CDN 以 403 拒绝
+     * （空 Referer 放行）。不同 host 就丢弃整份嗅头、现场重建（Referer=当前页、
+     * User-Agent=Setting.getUa()，不带嗅到的 Cookie）。
+     */
+    private Map<String, String> pushPlayHeaders() {
+        Map<String, String> sniffed = mPushSniffedHeaders;
+        if (sniffed != null) {
+            String referer = pushHeaderValue(sniffed, "Referer");
+            if (TextUtils.isEmpty(referer) || pushSameHost(referer, mPushPageUrl)) return sniffed;
+            DebugLogStore.add("WebPlay", "push v15 嗅头 Referer 跨域丢弃 ref=" + referer + " page=" + mPushPageUrl);
+        }
+        Map<String, String> headers = new LinkedHashMap<>();
+        if (!mPushPageUrl.isEmpty()) headers.put("Referer", mPushPageUrl);
+        String ua = Setting.getUa();
+        if (!TextUtils.isEmpty(ua)) headers.put("User-Agent", ua);
+        return headers;
+    }
+
+    private static String pushHeaderValue(Map<String, String> headers, String name) {
+        for (Map.Entry<String, String> entry : headers.entrySet()) {
+            if (entry.getKey() != null && entry.getKey().equalsIgnoreCase(name)) return entry.getValue();
+        }
+        return null;
+    }
+
+    /** 两地址 host 相同才 true；任一 host 取不到按不同处理（嗅头丢弃、现场重建）。 */
+    private static boolean pushSameHost(String a, String b) {
+        String ha = null;
+        String hb = null;
+        try {
+            ha = Uri.parse(a).getHost();
+        } catch (Exception ignored) {
+        }
+        try {
+            hb = Uri.parse(b).getHost();
+        } catch (Exception ignored) {
+        }
+        return ha != null && hb != null && ha.equalsIgnoreCase(hb);
     }
 
     /** push v1：嗅探时把该请求的 Referer/UA + 页面 Cookie 记下来，供转播放时带头。后台线程调用，只读请求对象与 Cookie，不碰 WebView 方法。 */
@@ -3116,4 +3169,3 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         super.onDestroy();
     }
 }
-

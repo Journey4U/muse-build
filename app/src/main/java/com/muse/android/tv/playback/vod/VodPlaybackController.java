@@ -57,6 +57,10 @@ public class VodPlaybackController {
     // 才重新武装，否则新流立报错会无限重取；pushRecoveryEpisode 记本次恢复的集，换集即清守卫。
     private boolean pushErrorRecoveryTried;
     private Episode pushRecoveryEpisode;
+    // push v15：v4 探活重解析守卫——同一集只重解析一次（重解析回来的仍是死链时不再空转，
+    // 直接放原地址、由 v5 报错恢复接手）。换集 / 探活通过 / 报错恢复清零时一并清。
+    private boolean probeReparseTried;
+    private Episode probeReparseEpisode;
     private long pushErrorResumePosition = C.TIME_UNSET;
     private long pushRecoveryBasePosition = C.TIME_UNSET;
 
@@ -252,7 +256,9 @@ public class VodPlaybackController {
         if (!state.hasFlags()) return;
         cancelAutoPlay();
         // push v5：换到别的集即清报错恢复守卫（恢复中的旧集重取结果不再续播该集，见 VideoActivity 恢复回调的 isSelected 守卫）。
-        if (pushRecoveryEpisode != null && item != pushRecoveryEpisode) clearPushErrorRecovery();
+        // push v15：探活重解析守卫同理，换集即清。
+        if ((pushRecoveryEpisode != null && item != pushRecoveryEpisode)
+                || (probeReparseEpisode != null && item != probeReparseEpisode)) clearPushErrorRecovery();
         saveCurrentHistory();
         Flag selected = state.getFlag();
         for (Flag flag : state.getFlags()) flag.toggle(flag == selected, item);
@@ -342,8 +348,19 @@ public class VodPlaybackController {
      * 宿主不认（返回 false）时清守卫、回落正常路；重取失败时宿主再调 playbackError，
      * 此时守卫已置位，直接走正常路，不会再次重取。
      */
+    /** push v15：是否 HTTP 错（含 "http" / 响应码字样 / 4xx·5xx 状态码，如 403/404/410/503）。 */
+    private static boolean isHttpError(String msg) {
+        if (TextUtils.isEmpty(msg)) return false;
+        String m = msg.toLowerCase(Locale.US);
+        if (m.contains("http") || m.contains("response code") || m.contains("status code") || m.contains("bad status")) return true;
+        return java.util.regex.Pattern.compile("(^|[^0-9])(400|401|403|404|405|408|410|429|500|502|503|504)([^0-9]|$)").matcher(m).find();
+    }
+
     private boolean tryPushErrorRecovery(String msg) {
         if (pushErrorRecoveryTried || !state.hasEpisode()) return false;
+        // push v15：只对 HTTP 错重取（过期签名 403/410、“Bad HTTP Status”等）——
+        // 解码/网络中断等非 HTTP 报错直接走正常报错路（v5 原先任何报错都重取，现按任务收窄）。
+        if (!isHttpError(msg)) return false;
         Episode episode = state.getEpisode();
         if (episode == null || TextUtils.isEmpty(episode.getPageUrl())) return false;
         pushErrorRecoveryTried = true;
@@ -361,6 +378,8 @@ public class VodPlaybackController {
     private void clearPushErrorRecovery() {
         pushErrorRecoveryTried = false;
         pushRecoveryEpisode = null;
+        probeReparseTried = false;
+        probeReparseEpisode = null;
         pushErrorResumePosition = C.TIME_UNSET;
         pushRecoveryBasePosition = C.TIME_UNSET;
     }
@@ -590,8 +609,22 @@ public class VodPlaybackController {
             boolean alive = probeStream(url, pageUrl);
             App.post(() -> {
                 if (host.isHostFinishing() || !episode.isSelected()) return;
-                if (alive) requestPlayerContent(flag, episode);
-                else if (!host.resolveWebEpisode(flag, episode)) requestPlayerContent(flag, episode);
+                if (alive) {
+                    // push v15：探活通过即清掉本集的重解析标记（下次过期可再重解析一次）。
+                    probeReparseTried = false;
+                    probeReparseEpisode = null;
+                    requestPlayerContent(flag, episode);
+                    return;
+                }
+                // push v15：同一集只重解析一次——重解析回来的仍是死链时直接放原地址，
+                // 让播放器报错走 v5 恢复（一次、HTTP 错才重取），不许探活→重解析空转死循环。
+                if (probeReparseTried && probeReparseEpisode == episode) {
+                    requestPlayerContent(flag, episode);
+                    return;
+                }
+                probeReparseTried = true;
+                probeReparseEpisode = episode;
+                if (!host.resolveWebEpisode(flag, episode)) requestPlayerContent(flag, episode);
             });
         }).start();
     }
