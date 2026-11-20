@@ -1417,65 +1417,52 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         CLEAN_JS = sb.toString();
     }
     // push v1: fuzi 多线探针（MacCMS 播放页全部线路 + 每线选集表）与页面 video 直取探针——逐字取自 fuzi BrowserActivity，不转录。
-    private static final String PROBE_JS = "(function(){function txt(el){return el?(el.innerText||'').trim():'';}function cleanName(t){return (t||'').replace(/[\\uE000-\\uF8FF]/g,'').replace(/\\s+/g,' ').trim();"
-        + "}function tabText(el){if(!el)return '';var parts=[];var ns=el.childNodes;for(var i=0;i<ns.length;i++){var n=ns[i];"
-        + "if(n.nodeType===3)parts.push(n.textContent||'');else if(n.nodeType===1){var tg=n.tagName;var cl=n.getAttribute('class')||'';"
-        + "if(tg==='I'||/badge|num|count/i.test(cl))continue;parts.push(n.innerText||n.textContent||'');}}return cleanName(parts.join(' '));"
-        + "}function cleanCand(L){var c=L.cand||'';if(!c)return c;var cnt=L.order.length;var m=c.match(/^(.*?)[-_\\s·]*?(\\d+)$/);"
-        + "if(m&&parseInt(m[2],10)===cnt&&m[1]&&m[1].trim())c=m[1].trim();return c.replace(/[-_\\s·]+$/,'');}function picOf(){try{var m=document.querySelector('meta[property=\"og:image\"],meta[name=\"twitter:image\"]');"
-        + "if(m&&m.content){try{return new URL(m.content,location.href).href}catch(e){return m.content}}var ps=['.vodpic img','.detail-pic img','.poster img','[class*=\"vodpic\"] img','[class*=\"poster\"] img','.detail .pic img','.video-info .pic img','.stui-content__thumb img','.myui-content__thumb img','.vod-detail img','.detail-box img','.play-pic img','[class*=\"thumb\"] img','[class*=\"cover\"] img','.thumb img','.cover img'];"
-        + "for(var i=0;i<ps.length;i++){var im=document.querySelector(ps[i]);if(!im)continue;var u=im.getAttribute('data-src')||im.getAttribute('data-original')||im.getAttribute('src')||'';"
-        + "if(u&&u.indexOf('data:')!==0){try{return new URL(u,location.href).href}catch(e){return u}}}var imgs=document.images;"
-        + "for(var g=0;g<imgs.length&&g<6;g++){var gi=imgs[g];var gu=gi.getAttribute('data-src')||gi.getAttribute('src')||'';"
-        + "if(!gu||gu.indexOf('data:')===0)continue;var okN=(gi.naturalWidth||0)>=400&&(gi.naturalHeight||0)>=150;"
-        + "var okC=(gi.clientWidth||0)>=300&&(gi.clientHeight||0)>=140;if(!okN&&!okC)continue;var ga=gi.closest?gi.closest('a'):null;"
-        + "if(ga){var gh=ga.getAttribute('href')||'';if(/^https?:\\/\\//i.test(gh)&&gh.indexOf(location.host)<0)continue;"
-        + "}try{return new URL(gu,location.href).href}catch(e){return gu}}var bs=['.this-pic-bj','[class*=\"pic-bj\"]','[class*=\"backdrop\"]'];"
-        + "for(var j=0;j<bs.length;j++){var be=document.querySelector(bs[j]);if(!be)continue;var bg='';try{bg=getComputedStyle(be).backgroundImage||''}"
-        + "catch(e){}var bm=/url\\([\"']?([^\"')]+)[\"']?\\)/.exec(bg);if(bm&&bm[1]&&bm[1].indexOf('data:')!==0){try{return new URL(bm[1],location.href).href}"
-        + "catch(e){return bm[1]}}}}catch(e){}return '';}function epName(t){var m=t.match(/第\\s*\\d+\\s*[集期话回]|\\d+\\s*[集期]/);"
-        + "if(m)return m[0].replace(/\\s+/g,'');if(/^\\d{1,3}$/.test(t))return '第'+parseInt(t,10)+'集';return '';"
-        + "}var STOP=/上一|下一|预告|播放|详情|首页|返回|收藏|分享|评论|清空|倒序|正序|排序|切换|展开|收起|更多|全部|点赞|纠错|下载|下集|上集/;function stopWord(t){return STOP.test(t)||/^(线路|来源)\\d{0,2}"
-        + "$/.test(t);}var pm=location.pathname.match(/(\\d+)-(\\d+)-(\\d+)\\.html/);var vid=pm?pm[1]:'',sid=pm?pm[2]:'',curEp=pm?parseInt(pm[3],10):-1;"
-        + "if(!vid){var dv=location.pathname.match(/\\/(?:voddetail|vodplay|movie|detail|view|watch)\\/(\\d+)/);"
-        + "if(dv)vid=dv[1];}var lines={},lineOrder=[];function lineOf(s){if(!lines[s]){lines[s]={sid:s,cand:'',candRaw:'',raws:[],eps:{}"
-        + ",order:[]};lineOrder.push(lines[s]);}return lines[s];}function put(s,aep,name,url){var L=lineOf(s);var old=L.eps[aep];"
-        + "if(old){if(!old.clean&&name.clean){old.name=name.text;old.clean=true;old.url=url;}return;}var en={name:name.text,url:url,ep:aep,cur:(sid!==''&&s===sid&&aep===curEp),clean:name.clean}"
-        + ";L.eps[aep]=en;L.order.push(en);}function nameOf(raw){var en=epName(raw);if(en)return{text:en,clean:true}"
-        + ";return{text:raw,clean:false};}var links=document.querySelectorAll('a[href]');for(var j=0;j<links.length;"
-        + "j++){var a=links[j];var h=a.href||'';var m=h.match(/(\\d+)-(\\d+)-(\\d+)\\.html($|\\?)/);if(!m)continue;"
-        + "if(vid&&m[1]!==vid)continue;var raw=txt(a);if(!raw)continue;var aep=parseInt(m[3],10);if(epName(raw)){put(m[2],aep,nameOf(raw),h);"
-        + "}else{var craw=tabText(a);if(craw&&craw.length<=20&&!stopWord(craw)&&!/^[[【]/.test(craw)){var L2=lineOf(m[2]);"
-        + "if(!L2.cand){L2.cand=craw;L2.candRaw=craw;}}else{var L3=lineOf(m[2]);var rt=(raw||'').replace(/\\s+/g,' ').trim().slice(0,30);"
-        + "if(rt&&L3.raws.length<2&&L3.raws.indexOf(rt)<0)L3.raws.push(rt);}}}var nids=document.querySelectorAll('[data-nid]');"
-        + "for(var q=0;q<nids.length;q++){var el2=nids[q];var nid=parseInt(el2.getAttribute('data-nid'),10);if(isNaN(nid))continue;"
-        + "var oc=el2.getAttribute('onclick')||(el2.parentElement?el2.parentElement.getAttribute('onclick')||'':'');"
-        + "var om=oc.match(/play\\((\\d+)\\D+(\\d+)\\)/);var esid=om?om[1]:(el2.getAttribute('data-sid')||sid);"
-        + "if(!esid||!pm)continue;var raw2=txt(el2);if(!epName(raw2))continue;var url2=location.origin+location.pathname.replace(/(\\d+)-(\\d+)-(\\d+)\\.html/,vid+'-'+esid+'-'+nid+'.html');"
-        + "put(esid,nid,nameOf(raw2),url2);}var sels=['.play_source .active','.play-source .active','.player_source .active','.myui-player__source .active','.stui-player__source .active','.source-list .active','[class*=\"source\"] .active','[class*=\"source\"] .on','[class*=\"source\"] .current'];"
-        + "var activeName='';for(var i=0;i<sels.length;i++){var e=document.querySelector(sels[i]);if(e){var t=tabText(e);"
-        + "if(t&&t.length<=24&&!epName(t)&&!stopWord(t)){activeName=t;break;}}}var sorted=lineOrder.filter(function(L){return L.order.length>0;"
-        + "});sorted.sort(function(a,b){return parseInt(a.sid,10)-parseInt(b.sid,10);});var tabNames=[],tabActive=-1,tabRaw=[],tabSel=-1;"
-        + "(function(){var ts=['.anthology-tab a','[class*=\"anthology-tab\"] a','[class*=\"anthology-tab\"] li','a[data-form]','[class*=\"source\"] a','[class*=\"source\"] li','[class*=\"from_list\"] li','[class*=\"from_list\"] a','[class*=\"play_from\"] li'];"
-        + "var tabs=null;for(var i=0;i<ts.length;i++){var c=document.querySelectorAll(ts[i]);if(c.length>=2){tabs=c;"
-        + "tabSel=i;break;}}if(!tabs)return;for(var j=0;j<tabs.length;j++){var el=tabs[j];var nm2=tabText(el);if(!nm2||nm2.length>24||epName(nm2)||stopWord(nm2)||/^[[【]/.test(nm2)){if(nm2&&tabRaw.length<3)tabRaw.push(nm2.slice(0,24));"
-        + "nm2='';}tabNames.push(nm2);var cls=el.getAttribute('class')||'';if(tabActive<0&&/(^|\\s)(on|active|current|cur|selected)(\\s|$)/.test(cls))tabActive=j;"
-        + "}})();var tabFor={};if(tabNames.length===sorted.length){for(var k=0;k<sorted.length;k++)tabFor[sorted[k].sid]=tabNames[k];"
-        + "}else if(tabActive>=0&&sid!==''){var ci=-1;for(var k2=0;k2<sorted.length;k2++)if(sorted[k2].sid===sid)ci=k2;"
-        + "if(ci>=0){var off=tabActive-ci;for(var k3=0;k3<sorted.length;k3++){var ti=k3+off;if(ti>=0&&ti<tabNames.length)tabFor[sorted[k3].sid]=tabNames[ti];"
-        + "}}}var out=[];for(var z=0;z<sorted.length&&z<8;z++){var L=sorted[z];L.order.sort(function(x,y){return x.ep-y.ep;"
-        + "});L.cand=cleanCand(L);var tn=tabFor[L.sid]||'';var nm=tn||((sid!==''&&L.sid===sid&&activeName)?activeName:(L.cand||('线路'+(out.length+1))));"
-        + "var eps=[];for(var w=0;w<L.order.length&&w<300;w++){var o=L.order[w];eps.push({name:o.name,url:o.url,cur:o.cur?1:0}"
-        + ");}out.push({sid:L.sid,name:nm,cur:(sid!==''&&L.sid===sid)?1:0,episodes:eps});}var diag='';if((sorted.length>1&&tabNames.length!==sorted.length)||tabRaw.length){var dc=[];"
-        + "for(var d1=0;d1<sorted.length;d1++)dc.push(sorted[d1].sid+':'+(sorted[d1].candRaw||'-'));diag='tabs='+tabNames.length+' srcA='+document.querySelectorAll('[class*=\"source\"] a').length+' srcLi='+document.querySelectorAll('[class*=\"source\"] li').length+' cand='+dc.join('|');"
-        + "var dr=[];for(var d2=0;d2<sorted.length;d2++){var Lr=sorted[d2];if(!Lr.candRaw&&Lr.raws.length)dr.push(Lr.sid+'='+Lr.raws.join('~'));"
-        + "}if(dr.length)diag+=(diag?' ':'')+'raw='+dr.join('|');if(tabRaw.length)diag+=(diag?' ':'')+'tabRaw='+tabRaw.join('|');"
-        + "if(tabSel>=0)diag+=(diag?' ':'')+'tsel='+tabSel;if(tabNames.length!==sorted.length){var hs=[];var cs=document.querySelectorAll('ul,ol,div');"
-        + "for(var hi=0;hi<cs.length&&hi<80;hi++){var c0=cs[hi];var ch=c0.children;if(!ch||ch.length<2||ch.length>8)continue;"
-        + "var ts2=[];var bad=false;for(var hj=0;hj<ch.length;hj++){var tt=tabText(ch[hj]);if(!tt||tt.length>12||epName(tt)){bad=true;"
-        + "break;}ts2.push(tt);}if(bad||ts2.length<2)continue;hs.push(((c0.getAttribute('class')||c0.tagName)||'').slice(0,30)+':'+ts2.slice(0,3).join('~'));"
-        + "if(hs.length>=3)break;}if(hs.length)diag+=(diag?' ':'')+'hunt='+hs.join('|');}}function playerCfg(){try{var c=window.player_aaaa||window.player_data||window.player_config||window.MacPlayer;if(!c)return '';return JSON.stringify(c);}catch(e){return '';}}return JSON.stringify({lines:out,diag:diag,pic:picOf(),player:playerCfg(),origin:location.origin,vid:vid,sid:sid,ep:curEp}"
-        + ");})()";
+        private static final String PROBE_JS = "(function(){function txt(el){return el?(el.innerText||'').trim():'';}function cleanName(t){return (t||'').replace(/[\\uE000-\\uF8FF]/g,'').replace(/\\s+/g,' ').trim();}function tabText(el){if(!el)return "
+        + "'';var parts=[];var ns=el.childNodes;for(var i=0;i<ns.length;i++){var n=ns[i];if(n.nodeType===3)parts.push(n.textContent||'');else if(n.nodeType===1){var tg=n.tagName;var cl=n.getAttribute('class')||'';if(tg==='I'||/badge|num|count/i.test(cl))continue;parts.push(n.innerText||n.textContent||'');}}return "
+        + "cleanName(parts.join(' '));}function cleanCand(L){var c=L.cand||'';if(!c)return c;var cnt=L.order.length;var m=c.match(/^(.*?)[-_\\s·]*?(\\d+)$/);if(m&&parseInt(m[2],10)===cnt&&m[1]&&m[1].trim())c=m[1].trim();return "
+        + "c.replace(/[-_\\s·]+$/,'');}function picOf(){try{var m=document.querySelector('meta[property=\"og:image\"],meta[name=\"twitter:image\"]');if(m&&m.content){try{return new URL(m.content,location.href).href}catch(e){return "
+        + "m.content}}var ps=['.vodpic img','.detail-pic img','.poster img','[class*=\"vodpic\"] img','[class*=\"poster\"] img','.detail .pic img','.video-info .pic img','.stui-content__thumb img','.myui-content__thumb "
+        + "img','.vod-detail img','.detail-box img','.play-pic img','[class*=\"thumb\"] img','[class*=\"cover\"] img','.thumb img','.cover img'];for(var i=0;i<ps.length;i++){var im=document.querySelector(ps[i]);if(!im)continue;var "
+        + "u=im.getAttribute('data-src')||im.getAttribute('data-original')||im.getAttribute('src')||'';if(u&&u.indexOf('data:')!==0){try{return new URL(u,location.href).href}catch(e){return u}}}var imgs=document.images;for(var "
+        + "g=0;g<imgs.length&&g<6;g++){var gi=imgs[g];var gu=gi.getAttribute('data-src')||gi.getAttribute('src')||'';if(!gu||gu.indexOf('data:')===0)continue;var okN=(gi.naturalWidth||0)>=400&&(gi.naturalHeight||0)>=150;var "
+        + "okC=(gi.clientWidth||0)>=300&&(gi.clientHeight||0)>=140;if(!okN&&!okC)continue;var ga=gi.closest?gi.closest('a'):null;if(ga){var gh=ga.getAttribute('href')||'';if(/^https?:\\/\\//i.test(gh)&&gh.indexOf(location.host)<0)continue;}try{return "
+        + "new URL(gu,location.href).href}catch(e){return gu}}var bs=['.this-pic-bj','[class*=\"pic-bj\"]','[class*=\"backdrop\"]'];for(var j=0;j<bs.length;j++){var be=document.querySelector(bs[j]);if(!be)continue;var "
+        + "bg='';try{bg=getComputedStyle(be).backgroundImage||''}catch(e){}var bm=/url\\([\"']?([^\"')]+)[\"']?\\)/.exec(bg);if(bm&&bm[1]&&bm[1].indexOf('data:')!==0){try{return new URL(bm[1],location.href).href}catch(e){return "
+        + "bm[1]}}}}catch(e){}return '';}function epName(t){var m=t.match(/第\\s*\\d+\\s*[集期话回]|\\d+\\s*[集期]/);if(m)return m[0].replace(/\\s+/g,'');if(/^\\d{1,3}$/.test(t))return '第'+parseInt(t,10)+'集';return '';}var "
+        + "STOP=/上一|下一|预告|播放|详情|首页|返回|收藏|分享|评论|清空|倒序|正序|排序|切换|展开|收起|更多|全部|点赞|纠错|下载|下集|上集/;function stopWord(t){return STOP.test(t)||/^(线路|来源)\\d{0,2}$/.test(t);}function isSourceTab(t){return /^播放源\\d{1,2}$/.test(t);}var "
+        + "pm=location.pathname.match(/(\\d+)-(\\d+)-(\\d+)\\.html/);var vid=pm?pm[1]:'',sid=pm?pm[2]:'',curEp=pm?parseInt(pm[3],10):-1;if(!vid){var dv=location.pathname.match(/\\/(?:voddetail|vodplay|movie|detail|view|watch)\\/(\\d+)/);if(dv)vid=dv[1];}var "
+        + "lines={},lineOrder=[];function lineOf(s){if(!lines[s]){lines[s]={sid:s,cand:'',candRaw:'',raws:[],eps:{},order:[],singles:[]};lineOrder.push(lines[s]);}return lines[s];}function put(s,aep,name,url){var "
+        + "L=lineOf(s);var old=L.eps[aep];if(old){if(!old.clean&&name.clean){old.name=name.text;old.clean=true;old.url=url;}return;}var en={name:name.text,url:url,ep:aep,cur:(sid!==''&&s===sid&&aep===curEp),clean:name.clean};L.eps[aep]=en;L.order.push(en);}function "
+        + "nameOf(raw){var en=epName(raw);if(en)return{text:en,clean:true};return{text:raw,clean:false};}var links=document.querySelectorAll('a[href]');for(var j=0;j<links.length;j++){var a=links[j];var h=a.href||'';var "
+        + "m=h.match(/(\\d+)-(\\d+)-(\\d+)\\.html($|\\?)/);if(!m)continue;if(vid&&m[1]!==vid)continue;var raw=txt(a);if(!raw)continue;var aep=parseInt(m[3],10);if(epName(raw)){put(m[2],aep,nameOf(raw),h);}else{var "
+        + "craw=tabText(a);if(craw&&craw.length<=20&&craw.indexOf(':')<0&&!/^\\d+(\\.\\d+)?\\s*(小时|分钟|秒)$/.test(craw)&&!stopWord(craw)&&!/^[[【]/.test(craw)){var L2=lineOf(m[2]);if(!L2.cand){L2.cand=craw;L2.candRaw=craw;}if(L2.singles.length<3)L2.singles.push({name:craw,url:h,ep:aep});}else{var "
+        + "L3=lineOf(m[2]);var rt=(raw||'').replace(/\\s+/g,' ').trim().slice(0,30);if(rt&&L3.raws.length<2&&L3.raws.indexOf(rt)<0)L3.raws.push(rt);}}}var nids=document.querySelectorAll('[data-nid]');for(var q=0;q<nids.length;q++){var "
+        + "el2=nids[q];var nid=parseInt(el2.getAttribute('data-nid'),10);if(isNaN(nid))continue;var oc=el2.getAttribute('onclick')||(el2.parentElement?el2.parentElement.getAttribute('onclick')||'':'');var om=oc.match(/play\\((\\d+)\\D+(\\d+)\\)/);var "
+        + "esid=om?om[1]:(el2.getAttribute('data-sid')||sid);if(!esid||!pm)continue;var raw2=txt(el2);var url2=location.origin+location.pathname.replace(/(\\d+)-(\\d+)-(\\d+)\\.html/,vid+'-'+esid+'-'+nid+'.html');if(!epName(raw2)){var "
+        + "craw2=tabText(el2);if(craw2&&craw2.length<=20&&craw2.indexOf(':')<0&&!/^\\d+(\\.\\d+)?\\s*(小时|分钟|秒)$/.test(craw2)&&!stopWord(craw2)&&!/^[[【]/.test(craw2)){var L9=lineOf(esid);if(L9.singles.length<3)L9.singles.push({name:craw2,url:url2,ep:nid});}continue;}put(esid,nid,nameOf(raw2),url2);}for(var "
+        + "si=0;si<lineOrder.length;si++){var SL=lineOrder[si];if(!vid||SL.order.length>0||!SL.singles.length)continue;var sg=SL.singles[0];for(var gi=0;gi<SL.singles.length;gi++){if(sid!==''&&SL.sid===sid&&SL.singles[gi].ep===curEp){sg=SL.singles[gi];break;}}put(SL.sid,sg.ep,{text:sg.name,clean:false},sg.url);}var "
+        + "sels=['.play_source .active','.play-source .active','.player_source .active','.myui-player__source .active','.stui-player__source .active','.source-list .active','[class*=\"source\"] .active','[class*=\"source\"] "
+        + ".on','[class*=\"source\"] .current'];var activeName='';for(var i=0;i<sels.length;i++){var e=document.querySelector(sels[i]);if(e){var t=tabText(e);if(t&&t.length<=24&&!epName(t)&&(!stopWord(t)||isSourceTab(t))){activeName=t;break;}}}var "
+        + "sorted=lineOrder.filter(function(L){return L.order.length>0;});sorted.sort(function(a,b){return parseInt(a.sid,10)-parseInt(b.sid,10);});var tabNames=[],tabActive=-1,tabRaw=[],tabSel=-1,tabEls=[];(function(){var "
+        + "ts=['.anthology-tab a','[class*=\"anthology-tab\"] a','[class*=\"anthology-tab\"] li','a[data-form]','[class*=\"source\"] a','[class*=\"source\"] li','[class*=\"from_list\"] li','[class*=\"from_list\"] "
+        + "a','[class*=\"play_from\"] li','a[data-toggle=\"tab\"]'];var tabs=null;for(var i=0;i<ts.length;i++){var c=document.querySelectorAll(ts[i]);if(c.length>=2){tabs=c;tabSel=i;break;}}if(!tabs)return;for(var "
+        + "j=0;j<tabs.length;j++){var el=tabs[j];var nm2=tabText(el);if(!nm2||nm2.length>24||epName(nm2)||(stopWord(nm2)&&!isSourceTab(nm2))||/^[[【]/.test(nm2)){if(nm2&&tabRaw.length<3)tabRaw.push(nm2.slice(0,24));nm2='';}tabNames.push(nm2);tabEls.push(el);var "
+        + "cls=el.getAttribute('class')||'';if(tabActive<0&&/(^|\\s)(on|active|current|cur|selected)(\\s|$)/.test(cls))tabActive=j;}})();function boxSid(box){if(!box)return '';try{var as=box.querySelectorAll('a[href]');for(var "
+        + "bi=0;bi<as.length;bi++){var hm=(as[bi].href||'').match(/(\\d+)-(\\d+)-(\\d+)\\.html($|\\?)/);if(hm&&(!vid||hm[1]===vid))return hm[2];}}catch(e){}return '';}var tabFor={};for(var ta=0;ta<tabEls.length;ta++){var "
+        + "tn0=tabNames[ta]||'';if(!tn0)continue;var tel0=tabEls[ta];var taEl=(tel0.tagName==='A')?tel0:(tel0.querySelector?tel0.querySelector('a'):null);if(!taEl)continue;var tgt=(taEl.getAttribute('href')||taEl.getAttribute('data-target')||'').trim();if(!tgt||tgt.charAt(0)!=='#')continue;var "
+        + "bx=null;try{bx=document.getElementById(tgt.slice(1));}catch(e){}var bs=boxSid(bx);if(bs&&!tabFor[bs])tabFor[bs]=tn0;}var boxSels=['.anthology-list-box','.tab-pane','[id^=\"down\"]','[id^=\"playlist\"]','.playlist-box','[class*=\"playlist-box\"]'];var "
+        + "sortedSids={};for(var ss=0;ss<sorted.length;ss++)sortedSids[sorted[ss].sid]=1;for(var bsi=0;bsi<boxSels.length;bsi++){var boxes=null;try{boxes=document.querySelectorAll(boxSels[bsi]);}catch(e){continue;}if(!boxes||boxes.length!==tabNames.length)continue;var "
+        + "bSids=[];var okB=true;var seenB={};for(var bj=0;bj<boxes.length;bj++){var bs2=boxSid(boxes[bj]);if(!bs2||!sortedSids[bs2]||seenB[bs2]){okB=false;break;}seenB[bs2]=1;bSids.push(bs2);}if(!okB)continue;for(var "
+        + "bk=0;bk<tabNames.length;bk++){var nmB=tabNames[bk]||'';if(!nmB)continue;if(!tabFor[bSids[bk]])tabFor[bSids[bk]]=nmB;}break;}var out=[];for(var z=0;z<sorted.length&&z<8;z++){var L=sorted[z];L.order.sort(function(x,y){return "
+        + "x.ep-y.ep;});L.cand=cleanCand(L);var tn=tabFor[L.sid]||'';var nm=tn||((sid!==''&&L.sid===sid&&activeName)?activeName:(L.cand||('线路'+(out.length+1))));var eps=[];for(var w=0;w<L.order.length&&w<300;w++){var "
+        + "o=L.order[w];eps.push({name:o.name,url:o.url,cur:o.cur?1:0});}out.push({sid:L.sid,name:nm,cur:(sid!==''&&L.sid===sid)?1:0,episodes:eps});}var curEpName='';for(var ce=0;ce<out.length;ce++){var epsC=out[ce].episodes;for(var "
+        + "cw=0;cw<epsC.length;cw++){if(epsC[cw].cur){curEpName=epsC[cw].name;break;}}if(curEpName)break;}var diag='';if((sorted.length>1&&tabNames.length!==sorted.length)||tabRaw.length){var dc=[];for(var d1=0;d1<sorted.length;d1++)dc.push(sorted[d1].sid+':'+(sorted[d1].candRaw||'-'));diag='tabs='+tabNames.length+' "
+        + "srcA='+document.querySelectorAll('[class*=\"source\"] a').length+' srcLi='+document.querySelectorAll('[class*=\"source\"] li').length+' cand='+dc.join('|');var dr=[];for(var d2=0;d2<sorted.length;d2++){var "
+        + "Lr=sorted[d2];if(!Lr.candRaw&&Lr.raws.length)dr.push(Lr.sid+'='+Lr.raws.join('~'));}if(dr.length)diag+=(diag?' ':'')+'raw='+dr.join('|');if(tabRaw.length)diag+=(diag?' ':'')+'tabRaw='+tabRaw.join('|');if(tabSel>=0)diag+=(diag?' "
+        + "':'')+'tsel='+tabSel;if(tabNames.length!==sorted.length){var hs=[];var cs=document.querySelectorAll('ul,ol,div');for(var hi=0;hi<cs.length&&hi<80;hi++){var c0=cs[hi];var ch=c0.children;if(!ch||ch.length<2||ch.length>8)continue;var "
+        + "ts2=[];var bad=false;for(var hj=0;hj<ch.length;hj++){var tt=tabText(ch[hj]);if(!tt||tt.length>12||epName(tt)){bad=true;break;}ts2.push(tt);}if(bad||ts2.length<2)continue;hs.push(((c0.getAttribute('class')||c0.tagName)||'').slice(0,30)+':'+ts2.slice(0,3).join('~'));if(hs.length>=3)break;}if(hs.length)diag+=(diag?' "
+        + "':'')+'hunt='+hs.join('|');}}function playerCfg(){try{var c=window.player_aaaa||window.player_data||window.player_config||window.MacPlayer;if(!c)return '';return JSON.stringify(c);}catch(e){return '';}}return "
+        + "JSON.stringify({lines:out,diag:diag,pic:picOf(),player:playerCfg(),curEpName:curEpName,origin:location.origin,vid:vid,sid:sid,ep:curEp});})()";
     private static final String VIDEO_PROBE =
             "(function(){try{var v=document.querySelector('video');if(!v)return '';"
                     + "var s=v.currentSrc||v.src||'';"
@@ -2666,6 +2653,16 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         }
     }
 
+    /** push v9/v6：探针带回的当前集真集名（curEpName），单片模式的集名首选。 */
+    private String probeCurEpName() {
+        try {
+            if (TextUtils.isEmpty(mPushProbeLines)) return "";
+            return new JSONObject(mPushProbeLines).optString("curEpName", "");
+        } catch (Throwable e) {
+            return "";
+        }
+    }
+
     /** push v8：120 秒内嗅到过流（单片模式的判定口径，与 continuePushPlay 取流窗口一致）。 */
     private boolean hasFreshPushSniff() {
         return !TextUtils.isEmpty(mPushLastSniff) && System.currentTimeMillis() - mPushSniffAt < 120000;
@@ -2772,8 +2769,16 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         }
         if (flag.isEmpty()) flag = BrowserMeta.siteName(rawTitle, mTitle);
         String episode = BrowserMeta.episodeName(mPushPageUrl, rawTitle);
-        // push v8：单片模式（无线路表）时集名取不到（无第X集、无 -n-n.html），用片名兜底，免得集名空着。
-        if (episode.isEmpty() && !probeLinesUsable()) episode = title;
+        // push v9/v6：单片模式（无线路表）时集名不用网址序号——探针带回的真集名
+        // （curEpName）优先，标题里的「第X集」次之，都没有显示「正片」，不显示「第0集」/「第1集」。
+        if (!probeLinesUsable()) {
+            String probeEp = probeCurEpName();
+            if (!probeEp.isEmpty()) episode = probeEp;
+            else {
+                String titleEp = BrowserMeta.episodeNameFromTitle(rawTitle);
+                episode = titleEp.isEmpty() ? "正片" : titleEp;
+            }
+        }
         Map<String, String> headers = mPushSniffedHeaders;
         if (headers == null) {
             headers = new LinkedHashMap<>();
