@@ -15,6 +15,12 @@ package com.muse.android.tv.api.loader;
 //   L4 ArtPlayer 解析播放器 —— 仅 L0/L1/L2 全败后：播放页 iframe → iframe 页
 //      const Url / Sign / From 三行字面量 → {iframe 目录}api.php?url=&sign=&t=
 //      → JSON code==200 取 ret.url（无 ret 时取顶层 url）→ 探活；按形认，不认域名。
+//   L5 子页解析（push v12）：探针 subEps（无 .dplayer 文章的子帖表）——并行取子页，
+//      首个 .dplayer 的 video.url（没有取 video_h265.url）拼完整分集；集名 = 链接文字，
+//      没有就用子页标题/h1，再没有就用「剧集-{帖子id}」；子页取不到视频就跳过该集，
+//      全部取不到就 onFailed，绝不交假流。直取失败时按 py 请求头（桌面 UA + 站根 Referer）重试一次。
+//   L-direct 直链快路径（push v12）：集地址本身就是直链（多视频/子页合成线的非当前集，
+//      applyBrowserLines 把直链记进 pageUrl）时直接探活返回，不再当播放页解析。
 //   全败 → onFailed()，不交假流。
 //
 // 线程：resolve() 在后台线程跑网络，回调一律经主线程 Handler 回调；结果按播放页 URL 缓存。
@@ -46,6 +52,10 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -86,6 +96,14 @@ public class HttpEpisodeResolver {
     /** push v8：art.php 链——线路播放器 JS（如 NBY.js）里的 art.php 相对路径。 */
     private static final Pattern ART_PHP_PATH = Pattern.compile("([^\\s\"']*art\\.php)");
     private static final Pattern SID_EP = Pattern.compile("-(\\d+)-(\\d+)\\.html");
+    /** push v12：子页首个 .dplayer 的 data-config（单引号属性内是 JSON 双引号串）。 */
+    private static final Pattern DPLAYER_CONFIG = Pattern.compile("<[^>]*\\bdplayer\\b[^>]*data-config\\s*=\\s*(['\"])(.*?)\\1", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+    private static final Pattern DPLAYER_VIDEO_URL = Pattern.compile("\"video\"\\s*:\\s*\\{[^}]*?\"url\"\\s*:\\s*\"([^\"]+)\"");
+    private static final Pattern DPLAYER_H265_URL = Pattern.compile("\"video_h265\"\\s*:\\s*\\{[^}]*?\"url\"\\s*:\\s*\"([^\"]+)\"");
+    private static final Pattern TITLE_TAG = Pattern.compile("<title>(.*?)</title>", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+    private static final Pattern H1_TAG = Pattern.compile("<h1[^>]*>(.*?)</h1>", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+    private static final Pattern ARCHIVES_ID = Pattern.compile("/archives/(\\d+)/");
+    private static final int MAX_SUB_PAGES = 20;
     private static final Pattern EP_NUMBER = Pattern.compile("(\\d+)");
     private static final Pattern PACKER_ARGS = Pattern.compile("\\('([\\s\\S]*?)',(\\d+),(\\d+),'([\\s\\S]*?)'\\.split\\('\\|'\\)");
     private static final Pattern PACKER_WORD = Pattern.compile("\\b[a-z0-9]+\\b");
@@ -171,6 +189,13 @@ public class HttpEpisodeResolver {
             int epNum = sidEp[1];
             Map<String, String> headers = pageHeaders(pageUrl);
 
+            // push v12：直链快路径——集地址本身就是直链（多视频/子页合成线的非当前集，
+            // applyBrowserLines 把直链记进 pageUrl）时直接探活返回，不再当播放页解析。
+            if (validStream(pageUrl) && probe(pageUrl, headers)) {
+                finish(pageUrl, streamHeaders(pageUrl, pageUrl), "L-direct");
+                return;
+            }
+
             String stream = layer0(sid, epNum, headers);
             if (stream != null) {
                 finish(stream, streamHeaders(stream, pageUrl), "L0");
@@ -207,6 +232,206 @@ public class HttpEpisodeResolver {
             log("FAIL exception " + t.getClass().getSimpleName());
             fail();
         }
+    }
+
+
+    // ================= L5：子页解析（push v12） =================
+
+    public interface SubPagesCallback {
+        void onResolved(String episodesJson);
+
+        void onFailed();
+    }
+
+    /**
+     * push v12：子页解析层（L5）——探针在无 .dplayer 的文章里取到的 subEps（[{name,url}]），
+     * 且无 lines/mainStream 时调用：并行取每个子页，解析首个 .dplayer 的 video.url
+     * （没有取 video_h265.url），拼成完整分集。集名 = 链接文字，没有就用子页标题/h1，
+     * 再没有就用「剧集-{帖子id}」。子页取不到视频就跳过该集；全部取不到就 onFailed，
+     * 绝不交假流。单个子页沿用 TIMEOUT_MS 超时；上限 20 个。
+     */
+    public static void resolveSubPages(String pageUrl, String subEpsJson, SubPagesCallback callback) {
+        Handler mainHandler = new Handler(Looper.getMainLooper());
+        if (callback == null || TextUtils.isEmpty(pageUrl) || TextUtils.isEmpty(subEpsJson)) {
+            if (callback != null) mainHandler.post(callback::onFailed);
+            return;
+        }
+        List<Ep> subs = new ArrayList<>();
+        Set<String> seen = new LinkedHashSet<>();
+        try {
+            JSONArray arr = new JSONArray(subEpsJson);
+            for (int i = 0; i < arr.length() && subs.size() < MAX_SUB_PAGES; i++) {
+                JSONObject o = arr.optJSONObject(i);
+                if (o == null) continue;
+                String raw = o.optString("url", "");
+                if (TextUtils.isEmpty(raw)) continue;
+                String abs = absUrl(raw, pageUrl);
+                if (!abs.startsWith("http")) continue;
+                String norm = abs.split("#")[0].split("\\?")[0];
+                if (norm.endsWith("/")) norm = norm.substring(0, norm.length() - 1);
+                String self = pageUrl.split("#")[0].split("\\?")[0];
+                if (self.endsWith("/")) self = self.substring(0, self.length() - 1);
+                if (norm.equals(self)) continue;
+                if (!seen.add(norm)) continue;
+                subs.add(new Ep(o.optString("name", ""), abs));
+            }
+        } catch (Exception e) {
+            mainHandler.post(callback::onFailed);
+            return;
+        }
+        if (subs.isEmpty()) {
+            mainHandler.post(callback::onFailed);
+            return;
+        }
+        HttpEpisodeResolver worker = new HttpEpisodeResolver(pageUrl, "", "", null);
+        new Thread(() -> {
+            List<Ep> done = worker.resolveSubPagesSync(subs);
+            if (done.isEmpty()) {
+                log("L5 subpages fail all n=" + subs.size());
+                mainHandler.post(callback::onFailed);
+                return;
+            }
+            try {
+                JSONArray out = new JSONArray();
+                for (Ep ep : done) {
+                    JSONObject o = new JSONObject();
+                    o.put("name", ep.name);
+                    o.put("url", ep.url);
+                    out.put(o);
+                }
+                log("L5 subpages ok n=" + done.size() + "/" + subs.size());
+                mainHandler.post(() -> callback.onResolved(out.toString()));
+            } catch (Exception e) {
+                mainHandler.post(callback::onFailed);
+            }
+        }).start();
+    }
+
+    /** 并行取子页（上限 20 路），按原顺序收结果、跳过取不到视频的集。 */
+    private List<Ep> resolveSubPagesSync(List<Ep> subs) {
+        int n = subs.size();
+        Ep[] results = new Ep[n];
+        ExecutorService pool = Executors.newFixedThreadPool(Math.min(n, MAX_SUB_PAGES));
+        CountDownLatch latch = new CountDownLatch(n);
+        for (int i = 0; i < n; i++) {
+            final int idx = i;
+            final Ep sub = subs.get(i);
+            pool.submit(() -> {
+                try {
+                    results[idx] = resolveOneSubPage(sub);
+                } catch (Throwable t) {
+                    results[idx] = null;
+                } finally {
+                    latch.countDown();
+                }
+            });
+        }
+        pool.shutdown();
+        try {
+            latch.await(60, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        List<Ep> done = new ArrayList<>();
+        for (Ep ep : results) if (ep != null) done.add(ep);
+        return done;
+    }
+
+    /** 取一个子页：首个 .dplayer 的 video.url（没有取 video_h265.url）；直取失败时按 py 请求头重试一次。 */
+    private Ep resolveOneSubPage(Ep sub) {
+        Map<String, String> headers = subPageHeaders(pageUrl, sub.url);
+        HttpResult res = get(sub.url, headers);
+        if (res.code < 200 || res.code >= 400 || TextUtils.isEmpty(res.body)) {
+            HttpResult retry = get(sub.url, pyStyleHeaders(pageUrl));
+            if (retry.code >= 200 && retry.code < 400 && !TextUtils.isEmpty(retry.body)) res = retry;
+        }
+        if (res.code < 200 || res.code >= 400 || TextUtils.isEmpty(res.body)) {
+            log("L5 sub miss http=" + res.code + " sub=" + trunc(sub.url));
+            return null;
+        }
+        String stream = extractDplayerUrl(res.body);
+        if (TextUtils.isEmpty(stream)) {
+            log("L5 sub miss no-dplayer sub=" + trunc(sub.url));
+            return null;
+        }
+        String name = sub.name;
+        if (TextUtils.isEmpty(name)) name = extractSubTitle(res.body);
+        if (TextUtils.isEmpty(name)) {
+            Matcher m = ARCHIVES_ID.matcher(sub.url);
+            name = m.find() ? "剧集-" + m.group(1) : "";
+        }
+        if (TextUtils.isEmpty(name)) {
+            log("L5 sub miss no-name sub=" + trunc(sub.url));
+            return null;
+        }
+        log("L5 sub hit name=" + name + " stream=" + trunc(stream));
+        return new Ep(name, stream);
+    }
+
+    /** 子页首个 .dplayer 的 data-config 解析：video.url，没有取 video_h265.url；JSON 解析失败时用正则兜底。 */
+    private static String extractDplayerUrl(String html) {
+        if (TextUtils.isEmpty(html)) return "";
+        Matcher m = DPLAYER_CONFIG.matcher(html);
+        if (m.find()) {
+            String cfg = m.group(2).replace("&quot;", "\"").replace("&#39;", "'").replace("&amp;", "&");
+            try {
+                JSONObject j = new JSONObject(cfg);
+                JSONObject video = j.optJSONObject("video");
+                String u = video == null ? "" : video.optString("url", "");
+                if (!TextUtils.isEmpty(u) && u.startsWith("http")) return u;
+                JSONObject h265 = j.optJSONObject("video_h265");
+                String h = h265 == null ? "" : h265.optString("url", "");
+                if (!TextUtils.isEmpty(h) && h.startsWith("http")) return h;
+            } catch (Exception ignored) {
+            }
+        }
+        String u = firstGroup(DPLAYER_VIDEO_URL, html);
+        if (!TextUtils.isEmpty(u) && u.startsWith("http")) return u;
+        String h = firstGroup(DPLAYER_H265_URL, html);
+        if (!TextUtils.isEmpty(h) && h.startsWith("http")) return h;
+        return "";
+    }
+
+    /** 子页标题：<title>（去站名后缀）→ <h1>；都没有返回空串，调用方再用「剧集-{帖子id}」。 */
+    private static String extractSubTitle(String html) {
+        String title = firstGroup(TITLE_TAG, html);
+        if (!TextUtils.isEmpty(title)) {
+            title = title.replaceAll("<[^>]+>", "").replaceAll("\\s+", " ").trim();
+            title = title.replaceAll("\\s*[–\\-|]\\s*51吃瓜.*$", "").replaceAll("\\s*[–\\-|]\\s*吃瓜.*$", "").trim();
+            if (!title.isEmpty()) return title;
+        }
+        String h1 = firstGroup(H1_TAG, html);
+        if (!TextUtils.isEmpty(h1)) {
+            h1 = h1.replaceAll("<[^>]+>", "").replaceAll("\\s+", " ").trim();
+            if (!h1.isEmpty()) return h1;
+        }
+        return "";
+    }
+
+    /** 子页请求头：Referer=父文章页、UA=Setting、Cookie=子页（没有取父页）。 */
+    private Map<String, String> subPageHeaders(String parentUrl, String subUrl) {
+        Map<String, String> headers = new LinkedHashMap<>();
+        headers.put("Referer", parentUrl);
+        headers.put("User-Agent", Setting.getUa());
+        String cookie = getCookie(subUrl);
+        if (TextUtils.isEmpty(cookie)) cookie = getCookie(parentUrl);
+        if (!TextUtils.isEmpty(cookie)) headers.put("Cookie", cookie);
+        return headers;
+    }
+
+    /** py 式请求头（51吃瓜v3.py init）：桌面 UA + 站根 Origin/Referer；直取失败时重试一次用。 */
+    private static Map<String, String> pyStyleHeaders(String parentUrl) {
+        Map<String, String> h = new LinkedHashMap<>();
+        h.put("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36");
+        h.put("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7");
+        h.put("Accept-Language", "zh-CN,zh;q=0.9");
+        String host = schemeHost(parentUrl);
+        if (!host.isEmpty()) {
+            if (host.endsWith("/")) host = host.substring(0, host.length() - 1);
+            h.put("Origin", host);
+            h.put("Referer", host + "/");
+        }
+        return h;
     }
 
     // ================= L0：MacCMS Provide API =================
