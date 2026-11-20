@@ -708,7 +708,8 @@ public class HttpEpisodeResolver {
                 ResponseBody body = res.body();
                 return new HttpResult(code, body == null ? "" : body.string(), res.request().url().toString());
             } catch (Exception e) {
-                return new HttpResult(-1, "", res.request().url().toString());
+                // catch 里 res 已出作用域（try-with-resources 变量只在 try 块内可见）；异常时无响应，cur 即最后一次请求地址。
+                return new HttpResult(-1, "", cur);
             }
         }
         return new HttpResult(-1, "", cur);
