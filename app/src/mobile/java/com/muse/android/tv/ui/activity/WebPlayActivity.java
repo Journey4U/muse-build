@@ -1581,6 +1581,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     private long mBrowserResolveAt;
     private final Handler mBrowserResolveHandler = new Handler(Looper.getMainLooper());
     private Runnable mBrowserResolveTimeout;
+    private Runnable mBrowserResolveMute;
     private boolean mBrowserResolveWebResumed;
     private boolean mActivityResumed;
     // push v3：探针补跑状态（选集表可能是 JS 后渲染的，页完那一刻还没进 DOM）。
@@ -2108,6 +2109,14 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 // push v1：页完探一次多线表（MacCMS 播放页才够格亮起播放按钮）。
                 mPushPageUrl = url;
                 probePageInfo();
+                // push v19 (B)：页面兜底导航落地时再静音一次——新页播放器自动播放时后台不得出声。
+                // 只在有待解单时执行；(c) 点按钮路不导航，正常不触发，若触发也是静音，本就该静。
+                if (mBrowserResolveCallback != null) {
+                    try {
+                        view.evaluateJavascript(MUTE_ALL_VIDEOS_JS, null);
+                    } catch (Throwable ignored) {
+                    }
+                }
                 // push v3：选集表可能是 JS 后渲染的，页完那一刻还没进 DOM——0.5/1.5/3 秒各补跑一次，探到可用线路就停。
                 schedulePushProbeRetry();
                 showBars();
@@ -3090,6 +3099,9 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     /** push v18 (c)：浏览器内点集解流的超时——15 秒（report16 建议值）。 */
     private static final long BROWSER_RESOLVE_TIMEOUT_MS = 15000;
 
+    /** push v19 (B)：静音当前页全部 video 元素（页面兜底导航前后用；不点按钮、不返回值）。 */
+    private static final String MUTE_ALL_VIDEOS_JS = "(function(){try{var vs=document.querySelectorAll('video');for(var i=0;i<vs.length;i++){try{vs[i].muted=true;vs[i].volume=0;}catch(e){}}return 'muted';}catch(e){return 'error';}})()";
+
     /**
      * push v18 (c)：请后台栈里的现有浏览器点 data-id 按钮解流。返回 false 表示浏览器已关
      * （无实例/已销毁），调用方直接回落现有 toast；返回 true 表示已接单，结果经回调回交
@@ -3101,6 +3113,21 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         WebPlayActivity host = sBrowserInstance == null ? null : sBrowserInstance.get();
         if (host == null || host.isFinishing() || host.isDestroyed() || host.mBinding == null || host.mBinding.web == null) return false;
         host.runOnUiThread(() -> host.startBrowserResolve(epId, callback));
+        return true;
+    }
+
+    /**
+     * push v19 (B)：解析失败兜底——请后台栈里的现有浏览器导航到指定播放页解流。
+     * 复用 (c) 的接单/超时/嗅流回交机器，区别只有一步：不点按钮，改为导航到 pageUrl。
+     * 返回 false 表示浏览器已关（无实例/已销毁），调用方直接回落现有 toast；返回 true
+     * 表示已接单，结果经回调回交（15 秒超时走 onFailed）。不新建 WebView，只用用户自己打开的可见浏览器。
+     * pageUrl 只放行 http:// / https:// 开头（不套 (c) 的 epId 正则，那是给 data-id 的）。
+     */
+    public static boolean requestBrowserPageResolve(String pageUrl, BrowserResolveCallback callback) {
+        if (callback == null || TextUtils.isEmpty(pageUrl) || (!pageUrl.startsWith("http://") && !pageUrl.startsWith("https://"))) return false;
+        WebPlayActivity host = sBrowserInstance == null ? null : sBrowserInstance.get();
+        if (host == null || host.isFinishing() || host.isDestroyed() || host.mBinding == null || host.mBinding.web == null) return false;
+        host.runOnUiThread(() -> host.startBrowserPageResolve(pageUrl, callback));
         return true;
     }
 
@@ -3155,11 +3182,64 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         }
     }
 
+    /** push v19 (B)：在后台浏览器里导航到指定播放页解流（主线程）。复用 (c) 的接单状态
+     *（已知流/起算时刻/超时/嗅流回交），区别：不点按钮，先静音当前页全部 video 再 loadUrl；
+     * 导航后新页自动播放也要静音——onPageFinished 里待解单未完时再静音一次，另有 2 秒延迟
+     * 补静音（video 元素由站方 JS 后建时兜底）。导航会切掉浏览器自己的当前播放，与 (c) 同款副作用。
+     * maybeDeliverBrowserResolve 不用改：它只有时间守卫（mPushSniffAt < mBrowserResolveAt 拦旧流），
+     * 没有页面守卫；导航开始时 onPageStarted 把 mPushSniffAt 清零，新页嗅到的流时间戳在起算时刻之后，正常回交。 */
+    private void startBrowserPageResolve(String pageUrl, BrowserResolveCallback callback) {
+        clearBrowserResolveState();
+        mBrowserResolveCallback = callback;
+        mBrowserResolveKnownStream = mPushLastSniff == null ? "" : mPushLastSniff;
+        mBrowserResolveAt = System.currentTimeMillis();
+        // 后台 WebView 处于 onPause 节流态：导航后站方 fetch/JS/媒体加载未必跑得起来，
+        // 先恢复计时器，解完（或超时/失败）再按活动状态恢复暂停；不新建 WebView。
+        try {
+            mBinding.web.onResume();
+            mBrowserResolveWebResumed = true;
+        } catch (Throwable ignored) {
+        }
+        // 先静音当前页全部 video 再导航——导航会切掉浏览器自己的当前播放，静音避免后台出声。
+        try {
+            mBinding.web.evaluateJavascript(MUTE_ALL_VIDEOS_JS, null);
+        } catch (Throwable ignored) {
+        }
+        mBrowserResolveTimeout = () -> {
+            BrowserResolveCallback cb = mBrowserResolveCallback;
+            clearBrowserResolveState();
+            if (cb != null) cb.onFailed();
+        };
+        mBrowserResolveHandler.postDelayed(mBrowserResolveTimeout, BROWSER_RESOLVE_TIMEOUT_MS);
+        // 导航后补静音：站方播放器由 JS 后建 video 元素时，onPageFinished 那次未必赶得上，
+        // 2 秒后再评一次（仍在待解才执行；clearBrowserResolveState 会撤掉它）。
+        mBrowserResolveMute = () -> {
+            if (mBrowserResolveCallback != callback) return;
+            try {
+                if (mBinding != null && mBinding.web != null) mBinding.web.evaluateJavascript(MUTE_ALL_VIDEOS_JS, null);
+            } catch (Throwable ignored) {
+            }
+        };
+        mBrowserResolveHandler.postDelayed(mBrowserResolveMute, 2000);
+        try {
+            mBinding.web.loadUrl(pageUrl);
+        } catch (Throwable e) {
+            BrowserResolveCallback cb = mBrowserResolveCallback;
+            clearBrowserResolveState();
+            if (cb != null) cb.onFailed();
+        }
+    }
+
     /** push v18 (c)：只清待解单状态，不回调（调用方在清状态前后自行决定是否回调）。 */
     private void clearBrowserResolveState() {
         if (mBrowserResolveTimeout != null) {
             mBrowserResolveHandler.removeCallbacks(mBrowserResolveTimeout);
             mBrowserResolveTimeout = null;
+        }
+        // push v19 (B)：撤掉页面兜底的延迟补静音（(c) 路从不设它，这里恒为 null，不影响 (c)）。
+        if (mBrowserResolveMute != null) {
+            mBrowserResolveHandler.removeCallbacks(mBrowserResolveMute);
+            mBrowserResolveMute = null;
         }
         mBrowserResolveCallback = null;
         mBrowserResolveKnownStream = "";

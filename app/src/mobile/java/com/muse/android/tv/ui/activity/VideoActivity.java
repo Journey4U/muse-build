@@ -1671,6 +1671,38 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
             @Override
             public void onFailed() {
+                // push v19 (B)：HTTP 解析失败兜底走后台浏览器——浏览器跑站方 JS 能解出
+                // 解析器解不出的流（枫叶 parse 回 HTML 播放器页、纯 HTTP 解不出，report18 §9）。
+                // 注意：探针表里的非当前集 url 为空、播放页地址在 pageUrl（applyBrowserLines/
+                // applyBrowserEpisodes：Episode.create(name, "") + setPageUrl(url)），所以
+                // 兜底导航必须用 pageUrl——用 getUrl() 会永远走不到兜底。pageUrl 在入口已判非空。
+                // 浏览器已关（request 返回 false）立即回落原 toast，不卡住；兜底进行中进度条
+                // 保持可见、不重复弹失败 toast，等兜底回调再决定。
+                if (!TextUtils.isEmpty(episode.getPageUrl())) {
+                    WebPlayActivity.BrowserResolveCallback pageCb = new WebPlayActivity.BrowserResolveCallback() {
+                        @Override
+                        public void onStream(String url, Map<String, String> headers) {
+                            mBrowserResolveCallback = null;
+                            hideProgress();
+                            // push v6 Layer 1：解析中用户已切走别的集时不回切；已选中的集只重跑 playEpisode，不重进 selectEpisode。
+                            if (isHostFinishing() || !episode.isSelected()) return;
+                            mWebEpHeaders = headers == null ? Collections.emptyMap() : headers;
+                            episode.setUrl(url);
+                            mVod.playResolvedEpisode(episode);
+                        }
+
+                        @Override
+                        public void onFailed() {
+                            mBrowserResolveCallback = null;
+                            hideProgress();
+                            if (isHostFinishing()) return;
+                            Notify.show(getString(R.string.browser_resolve_failed, episode.getName()));
+                        }
+                    };
+                    mBrowserResolveCallback = pageCb;
+                    if (WebPlayActivity.requestBrowserPageResolve(episode.getPageUrl(), pageCb)) return;
+                    mBrowserResolveCallback = null;
+                }
                 hideProgress();
                 Notify.show(getString(R.string.browser_resolve_failed, episode.getName()));
             }
