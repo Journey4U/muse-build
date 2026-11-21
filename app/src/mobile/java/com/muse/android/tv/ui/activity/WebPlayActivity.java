@@ -1418,7 +1418,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         CLEAN_JS = sb.toString();
     }
     // push v1: fuzi 多线探针（MacCMS 播放页全部线路 + 每线选集表）与页面 video 直取探针——逐字取自 fuzi BrowserActivity，不转录。
-                        private static final String PROBE_JS = "(function(){function txt(el){return el?(el.innerText||'').trim():'';}function cleanName(t){return (t||'').replace(/[\\uE000-\\uF8FF]/g,'').replace(/\\s+/g,' ').trim();}function tabText(el){if(!el)return "
+                            private static final String PROBE_JS = "(function(){function txt(el){return el?(el.innerText||'').trim():'';}function cleanName(t){return (t||'').replace(/[\\uE000-\\uF8FF]/g,'').replace(/\\s+/g,' ').trim();}function tabText(el){if(!el)return "
         + "'';var parts=[];var ns=el.childNodes;for(var i=0;i<ns.length;i++){var n=ns[i];if(n.nodeType===3)parts.push(n.textContent||'');else if(n.nodeType===1){var tg=n.tagName;var cl=n.getAttribute('class')||'';if(tg==='I'||/badge|num|count/i.test(cl))continue;parts.push(n.innerText||n.textContent||'');}}return "
         + "cleanName(parts.join(' '));}function cleanCand(L){var c=L.cand||'';if(!c)return c;var cnt=L.order.length;var m=c.match(/^(.*?)[-_\\s·]*?(\\d+)$/);if(m&&parseInt(m[2],10)===cnt&&m[1]&&m[1].trim())c=m[1].trim();return "
         + "c.replace(/[-_\\s·]+$/,'');}function picOf(){try{var m=document.querySelector('meta[property=\"og:image\"],meta[name=\"twitter:image\"]');if(m&&m.content){try{return new URL(m.content,location.href).href}catch(e){return "
@@ -1458,12 +1458,13 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         + "'';var parts=[];var ns=el.childNodes;for(var i=0;i<ns.length;i++){var n=ns[i];if(n.nodeType===3){parts.push(n.textContent||'');}else if(n.nodeType===1){var tg=n.tagName;var cl=n.getAttribute('class')||'';var "
         + "tx=(n.innerText||n.textContent||'').trim();if(tg==='I'||/(^|[\\s_\\-])(badge|num|count|gm)([\\s_\\-]|$)/i.test(cl))continue;if(tx==='广告'||/^\\d+\\s*集$/.test(tx))continue;parts.push(n.innerText||n.textContent||'');}}var "
         + "s=cleanName(parts.join(' '));s=s.replace(/广告/g,'').replace(/\\d+\\s*集/g,'').replace(/\\s+/g,' ').trim();return s.replace(/[-_\\s·]+$/,'');}function panelOfTab(el){var id='';try{id=el.getAttribute('aria-controls')||'';}catch(e){}var "
-        + "tgt='';try{tgt=el.getAttribute('data-target')||el.getAttribute('href')||'';}catch(e){}if(tgt&&tgt.charAt(0)==='#')id=tgt.slice(1);if(!id)return null;try{var pp=document.getElementById(id);return pp||null;}catch(e){return "
-        + "null;}}function genTabActive(el){try{var cl=el.getAttribute('class')||'';return/(^|\\s)(active|current|cur|selected|on)(\\s|$)/.test(cl)||el.getAttribute('aria-selected')==='true';}catch(e){return false;}}function "
-        + "scanGenPanel(panel,sid,tabName,isActive,strict){if(!panel)return 0;var items=null;try{items=panel.querySelectorAll('button,a');}catch(e){return 0;}var cands=[];for(var i=0;i<items.length;i++){var el=items[i];var "
-        + "raw=cleanName(txt(el));if(!raw||raw.length>24)continue;if(stopWord(raw))continue;if(/^[[【]/.test(raw))continue;if(/^\\d+(\\.\\d+)?\\s*(小时|分钟|秒)$/.test(raw))continue;if(raw.indexOf(':')>=0)continue;var "
+        + "tgt='';try{tgt=el.getAttribute('data-target')||el.getAttribute('href')||'';}catch(e){}if(tgt&&tgt.charAt(0)==='#')id=tgt.slice(1);if(id){try{var pp=document.getElementById(id);if(pp)return pp;}catch(e){}}try{var "
+        + "par=el.parentElement;if(!par)return null;var sibs=par.querySelectorAll('[role=\"tab\"]');var idx=-1;for(var k=0;k<sibs.length;k++){if(sibs[k]===el){idx=k;break;}}if(idx<0)return null;var anc=par;for(var "
+        + "d=0;d<4&&anc;d++){var panels=anc.querySelectorAll('[role=\"tabpanel\"]');if(panels.length===sibs.length)return panels[idx];anc=anc.parentElement;}}catch(e){}return null;}function genTabActive(el){try{var "
+        + "cl=el.getAttribute('class')||'';return/(^|\\s)(active|current|cur|selected|on)(\\s|$)/.test(cl)||el.getAttribute('aria-selected')==='true';}catch(e){return false;}}function scanGenPanel(panel,sid,tabName,isActive,strict){if(!panel)return "
+        + "0;var items=null;try{items=panel.querySelectorAll('button,a');}catch(e){return 0;}var cands=[];for(var i=0;i<items.length;i++){var el=items[i];var raw=cleanName(txt(el));if(!raw||raw.length>24)continue;if(stopWord(raw))continue;if(/^[[【]/.test(raw))continue;if(/^\\d+(\\.\\d+)?\\s*(小时|分钟|秒)$/.test(raw))continue;if(raw.indexOf(':')>=0)continue;var "
         + "rawHref='';try{rawHref=el.getAttribute('href')||'';}catch(e){}var href=rawHref;if(href){try{href=new URL(href,location.href).href;}catch(e){}}var en=epName(raw);var hm=rawHref.match(/(\\d+)-(\\d+)-(\\d+)\\.html/);if(strict&&!en&&!hm)continue;var "
-        + "epNum=-1;if(en){var dm=raw.match(/(\\d+)/);if(dm)epNum=parseInt(dm[1],10);}else{if(hm)epNum=parseInt(hm[3],10);}var act=false;try{var cl2=el.getAttribute('class')||'';act=/(^|\\s)(active|current|cur|selected|on)(\\s|$)/.test(cl2)||el.getAttribute('aria-current')==='true'||el.getAttribute('aria-selected')==='true';}catch(e){}cands.push({raw:raw,href:href,en:en,ep:epNum,act:act});}if(!cands.length)return "
+        + "epNum=-1;if(en){var dm=raw.match(/(\\d+)/);if(dm)epNum=parseInt(dm[1],10);}else{if(hm)epNum=parseInt(hm[3],10);}var act=false;try{var cl2=el.getAttribute('class')||'';act=/(^|\\s)(active|current|cur|selected|on|yH)(\\s|$)/.test(cl2)||el.getAttribute('aria-current')==='true'||el.getAttribute('aria-selected')==='true';}catch(e){}cands.push({raw:raw,href:href,en:en,ep:epNum,act:act});}if(!cands.length)return "
         + "0;var L=lineOf(sid);if(tabName&&!L.genName)L.genName=tabName;if(isActive)L.genCur=1;var named=0;for(var j=0;j<cands.length;j++)if(cands[j].en)named++;if(named===0&&cands.length===1){var c0=cands[0];var "
         + "ep0=c0.ep>0?c0.ep:1;var u0=c0.href||location.href;var dup=false;for(var k=0;k<L.singles.length;k++)if(L.singles[k].name===c0.raw&&L.singles[k].url===u0)dup=true;if(!dup)L.singles.push({name:c0.raw,url:u0,ep:ep0});put(sid,ep0,{text:c0.raw,clean:false},u0);L.fromGeneric=1;if(c0.act){var "
         + "eo=L.eps[ep0];if(eo)eo.cur=true;}return 1;}var n=0;for(var j2=0;j2<cands.length;j2++){var c=cands[j2];if(!c.en||c.ep<0)continue;var u=c.href||location.href;put(sid,c.ep,{text:c.en,clean:true},u);L.fromGeneric=1;if(c.act){var "
@@ -2667,23 +2668,10 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
             try {
                 String json = new JSONTokener(value).nextValue().toString();
                 JSONObject obj = new JSONObject(json);
-                JSONArray lines = obj.optJSONArray("lines");
                 String pic = obj.optString("pic");
                 storePushStreamFields(obj);
                 if (!pic.isEmpty()) mPushPagePic = pic;
-                JSONArray subEps = obj.optJSONArray("subEps");
-                boolean hasSub = subEps != null && subEps.length() > 0;
-                if (lines != null && lines.length() > 0) {
-                    boolean renamed = dedupePushLineNames(lines);
-                    mPushProbeLines = renamed ? obj.toString() : json;
-                    DebugLogStore.add("WebPlay", "push 多线探针 线路=" + lines.length());
-                    String diag = obj.optString("diag");
-                    if (!diag.isEmpty()) DebugLogStore.add("WebPlay", "push 探针诊断 " + diag);
-                } else if (hasSub) {
-                    // push v12：无分集表但有子帖表时也存下来，供点推时走子页解析层。
-                    mPushProbeLines = json;
-                    DebugLogStore.add("WebPlay", "push 子页探针 子帖=" + subEps.length());
-                } else if (mPushPlayPending) {
+                if (!storePushProbeLines(obj, json) && mPushPlayPending) {
                     // 重探回来是空表：旧表是上一页的，不能留给续跑用。
                     mPushProbeLines = "";
                 }
@@ -2697,18 +2685,44 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         });
     }
 
+    /** push v17 F2：把一次 PROBE_JS 结果里的线路/子帖表写回 mPushProbeLines（probePageInfo 与点推现跑共用）。
+     * lines.length()>0 才存（去重改名后重序列化，否则存原文）；有子帖无分集表时也存；空表不覆盖旧表。返回是否存了表。 */
+    private boolean storePushProbeLines(JSONObject obj, String json) {
+        try {
+            JSONArray lines = obj.optJSONArray("lines");
+            JSONArray subEps = obj.optJSONArray("subEps");
+            boolean hasSub = subEps != null && subEps.length() > 0;
+            if (lines != null && lines.length() > 0) {
+                boolean renamed = dedupePushLineNames(lines);
+                mPushProbeLines = renamed ? obj.toString() : json;
+                DebugLogStore.add("WebPlay", "push 多线探针 线路=" + lines.length());
+                String diag = obj.optString("diag");
+                if (!diag.isEmpty()) DebugLogStore.add("WebPlay", "push 探针诊断 " + diag);
+                return true;
+            } else if (hasSub) {
+                // push v12：无分集表但有子帖表时也存下来，供点推时走子页解析层。
+                mPushProbeLines = json;
+                DebugLogStore.add("WebPlay", "push 子页探针 子帖=" + subEps.length());
+                return true;
+            }
+        } catch (Throwable ignored) {
+        }
+        return false;
+    }
+
     // push v3：探针补跑——选集表可能是 JS 后渲染的，页完那一刻还没进 DOM，探针跑空表按钮就不亮。
     // 页完后 0.5/1.5/3 秒各补跑一次，只在还没探到可用线路时跑，探到就停，最多 3 次；页切走或 Activity 销毁时不跑。
+    // push v17 F3：补跑停条件只看表（probeLinesUsable/hasSubEps）——嗅流只决定按钮亮不亮，不决定表补不补跑。
     private void schedulePushProbeRetry() {
         cancelPushProbeRetry();
-        if (probeLinesUsable() || hasFreshPushSniff() || hasSubEps() || hasPushMainStream()) return;
+        if (probeLinesUsable() || hasSubEps()) return;
         if (mBinding == null || mBinding.web == null) return;
         mPushProbeRetryCount = 0;
         mPushProbeRetryPageUrl = mPushPageUrl;
         mPushProbeRetry = () -> {
             if (mBinding == null || mBinding.web == null) return;
             if (!mPushProbeRetryPageUrl.equals(mPushPageUrl)) return;
-            if (probeLinesUsable() || hasFreshPushSniff() || hasSubEps() || hasPushMainStream()) return;
+            if (probeLinesUsable() || hasSubEps()) return;
             probePageInfo();
             mPushProbeRetryCount++;
             if (mPushProbeRetryCount < 3) {
@@ -3022,8 +3036,12 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         // 不在黑名单、过 isPushStreamUrl 门）→ ③ 已过滤的 mPushLastSniff（本页 120 秒内，v14 跨页不认）。
         mBinding.web.evaluateJavascript(PROBE_JS, pvalue -> {
             JSONObject pobj = parseProbeJson(pvalue);
-            if (pobj != null) storePushStreamFields(pobj);
-            else {
+            if (pobj != null) {
+                storePushStreamFields(pobj);
+                // push v17 F2：点推现跑同时把本次线路表写回 mPushProbeLines——表与流一起现取现用，
+                // 晚渲染站的表在点推时仍能赶上。页锚定：只在探针跑的仍是当前页时写，旧页表不写回新页。
+                if (mPushProbePageUrl.equals(mPushPageUrl)) storePushProbeLines(pobj, pobj.toString());
+            } else {
                 mPushMainStream = "";
                 mPushAdSrcs = java.util.Collections.emptySet();
                 mPushAdPlaying = false;

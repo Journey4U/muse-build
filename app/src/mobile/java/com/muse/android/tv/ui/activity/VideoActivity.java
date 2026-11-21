@@ -159,6 +159,8 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private boolean mMediaInfo;
     /** #104：本详情是否已发起过播放请求（onPlaybackRequested 置位，新详情 renderDetail 时清零）。 */
     private boolean mPlayRequested;
+    /** push v17 F4(a)：applyBrowserLines 是否已把全集表摆进 vod（摆了表但认不出当前集时返回 -1，applyBrowserMeta 不走单线回落）。 */
+    private boolean mBrowserLinesApplied;
     private long mInfoTxBytes;
     private long mInfoRxBytes;
     private long mInfoTime;
@@ -1680,6 +1682,9 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         // 带全部线路表时按线摆旗（当前线路置顶、当前集挂直达流、其余集留空 url 记 pageUrl、点开走 HTTP 解析）；摆成功就不再走单线路径。
         int index = applyBrowserLines(vod, episode);
         if (index >= 0) return index;
+        // push v17 F4(a)：表已摆上但认不出当前集时不走单线回落——回落会把每条线都改名成单 flag，
+        // 毁掉刚摆好的全集表；直接返回 -1（不预选），播放器播首集上挂的嗅流。
+        if (mBrowserLinesApplied) return -1;
         if (flag != null && !flag.isEmpty()) vod.setPlayFrom(flag);
         int firstEpIndex = -1;
         for (Flag item : vod.getFlags()) {
@@ -1733,8 +1738,11 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         }
     }
 
-    /** push v2：全部线路落地——每条线一面旗，当前线路置顶；当前集（探针 cur 标优先、无标时按集号对位兜底）挂已嗅到的直达流，其余集留空 url、记 pageUrl，未解析，点开时走 HTTP 解析。识别不出当前集时返回 -1 走旧路径。 */
+    /** push v2：全部线路落地——每条线一面旗，当前线路置顶；当前集（探针 cur 标优先、无标时按集号对位兜底）挂已嗅到的直达流，其余集留空 url、记 pageUrl，未解析，点开时走 HTTP 解析。
+     * push v17 F4(a)：认不出当前集时也不丢整表——把已嗅到的直达流挂到首个有集的线的首集上（播放器播嗅到的流），
+     * 表全量摆上、当前集序号返回 -1（不预选）。 */
     private int applyBrowserLines(Vod vod, String episodeName) {
+        mBrowserLinesApplied = false;
         String json = getIntent().getStringExtra("browserLines");
         if (json == null || json.isEmpty() || vod.getFlags().isEmpty()) return -1;
         try {
@@ -1802,9 +1810,14 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
                     }
                 }
                 if (list.isEmpty()) continue;
-                if (oi == 0 && lineCurrentIndex < 0) {
-                    // 当前线里始终没对上当前集：这次多线落地不成立，交回旧路径
-                    return -1;
+                // push v17 F4(a)：当前线认不出当前集时也不丢整表——把已嗅到的直达流挂到
+                // 首个有集的线（正常就是当前线 oi==0）的首集上，播放器播嗅到的流；只不预选
+                // 当前集（currentIndex 保持 -1，lineCurrentIndex<0 时不 setPosition）。
+                // 注：isCurrent 只在 oi==0 置位，lineCurrentIndex<0 且 streamPlaced 为假时，
+                // 此处恰好只触发一次（oi==0 无当前集时落在当前线首集；oi==0 的表为空时落在下一条有集的线首集）。
+                if (lineCurrentIndex < 0 && !streamPlaced) {
+                    list.get(0).setUrl(stream);
+                    streamPlaced = true;
                 }
                 flagObj.getEpisodes().clear();
                 flagObj.getEpisodes().addAll(list);
@@ -1820,6 +1833,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
             if (!streamPlaced || built.isEmpty()) return -1;
             vod.getFlags().clear();
             vod.getFlags().addAll(built);
+            mBrowserLinesApplied = true;
             StringBuilder from = new StringBuilder();
             for (Flag f : built) {
                 if (from.length() > 0) from.append(",");
