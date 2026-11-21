@@ -1418,7 +1418,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         CLEAN_JS = sb.toString();
     }
     // push v1: fuzi 多线探针（MacCMS 播放页全部线路 + 每线选集表）与页面 video 直取探针——逐字取自 fuzi BrowserActivity，不转录。
-                    private static final String PROBE_JS = "(function(){function txt(el){return el?(el.innerText||'').trim():'';}function cleanName(t){return (t||'').replace(/[\\uE000-\\uF8FF]/g,'').replace(/\\s+/g,' ').trim();}function tabText(el){if(!el)return "
+                        private static final String PROBE_JS = "(function(){function txt(el){return el?(el.innerText||'').trim():'';}function cleanName(t){return (t||'').replace(/[\\uE000-\\uF8FF]/g,'').replace(/\\s+/g,' ').trim();}function tabText(el){if(!el)return "
         + "'';var parts=[];var ns=el.childNodes;for(var i=0;i<ns.length;i++){var n=ns[i];if(n.nodeType===3)parts.push(n.textContent||'');else if(n.nodeType===1){var tg=n.tagName;var cl=n.getAttribute('class')||'';if(tg==='I'||/badge|num|count/i.test(cl))continue;parts.push(n.innerText||n.textContent||'');}}return "
         + "cleanName(parts.join(' '));}function cleanCand(L){var c=L.cand||'';if(!c)return c;var cnt=L.order.length;var m=c.match(/^(.*?)[-_\\s·]*?(\\d+)$/);if(m&&parseInt(m[2],10)===cnt&&m[1]&&m[1].trim())c=m[1].trim();return "
         + "c.replace(/[-_\\s·]+$/,'');}function picOf(){try{var m=document.querySelector('meta[property=\"og:image\"],meta[name=\"twitter:image\"]');if(m&&m.content){try{return new URL(m.content,location.href).href}catch(e){return "
@@ -1454,15 +1454,35 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         + "bx=null;try{bx=document.getElementById(tgt.slice(1));}catch(e){}var bs=boxSid(bx);if(bs&&!tabFor[bs])tabFor[bs]=tn0;}var boxSels=['.anthology-list-box','.tab-pane','[id^=\"down\"]','[id^=\"playlist\"]','.playlist-box','[class*=\"playlist-box\"]'];var "
         + "sortedSids={};for(var ss=0;ss<sorted.length;ss++)sortedSids[sorted[ss].sid]=1;for(var bsi=0;bsi<boxSels.length;bsi++){var boxes=null;try{boxes=document.querySelectorAll(boxSels[bsi]);}catch(e){continue;}if(!boxes||boxes.length!==tabNames.length)continue;var "
         + "bSids=[];var okB=true;var seenB={};for(var bj=0;bj<boxes.length;bj++){var bs2=boxSid(boxes[bj]);if(!bs2||!sortedSids[bs2]||seenB[bs2]){okB=false;break;}seenB[bs2]=1;bSids.push(bs2);}if(!okB)continue;for(var "
-        + "bk=0;bk<tabNames.length;bk++){var nmB=tabNames[bk]||'';if(!nmB)continue;if(!tabFor[bSids[bk]])tabFor[bSids[bk]]=nmB;}break;}var out=[];for(var z=0;z<sorted.length&&z<8;z++){var L=sorted[z];L.order.sort(function(x,y){return "
-        + "x.ep-y.ep;});L.cand=cleanCand(L);var tn=tabFor[L.sid]||'';var nm=tn||((sid!==''&&L.sid===sid&&activeName)?activeName:(L.cand||('线路'+(out.length+1))));var eps=[];for(var w=0;w<L.order.length&&w<300;w++){var "
-        + "o=L.order[w];eps.push({name:o.name,url:o.url,cur:o.cur?1:0});}out.push({sid:L.sid,name:nm,cur:(sid!==''&&L.sid===sid)?1:0,episodes:eps});}var curEpName='';for(var ce=0;ce<out.length;ce++){var epsC=out[ce].episodes;for(var "
-        + "cw=0;cw<epsC.length;cw++){if(epsC[cw].cur){curEpName=epsC[cw].name;break;}}if(curEpName)break;}var dp=null;try{dp=dplayerEpisodes();}catch(e){dp=null;}if(dp&&dp.line)out.push(dp.line);var subs=[];try{subs=subEpsList();}catch(e){subs=[];}var "
-        + "diag='';if((sorted.length>1&&tabNames.length!==sorted.length)||tabRaw.length){var dc=[];for(var d1=0;d1<sorted.length;d1++)dc.push(sorted[d1].sid+':'+(sorted[d1].candRaw||'-'));diag='tabs='+tabNames.length+' "
-        + "srcA='+document.querySelectorAll('[class*=\"source\"] a').length+' srcLi='+document.querySelectorAll('[class*=\"source\"] li').length+' cand='+dc.join('|');var dr=[];for(var d2=0;d2<sorted.length;d2++){var "
-        + "Lr=sorted[d2];if(!Lr.candRaw&&Lr.raws.length)dr.push(Lr.sid+'='+Lr.raws.join('~'));}if(dr.length)diag+=(diag?' ':'')+'raw='+dr.join('|');if(tabRaw.length)diag+=(diag?' ':'')+'tabRaw='+tabRaw.join('|');if(tabSel>=0)diag+=(diag?' "
-        + "':'')+'tsel='+tabSel;if(tabNames.length!==sorted.length){var hs=[];var cs=document.querySelectorAll('ul,ol,div');for(var hi=0;hi<cs.length&&hi<80;hi++){var c0=cs[hi];var ch=c0.children;if(!ch||ch.length<2||ch.length>8)continue;var "
-        + "ts2=[];var bad=false;for(var hj=0;hj<ch.length;hj++){var tt=tabText(ch[hj]);if(!tt||tt.length>12||epName(tt)){bad=true;break;}ts2.push(tt);}if(bad||ts2.length<2)continue;hs.push(((c0.getAttribute('class')||c0.tagName)||'').slice(0,30)+':'+ts2.slice(0,3).join('~'));if(hs.length>=3)break;}if(hs.length)diag+=(diag?' "
+        + "bk=0;bk<tabNames.length;bk++){var nmB=tabNames[bk]||'';if(!nmB)continue;if(!tabFor[bSids[bk]])tabFor[bSids[bk]]=nmB;}break;}var genTabsFound=0,genEpsFound=0,genSidSeq=0,genTabList=[];function genTabName(el){if(!el)return "
+        + "'';var parts=[];var ns=el.childNodes;for(var i=0;i<ns.length;i++){var n=ns[i];if(n.nodeType===3){parts.push(n.textContent||'');}else if(n.nodeType===1){var tg=n.tagName;var cl=n.getAttribute('class')||'';var "
+        + "tx=(n.innerText||n.textContent||'').trim();if(tg==='I'||/(^|[\\s_\\-])(badge|num|count|gm)([\\s_\\-]|$)/i.test(cl))continue;if(tx==='广告'||/^\\d+\\s*集$/.test(tx))continue;parts.push(n.innerText||n.textContent||'');}}var "
+        + "s=cleanName(parts.join(' '));s=s.replace(/广告/g,'').replace(/\\d+\\s*集/g,'').replace(/\\s+/g,' ').trim();return s.replace(/[-_\\s·]+$/,'');}function panelOfTab(el){var id='';try{id=el.getAttribute('aria-controls')||'';}catch(e){}var "
+        + "tgt='';try{tgt=el.getAttribute('data-target')||el.getAttribute('href')||'';}catch(e){}if(tgt&&tgt.charAt(0)==='#')id=tgt.slice(1);if(!id)return null;try{var pp=document.getElementById(id);return pp||null;}catch(e){return "
+        + "null;}}function genTabActive(el){try{var cl=el.getAttribute('class')||'';return/(^|\\s)(active|current|cur|selected|on)(\\s|$)/.test(cl)||el.getAttribute('aria-selected')==='true';}catch(e){return false;}}function "
+        + "scanGenPanel(panel,sid,tabName,isActive,strict){if(!panel)return 0;var items=null;try{items=panel.querySelectorAll('button,a');}catch(e){return 0;}var cands=[];for(var i=0;i<items.length;i++){var el=items[i];var "
+        + "raw=cleanName(txt(el));if(!raw||raw.length>24)continue;if(stopWord(raw))continue;if(/^[[【]/.test(raw))continue;if(/^\\d+(\\.\\d+)?\\s*(小时|分钟|秒)$/.test(raw))continue;if(raw.indexOf(':')>=0)continue;var "
+        + "rawHref='';try{rawHref=el.getAttribute('href')||'';}catch(e){}var href=rawHref;if(href){try{href=new URL(href,location.href).href;}catch(e){}}var en=epName(raw);var hm=rawHref.match(/(\\d+)-(\\d+)-(\\d+)\\.html/);if(strict&&!en&&!hm)continue;var "
+        + "epNum=-1;if(en){var dm=raw.match(/(\\d+)/);if(dm)epNum=parseInt(dm[1],10);}else{if(hm)epNum=parseInt(hm[3],10);}var act=false;try{var cl2=el.getAttribute('class')||'';act=/(^|\\s)(active|current|cur|selected|on)(\\s|$)/.test(cl2)||el.getAttribute('aria-current')==='true'||el.getAttribute('aria-selected')==='true';}catch(e){}cands.push({raw:raw,href:href,en:en,ep:epNum,act:act});}if(!cands.length)return "
+        + "0;var L=lineOf(sid);if(tabName&&!L.genName)L.genName=tabName;if(isActive)L.genCur=1;var named=0;for(var j=0;j<cands.length;j++)if(cands[j].en)named++;if(named===0&&cands.length===1){var c0=cands[0];var "
+        + "ep0=c0.ep>0?c0.ep:1;var u0=c0.href||location.href;var dup=false;for(var k=0;k<L.singles.length;k++)if(L.singles[k].name===c0.raw&&L.singles[k].url===u0)dup=true;if(!dup)L.singles.push({name:c0.raw,url:u0,ep:ep0});put(sid,ep0,{text:c0.raw,clean:false},u0);L.fromGeneric=1;if(c0.act){var "
+        + "eo=L.eps[ep0];if(eo)eo.cur=true;}return 1;}var n=0;for(var j2=0;j2<cands.length;j2++){var c=cands[j2];if(!c.en||c.ep<0)continue;var u=c.href||location.href;put(sid,c.ep,{text:c.en,clean:true},u);L.fromGeneric=1;if(c.act){var "
+        + "eo2=L.eps[c.ep];if(eo2)eo2.cur=true;}n++;}return n;}function fallbackScope(tab){var n=tab.parentElement;for(var d=0;d<3&&n;d++){try{var bs=n.querySelectorAll('button,a');for(var i=0;i<bs.length;i++){var "
+        + "t2=cleanName(txt(bs[i]));if(epName(t2))return n;var h2=bs[i].getAttribute('href')||'';if(/(\\d+)-(\\d+)-(\\d+)\\.html/.test(h2))return n;}}catch(e){}n=n.parentElement;}return null;}(function(){var all=document.querySelectorAll('[role=\"tab\"],[data-toggle=\"tab\"]');var "
+        + "groups=[];for(var i=0;i<all.length;i++){var t=all[i];var par=t.parentElement;if(!par)continue;var g=null;for(var gi=0;gi<groups.length;gi++)if(groups[gi].par===par){g=groups[gi];break;}if(!g){g={par:par,tabs:[]};groups.push(g);}g.tabs.push(t);}for(var "
+        + "gi2=0;gi2<groups.length;gi2++){var grp=groups[gi2];if(grp.tabs.length<2)continue;var grpGot=0;var grpTabs=[];for(var ti=0;ti<grp.tabs.length;ti++){var tab=grp.tabs[ti];var nm=genTabName(tab);if(!nm||nm.length>24||epName(nm))continue;var "
+        + "cnt=0;try{var tm=tabText(tab).match(/(\\d+)\\s*集/);if(tm)cnt=parseInt(tm[1],10);}catch(e){}var act2=genTabActive(tab);grpTabs.push({name:nm,count:cnt,active:act2?1:0});var pn=panelOfTab(tab);var fb=false;if(!pn){pn=fallbackScope(tab);fb=true;}if(!pn)continue;var "
+        + "sid2=boxSid(pn);if(!sid2)sid2='g'+(genSidSeq++);var got=scanGenPanel(pn,sid2,nm,act2,fb);genEpsFound+=got;grpGot+=got;}if(grpGot>0){genTabsFound+=grpTabs.length;for(var gi3=0;gi3<grpTabs.length;gi3++)genTabList.push(grpTabs[gi3]);}}var "
+        + "scanned={};for(var xi=0;xi<tabEls.length;xi++){var tel=tabEls[xi];var pn2=panelOfTab(tel);var fb2=false;if(!pn2){pn2=fallbackScope(tel);fb2=true;}if(!pn2)continue;var id2=pn2.id||'';if(id2&&scanned[id2])continue;if(id2)scanned[id2]=1;var "
+        + "nm2=tabNames[xi]||genTabName(tel);var sid3=boxSid(pn2);if(!sid3)sid3='g'+(genSidSeq++);var act3=genTabActive(tel);var got2=scanGenPanel(pn2,sid3,nm2,act3,fb2);genEpsFound+=got2;}})();sorted=lineOrder.filter(function(L){return "
+        + "L.order.length>0;});sorted.sort(function(a,b){return parseInt(a.sid,10)-parseInt(b.sid,10);});var out=[];for(var z=0;z<sorted.length&&z<8;z++){var L=sorted[z];L.order.sort(function(x,y){return x.ep-y.ep;});L.cand=cleanCand(L);var "
+        + "tn=tabFor[L.sid]||'';var nm=tn||L.genName||((sid!==''&&L.sid===sid&&activeName)?activeName:(L.cand||('线路'+(out.length+1))));var eps=[];for(var w=0;w<L.order.length&&w<300;w++){var o=L.order[w];eps.push({name:o.name,url:o.url,cur:o.cur?1:0});}out.push({sid:L.sid,name:nm,cur:((sid!==''&&L.sid===sid)||L.genCur)?1:0,episodes:eps});}var "
+        + "genLines=0;for(var zg=0;zg<sorted.length&&zg<8;zg++){if(sorted[zg].fromGeneric)genLines++;}var curEpName='';for(var ce=0;ce<out.length;ce++){var epsC=out[ce].episodes;for(var cw=0;cw<epsC.length;cw++){if(epsC[cw].cur){curEpName=epsC[cw].name;break;}}if(curEpName)break;}var "
+        + "dp=null;try{dp=dplayerEpisodes();}catch(e){dp=null;}if(dp&&dp.line)out.push(dp.line);var subs=[];try{subs=subEpsList();}catch(e){subs=[];}var diag='';if((sorted.length>1&&tabNames.length!==sorted.length)||tabRaw.length){var "
+        + "dc=[];for(var d1=0;d1<sorted.length;d1++)dc.push(sorted[d1].sid+':'+(sorted[d1].candRaw||'-'));diag='tabs='+tabNames.length+' srcA='+document.querySelectorAll('[class*=\"source\"] a').length+' srcLi='+document.querySelectorAll('[class*=\"source\"] "
+        + "li').length+' cand='+dc.join('|');var dr=[];for(var d2=0;d2<sorted.length;d2++){var Lr=sorted[d2];if(!Lr.candRaw&&Lr.raws.length)dr.push(Lr.sid+'='+Lr.raws.join('~'));}if(dr.length)diag+=(diag?' ':'')+'raw='+dr.join('|');if(tabRaw.length)diag+=(diag?' "
+        + "':'')+'tabRaw='+tabRaw.join('|');if(tabSel>=0)diag+=(diag?' ':'')+'tsel='+tabSel;if(tabNames.length!==sorted.length){var hs=[];var cs=document.querySelectorAll('ul,ol,div');for(var hi=0;hi<cs.length&&hi<80;hi++){var "
+        + "c0=cs[hi];var ch=c0.children;if(!ch||ch.length<2||ch.length>8)continue;var ts2=[];var bad=false;for(var hj=0;hj<ch.length;hj++){var tt=tabText(ch[hj]);if(!tt||tt.length>12||epName(tt)){bad=true;break;}ts2.push(tt);}if(bad||ts2.length<2)continue;hs.push(((c0.getAttribute('class')||c0.tagName)||'').slice(0,30)+':'+ts2.slice(0,3).join('~'));if(hs.length>=3)break;}if(hs.length)diag+=(diag?' "
         + "':'')+'hunt='+hs.join('|');}}function articleBody(){try{var a=document.querySelector('.post-content[itemprop=\"articleBody\"]');if(a)return a;return document.querySelector('.post-content');}catch(e){return "
         + "null;}}function inRemovedZone(el){try{var n=el;while(n&&n!==document.body){if(n.matches&&n.matches('.post-near,.content-copyright,.hot-news-section,.tags,.content-tabs,.txt-apps,.horizontal-banner,.article-ads-btn,.btn-app,.line,blockquote,table'))return "
         + "true;n=n.parentElement;}return false;}catch(e){return false;}}function dplayerCfg(el){var c='';try{c=el.getAttribute('data-config')||'';}catch(e){}if(!c)return null;try{return JSON.parse(c);}catch(e){try{var "
@@ -1513,8 +1533,10 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         + "mv=mainVideo();if(mv){var s=vidSrc(mv);if(s&&/^https?:/i.test(s))return true;}try{var c=window.player_aaaa||window.player_data||window.player_config||window.MacPlayer;if(c&&c.url)return true;}catch(e){}if(packedSource())return "
         + "true;try{var dps=document.querySelectorAll('.dplayer[data-config]');for(var i=0;i<dps.length;i++){if(dplayerUrl(dplayerCfg(dps[i])))return true;}}catch(e){}if(out&&out.length)return true;if(subs&&subs.length)return "
         + "true;try{var frs=document.querySelectorAll('iframe[src]');for(var j=0;j<frs.length;j++){var f=frs[j].getAttribute('src')||'';if(/\\/static\\/player\\//i.test(f)||/dplayer\\.html/i.test(f))return true;if(/^https?:/i.test(absUrl(f))&&!hasAdMark(frs[j])&&inPlayerCtx(frs[j]))return "
-        + "true;}}catch(e){}return false;}catch(e){return false;}}function playerCfg(){try{var c=window.player_aaaa||window.player_data||window.player_config||window.MacPlayer;if(!c)return '';return JSON.stringify(c);}catch(e){return "
-        + "'';}}return JSON.stringify({lines:out,diag:diag,pic:picOf(),player:playerCfg(),curEpName:(dp&&dp.curName)||curEpName,origin:location.origin,vid:vid,sid:sid,ep:curEp,mainStream:(dp&&dp.curUrl)||mainStream(),mainVideo:mainVideoSrc(),adSrcs:adSrcs(),adPlaying:adPlaying()?1:0,subEps:subs,hasMainPlayer:hasMainPlayer()?1:0});})()";
+        + "true;}}catch(e){}try{var vids=document.querySelectorAll('video');var mv2=mainVideo();for(var vi=0;vi<vids.length;vi++){var vv=vids[vi];if(isGifPrev(vv)||hasAdMark(vv)||inRecCtx(vv)||elHidden(vv))continue;if(vv.closest&&vv.closest('video-player,[data-playback-player]'))return "
+        + "true;var anc=vv.parentElement,plc=false;while(anc&&anc!==document.body){if(/(^|[\\s_\\-])(player|playbox|dplayer)([\\s_\\-]|$)/i.test(ctxStr(anc))){plc=true;break;}anc=anc.parentElement;}if(plc&&vidSrcAny(vv))return "
+        + "true;if(mv2&&vv===mv2&&vidSrcAny(vv))return true;}}catch(e){}return false;}catch(e){return false;}}function playerCfg(){try{var c=window.player_aaaa||window.player_data||window.player_config||window.MacPlayer;if(!c)return "
+        + "'';return JSON.stringify(c);}catch(e){return '';}}return JSON.stringify({lines:out,diag:diag,pic:picOf(),player:playerCfg(),curEpName:(dp&&dp.curName)||curEpName,origin:location.origin,vid:vid,sid:sid,ep:curEp,mainStream:(dp&&dp.curUrl)||mainStream(),mainVideo:mainVideoSrc(),adSrcs:adSrcs(),adPlaying:adPlaying()?1:0,subEps:subs,hasMainPlayer:hasMainPlayer()?1:0,tabsFound:genTabsFound,episodesFound:genEpsFound,genericLines:genLines,genTabs:genTabList});})()";
     private static final String VIDEO_PROBE = "(function(){try{function hasM(el){var n=el;while(n&&n!==document.body){var c=((n.getAttribute('class')||'')+' '+(n.getAttribute('id')||''));if(/(^|[\\s_\\-])(ad|ads|advert|advertisement|banner|sponsor|sponsored|promotion)([\\s_\\-]|$)/i.test(c))return "
                     + "true;n=n.parentElement;}return false;}function gif(v){var c=v.getAttribute('class')||'';if(/gifVideo|lazyVideo/i.test(c))return true;if(v.hasAttribute&&v.hasAttribute('data-mp4'))return true;return false;}function "
                     + "rec(el){var n=el;while(n&&n!==document.body){var c=((n.getAttribute('class')||'')+' '+(n.getAttribute('id')||''));if(/(^|[\\s_\\-])(recommend|recommended|related|thumbnail|thumbnails|preview|previews|more-videos|sidebar|also-watch)([\\s_\\-]|$)/i.test(c))return "
@@ -2756,6 +2778,27 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         }
     }
 
+    /** push v16：探针是否认出通用线路表（genericLines>0，即至少一条线来自 tab+按钮认法）。 */
+    private boolean probeGenericLines() {
+        try {
+            if (TextUtils.isEmpty(mPushProbeLines)) return false;
+            return new JSONObject(mPushProbeLines).optInt("genericLines", 0) > 0;
+        } catch (Throwable e) {
+            return false;
+        }
+    }
+
+    /** push v16：探针是否认出线路 tab 或选集按钮（tabsFound/episodesFound>0），即使还没拼成可用线路表。 */
+    private boolean probeHasGenericTable() {
+        try {
+            if (TextUtils.isEmpty(mPushProbeLines)) return false;
+            JSONObject probe = new JSONObject(mPushProbeLines);
+            return probe.optInt("tabsFound", 0) > 0 || probe.optInt("episodesFound", 0) > 0;
+        } catch (Throwable e) {
+            return false;
+        }
+    }
+
     /** push v12：探针带回的子帖表（subEps）是否可用（无 .dplayer 的文章页才有）。 */
     private boolean hasSubEps() {
         try {
@@ -2830,7 +2873,9 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         // push v12：(c) 探针主片流可用（多视频单集/单片声明地址）或 (d) 有子帖表可解析时也亮起——
         // 51吃瓜类文章页不是 MacCMS 播放页、也不会嗅到流，旧条件永远不亮。
         // push v15：嗅流单亮须有本页主播放器——列表页卡片预告/广告窗的嗅流再新鲜也不亮钮。
-        boolean show = (isMacCmsPlayPage(mPushPageUrl) && probeLinesUsable()) || (hasFreshPushSniff() && hasMainPlayer()) || hasPushMainStream() || hasSubEps();
+        // push v16：通用线路表（gaze 类非 MacCMS 播放页）也亮钮；认出 tab/集按钮且有主播放器时也亮钮
+        // （单集真标签页在播起来之前还没有嗅流，但表与播放器都已认出）。
+        boolean show = (isMacCmsPlayPage(mPushPageUrl) && probeLinesUsable()) || (probeGenericLines() && probeLinesUsable()) || (hasFreshPushSniff() && hasMainPlayer()) || hasPushMainStream() || hasSubEps() || (probeHasGenericTable() && hasMainPlayer());
         mBinding.pushPlay.setVisibility(show ? View.VISIBLE : View.GONE);
     }
 
@@ -2838,7 +2883,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     private void playNative() {
         // push v8：单片模式（无线路表但 120 秒内嗅到过流）也放行，推当前一部；单片跳过重探针（无表可探）。
         boolean multi = probeLinesUsable();
-        boolean single = !multi && ((hasFreshPushSniff() && hasMainPlayer()) || hasPushMainStream());
+        boolean single = !multi && ((hasFreshPushSniff() && hasMainPlayer()) || hasPushMainStream() || (probeHasGenericTable() && hasMainPlayer()));
         boolean sub = !multi && !single && hasSubEps();
         if (!multi && !single && !sub) {
             Notify.show("当前页面未识别到线路/集数");
@@ -2966,7 +3011,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         // push v8：单片模式（无线路表但 120 秒内嗅到过流）也放行。
         // push v14：探针已带回本页主片流时也放行——playNative 单片模式本就认 hasPushMainStream，
         // 入口门必须一致，否则 v14 按页隔离后、无本页嗅流的单 .dplayer 页会被误拒（jsdom 两推复现实锤）。
-        if (!probeLinesUsable() && !(hasFreshPushSniff() && hasMainPlayer()) && !hasPushMainStream()) {
+        if (!probeLinesUsable() && !(hasFreshPushSniff() && hasMainPlayer()) && !hasPushMainStream() && !(probeHasGenericTable() && hasMainPlayer())) {
             Notify.show("当前页面未识别到线路/集数");
             return;
         }
@@ -3022,13 +3067,12 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         String episode = BrowserMeta.episodeName(mPushPageUrl, rawTitle);
         // push v9/v6：单片模式（无线路表）时集名不用网址序号——探针带回的真集名
         // （curEpName）优先，标题里的「第X集」次之，都没有显示「正片」，不显示「第0集」/「第1集」。
+        // push v16（report11 §5）：单片模式不再用标题里的「第X集」——标题是站方模板文案，
+        // 不是探针认出的当前集；探针带不回真标签时显示「正片」，不再显示假「第X集」。
         if (!probeLinesUsable()) {
             String probeEp = probeCurEpName();
             if (!probeEp.isEmpty()) episode = probeEp;
-            else {
-                String titleEp = BrowserMeta.episodeNameFromTitle(rawTitle);
-                episode = titleEp.isEmpty() ? "正片" : titleEp;
-            }
+            else episode = "正片";
         }
         Map<String, String> headers = pushPlayHeaders();
         // push v2：探针带的 origin/vid/sid/ep（当前线路 sid + 当前集号），供 HttpEpisodeResolver 回落用；缺失时从页 URL 解析。
@@ -3169,3 +3213,4 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         super.onDestroy();
     }
 }
+
