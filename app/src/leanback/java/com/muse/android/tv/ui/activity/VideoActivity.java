@@ -524,6 +524,10 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         if (result != null && result.result() != null && (getIntent().hasExtra("browserTitle") || getIntent().hasExtra("browserLines"))) {
             browserIndex = applyBrowserMeta(result.result().getVod());
         }
+        // push v16：单片推送（无线表/全集表；标题为空时 applyBrowserMeta 不进）也要给当前集记 pageUrl，
+        // 否则 v4 探活与 v5 报错恢复都因 pageUrl 为空跳过、(e1) 兜底进不了 resolveWebEpisode。
+        // 已记过 pageUrl 或非单片时 markSinglePushEpisode 自身为空操作（由手机 v15 同款移植）。
+        if (browserIndex < 0 && result != null && result.result() != null) markSinglePushEpisode(result.result().getVod());
         if (browserIndex >= 0) getIntent().putExtra("episode_index", browserIndex);
         mVod.onDetailResult(result);
         if (browserIndex >= 0) getIntent().removeExtra("episode_index");
@@ -870,6 +874,19 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
                 item.getEpisodes().get(0).setName(episode);
         }
         return firstEpIndex;
+    }
+
+    /** push v16：单片推送的当前集记 pageUrl=浏览器页地址（v4 探活与 v5 报错恢复的入口条件，(e1) 兜底进 resolveWebEpisode 的前提；由手机 v15 同款移植）。 */
+    private void markSinglePushEpisode(Vod vod) {
+        String page = getIntent().getStringExtra("browserPage");
+        if (page == null || page.isEmpty() || vod == null || vod.getFlags() == null) return;
+        if (vod.getFlags().size() != 1) return;
+        Flag flag = vod.getFlags().get(0);
+        if (flag == null || flag.getEpisodes() == null || flag.getEpisodes().size() != 1) return;
+        Episode ep = flag.getEpisodes().get(0);
+        if (ep == null || TextUtils.isEmpty(ep.getUrl()) || !ep.getUrl().startsWith("http")) return;
+        if (!TextUtils.isEmpty(ep.getPageUrl())) return;
+        ep.setPageUrl(page);
     }
 
     /** push v2：取集名里的第一串阿拉伯数字作集号（如「第01集」→ 1），无数字返回 -1；集名按集号比对，杀掉「第01集」vs「第1集」的补零错位。 */

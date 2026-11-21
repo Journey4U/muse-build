@@ -1407,7 +1407,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         CLEAN_JS = sb.toString();
     }
     // push v1: fuzi 多线探针（MacCMS 播放页全部线路 + 每线选集表）与页面 video 直取探针——逐字取自 fuzi BrowserActivity，不转录。
-                        private static final String PROBE_JS = "(function(){function txt(el){return el?(el.innerText||'').trim():'';}function cleanName(t){return (t||'').replace(/[\\uE000-\\uF8FF]/g,'').replace(/\\s+/g,' ').trim();}function tabText(el){if(!el)return "
+                            private static final String PROBE_JS = "(function(){function txt(el){return el?(el.innerText||'').trim():'';}function cleanName(t){return (t||'').replace(/[\\uE000-\\uF8FF]/g,'').replace(/\\s+/g,' ').trim();}function tabText(el){if(!el)return "
         + "'';var parts=[];var ns=el.childNodes;for(var i=0;i<ns.length;i++){var n=ns[i];if(n.nodeType===3)parts.push(n.textContent||'');else if(n.nodeType===1){var tg=n.tagName;var cl=n.getAttribute('class')||'';if(tg==='I'||/badge|num|count/i.test(cl))continue;var "
         + "ct=(n.innerText||n.textContent||'').trim();if(ct==='广告'||/^广告?\\d+\\s*集$/.test(ct))continue;parts.push(n.innerText||n.textContent||'');}}return cleanName(parts.join(' '));}function cleanCand(L){var c=L.cand||'';if(!c)return "
         + "c;var cnt=L.order.length;var m=c.match(/^(.*?)[-_\\s·]*?(\\d+)$/);if(m&&parseInt(m[2],10)===cnt&&m[1]&&m[1].trim())c=m[1].trim();return c.replace(/[-_\\s·]+$/,'');}function picOf(){try{var m=document.querySelector('meta[property=\"og:image\"],meta[name=\"twitter:image\"]');if(m&&m.content){try{return "
@@ -1457,10 +1457,12 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         + "btn=btns[b];if(ownHidden(btn))continue;try{if(btn.getAttribute('role')==='tab'||btn.getAttribute('data-toggle')==='tab')continue;}catch(e){}if(hasAdMark(btn))continue;var t=cleanName(txt(btn));if(!t||t.length>20)continue;var "
         + "bd={id:'',mid:'',path:''};try{bd.id=btn.getAttribute('data-id')||'';bd.mid=btn.getAttribute('data-mid')||'';bd.path=btn.getAttribute('data-path')||'';}catch(e){}var nm=epName(t);if(nm){if(seen[nm])continue;seen[nm]=1;eps.push({name:nm,url:btnUrlOf(btn),cur:isCurBtn(btn)?1:0,id:bd.id,mid:bd.mid,path:bd.path,_i:b});}else{if(stopWord(t))continue;if(/^[【\\[]/.test(t))continue;singles.push({name:t,url:btnUrlOf(btn),cur:isCurBtn(btn)?1:0,id:bd.id,mid:bd.mid,path:bd.path,_i:b});}}if(!eps.length&&singles.length===1){eps.push(singles[0]);}}catch(e){}eps.sort(function(x,y){var "
         + "nx=epNumOf(x.name),ny=epNumOf(y.name);if(nx>=0&&ny>=0&&nx!==ny)return nx-ny;return x._i-y._i;});var out=[];for(var k=0;k<eps.length;k++)out.push({name:eps[k].name,url:eps[k].url,cur:eps[k].cur,id:eps[k].id||'',mid:eps[k].mid||'',path:eps[k].path||''});return "
-        + "out;}function panelCurEp(eps){for(var i=0;i<eps.length;i++){if(eps[i].cur)return eps[i].name;}if(eps.length===1)return eps[0].name;return '';}function genericTabLines(){var res={lines:[],curEpName:'',tabsFound:0,epsFound:0,tabsPending:0};try{var "
-        + "tabs=[];function addTab(el){if(!el)return;for(var q=0;q<tabs.length;q++){if(tabs[q]===el)return;}tabs.push(el);}var i,j;for(i=0;i<tabEls.length;i++)addTab(tabEls[i]);var rts=document.querySelectorAll('[role=\"tab\"],[data-toggle=\"tab\"]');for(i=0;i<rts.length;i++){if(!ownHidden(rts[i]))addTab(rts[i]);}res.tabsFound=tabs.length;if(tabs.length<2)return "
-        + "res;var firstName='';var curLineEp='';for(i=0;i<tabs.length;i++){var tab=tabs[i];var name=tabText(tab);if(!name||name.length>24||epName(name))continue;if(stopWord(name)&&!isSourceTab(name))continue;if(!firstName)firstName=name;var "
-        + "panel=tabPanelOf(tab);if(!panel)continue;var eps=panelEps(panel);if(!eps.length)continue;var cep=panelCurEp(eps);for(j=0;j<eps.length;j++)res.epsFound++;res.lines.push({sid:'g'+i,name:name,cur:isCurTab(tab)?1:0,episodes:eps});if(isCurTab(tab)&&cep)curLineEp=cep;}if(res.lines.length){if(curLineEp)res.curEpName=curLineEp;else{for(i=0;i<res.lines.length;i++){var "
+        + "out;}function panelCurEp(eps){for(var i=0;i<eps.length;i++){if(eps[i].cur)return eps[i].name;}if(eps.length===1)return eps[0].name;return '';}function genericTabLines(){var res={lines:[],curEpName:'',tabsFound:0,epsFound:0,tabsPending:0,preloadTabs:[],preloadActive:-1};try{var "
+        + "tabs=[];function addTab(el){if(!el)return;for(var q=0;q<tabs.length;q++){if(tabs[q]===el)return;}tabs.push(el);}var i,j;for(i=0;i<tabEls.length;i++)addTab(tabEls[i]);var rts=document.querySelectorAll('[role=\"tab\"],[data-toggle=\"tab\"]');for(i=0;i<rts.length;i++){if(!ownHidden(rts[i]))addTab(rts[i]);}res.tabsFound=tabs.length;try{window.__musePreloadTabs=tabs;window.__musePreloadClick=function(k){var "
+        + "t=(window.__musePreloadTabs||[])[k];if(!t)return false;try{t.click();return true;}catch(e){return false;}};window.__musePreloadReady=function(k){var t=(window.__musePreloadTabs||[])[k];if(!t)return false;var "
+        + "p=tabPanelOf(t);if(!p)return false;try{return panelEps(p).length>0;}catch(e){return false;}};}catch(e){}if(tabs.length<2)return res;var firstName='';var curLineEp='';for(i=0;i<tabs.length;i++){var tab=tabs[i];var "
+        + "name=tabText(tab);if(!name||name.length>24||epName(name))continue;if(stopWord(name)&&!isSourceTab(name))continue;if(!firstName)firstName=name;var panel=tabPanelOf(tab);if(!panel)continue;if(isCurTab(tab)&&res.preloadActive<0)res.preloadActive=i;var "
+        + "eps=panelEps(panel);if(!eps.length){try{if(!panel.querySelectorAll('button,a').length)res.preloadTabs.push(i);}catch(e){}continue;}var cep=panelCurEp(eps);for(j=0;j<eps.length;j++)res.epsFound++;res.lines.push({sid:'g'+i,name:name,cur:isCurTab(tab)?1:0,episodes:eps});if(isCurTab(tab)&&cep)curLineEp=cep;}if(res.lines.length){if(curLineEp)res.curEpName=curLineEp;else{for(i=0;i<res.lines.length;i++){var "
         + "ce=panelCurEp(res.lines[i].episodes);if(ce){res.curEpName=ce;break;}}}return res;}res.tabsPending=1;if(firstName){var cand=[];var seenU={};var tabParents={};for(i=0;i<tabs.length;i++){try{var p=tabs[i].parentElement;if(p)tabParents[p.tagName+'|'+(p.getAttribute('class')||'')+'|'+(p.getAttribute('id')||'')]=1;}catch(e){}}var "
         + "links=document.querySelectorAll('a[href]');for(i=0;i<links.length;i++){var a=links[i];var h=a.href||'';var m=h.match(/(\\d+)-(\\d+)-(\\d+)\\.html($|\\?)/);if(!m)continue;if(vid&&m[1]!==vid)continue;var "
         + "par=null;try{par=a.parentElement;}catch(e){}var pk='';try{pk=par?par.tagName+'|'+(par.getAttribute('class')||'')+'|'+(par.getAttribute('id')||''):'';}catch(e){}if(tabParents[pk])continue;if(hasAdMark(a)||inRecCtx(a))continue;try{if(a.closest&&(a.closest('header')||a.closest('nav')||a.closest('footer')))continue;}catch(e){}var "
@@ -1528,7 +1530,11 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         + "true;}catch(e){}try{if(mainVideoSrc())return true;}catch(e){}try{var c=window.player_aaaa;if(c)return true;}catch(e){}try{if(mediaDefDefault())return true;}catch(e){}try{if(packedSource())return true;}catch(e){}try{if(dp&&dp.line)return "
         + "true;}catch(e){}try{if(out&&out.length)return true;}catch(e){}try{if(subs&&subs.length)return true;}catch(e){}try{var fs=document.querySelectorAll('iframe');for(var i=0;i<fs.length;i++){var s='';try{s=fs[i].getAttribute('src')||fs[i].src||'';}catch(e2){}if(s&&(/\\/static\\/player\\//i.test(s)||/dplayer\\.html/i.test(s)||/artplayer\\.html/i.test(s)||/ckplayer\\.html/i.test(s)||/art\\.php/i.test(s)))return "
         + "true;}}catch(e){}return false;}function playerCfg(){try{var c=window.player_aaaa||window.player_data||window.player_config||window.MacPlayer;if(!c)return '';return JSON.stringify(c);}catch(e){return '';}}return "
-        + "JSON.stringify({lines:out,diag:diag,pic:picOf(),player:playerCfg(),curEpName:(dp&&dp.curName)||curEpName,iframeVideo:iframeVideo(),origin:location.origin,vid:vid,sid:sid,ep:curEp,mainStream:(dp&&dp.curUrl)||mainStream(),mainVideo:mainVideoSrc(),adSrcs:adSrcs(),adPlaying:adPlaying()?1:0,subEps:subs,hasMainPlayer:hasMainPlayer()?1:0,tabsFound:(gen?gen.tabsFound:0),epsFound:(gen?gen.epsFound:0),tabsPending:(gen?gen.tabsPending:0)});})()";
+        + "JSON.stringify({lines:out,diag:diag,pic:picOf(),player:playerCfg(),curEpName:(dp&&dp.curName)||curEpName,iframeVideo:iframeVideo(),origin:location.origin,vid:vid,sid:sid,ep:curEp,mainStream:(dp&&dp.curUrl)||mainStream(),mainVideo:mainVideoSrc(),adSrcs:adSrcs(),adPlaying:adPlaying()?1:0,subEps:subs,hasMainPlayer:hasMainPlayer()?1:0,tabsFound:(gen?gen.tabsFound:0),epsFound:(gen?gen.epsFound:0),tabsPending:(gen?gen.tabsPending:0),preloadTabs:(gen?gen.preloadTabs:[]),preloadActive:(gen?gen.preloadActive:-1),tabLines:((sorted.length===0&&!dp)?1:0)});})()";
+    // push v16：gaze 懒加载面板预加载——点 tab / 判面板出集的两段小 JS（%d 是探针
+    // __musePreloadTabs 里的下标；助手未就绪或序号越界时返回 '0'，调用方按超时处理）。
+    private static final String PRELOAD_CLICK_JS = "(function(){try{return window.__musePreloadClick&&window.__musePreloadClick(%d)?'1':'0';}catch(e){return '0';}})()";
+    private static final String PRELOAD_READY_JS = "(function(){try{return window.__musePreloadReady&&window.__musePreloadReady(%d)?'1':'0';}catch(e){return '0';}})()";
     private static final String VIDEO_PROBE = "(function(){try{function hasM(el){var n=el;while(n&&n!==document.body){var c=((n.getAttribute('class')||'')+' '+(n.getAttribute('id')||''));if(/(^|[\\s_\\-])(ad|ads|advert|advertisement|banner|sponsor|sponsored|promotion)([\\s_\\-]|$)/i.test(c))return "
                     + "true;n=n.parentElement;}return false;}function gif(v){var c=v.getAttribute('class')||'';if(/gifVideo|lazyVideo/i.test(c))return true;if(v.hasAttribute&&v.hasAttribute('data-mp4'))return true;return false;}function "
                     + "rec(el){var n=el;while(n&&n!==document.body){var c=((n.getAttribute('class')||'')+' '+(n.getAttribute('id')||''));if(/(^|[\\s_\\-])(recommend|recommended|related|thumbnail|thumbnails|preview|previews|more-videos|sidebar|also-watch)([\\s_\\-]|$)/i.test(c))return "
@@ -2040,6 +2046,12 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 // push v1：导航开始，清多线探针状态（海报 mPushPagePic 不清，活过详情→播放页一跳）；记当前页地址。
                 mPushPageUrl = url;
                 mPushProbeLines = "";
+                // push v16：切页即清预加载单次标记（新页重探后可再预加载）并撤掉未跑完的预加载轮询。
+                mPushPreloadAttempted = false;
+                if (mPushPreloadPoll != null) {
+                    if (mBinding != null && mBinding.web != null) mBinding.web.removeCallbacks(mPushPreloadPoll);
+                    mPushPreloadPoll = null;
+                }
                 // TV push v4：player.url 与 iframe 视频流也是本页的，切页同清，免得旧页流串到新页。
                 mPushProbePlayerUrl = "";
                 mPushIframeVideo = "";
@@ -3092,6 +3104,10 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     }
 
     private void continuePushPlay() {
+        continuePushPlay(true);
+    }
+
+    private void continuePushPlay(boolean allowPreload) {
         // push v8：单片模式（无线路表但 120 秒内嗅到过流）也放行。
         // TV push v4 fix 3(b)：单片模式第三条路——探针在同源 iframe 里见过视频流。
         if (!probeLinesUsable() && !(hasFreshPushSniff() && hasMainPlayer()) && !hasFreshIframeVideo() && !hasPushMainStream() && !hasProbeTable()) {
@@ -3121,6 +3137,10 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                         DebugLogStore.add("WebPlay", "push 点推重探 线路=" + probeLines.length());
                     }
                 }
+                // push v16：gaze 懒加载面板预加载——探针发现 tab+按钮式线路有未加载面板时
+                // 先逐个点开 tab 等面板出集、点回原 tab，再重探收全表；预加载跑起来即 return，
+                // 续跑由预加载完成时重进 continuePushPlay(false) 接手（不再二次预加载）。
+                if (allowPreload && startPushPreloadIfNeeded(pobj, probePage)) return;
             }
             else {
                 mPushMainStream = "";
@@ -3169,6 +3189,82 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         void onFailed();
     }
 
+    // ===== push v16：gaze 懒加载面板预加载（点推时驱动，复用 (c) 同款 300ms 轮询写法）=====
+    // 探针是同步 IIFE，等不了站方异步加载（/play_source_group 回包），故点 tab 与轮询
+    // 必须走 Java 侧：点开 tab → 轮询 __musePreloadReady → 出集或单 tab 4 秒超时即下一
+    // tab；总上限 10 秒；收完点回原 tab（恢复用户视角）再重探收全表。MacCMS/dplayer 页
+    // tabLines==0 不进；面板已全加载时 preloadTabs 为空，不点任何 tab。
+    private boolean startPushPreloadIfNeeded(JSONObject pobj, String probePage) {
+        if (mPushPreloadAttempted) return false;
+        if (pobj == null || pobj.optInt("tabLines", 0) != 1) return false;
+        JSONArray tabs = pobj.optJSONArray("preloadTabs");
+        if (tabs == null || tabs.length() == 0) return false;
+        if (!probePage.equals(mPushPageUrl)) return false;
+        if (mBinding == null || mBinding.web == null) return false;
+        int[] idx = new int[tabs.length()];
+        for (int i = 0; i < tabs.length(); i++) idx[i] = tabs.optInt(i, -1);
+        if (idx.length == 0 || idx[0] < 0) return false;
+        mPushPreloadAttempted = true;
+        mPushPreloadTabs = idx;
+        mPushPreloadPos = 0;
+        mPushPreloadActive = pobj.optInt("preloadActive", -1);
+        mPushPreloadPage = probePage;
+        mPushPreloadDeadline = SystemClock.uptimeMillis() + 10000;
+        clickPreloadTab(0);
+        return true;
+    }
+
+    private void clickPreloadTab(int pos) {
+        if (mBinding == null || mBinding.web == null || !mPushPreloadPage.equals(mPushPageUrl)) {
+            finishPushPreload();
+            return;
+        }
+        mPushPreloadTabDeadline = SystemClock.uptimeMillis() + 4000;
+        mBinding.web.evaluateJavascript(String.format(PRELOAD_CLICK_JS, mPushPreloadTabs[pos]), v -> schedulePushPreloadPoll());
+    }
+
+    private void schedulePushPreloadPoll() {
+        if (mPushPreloadPoll != null && mBinding != null && mBinding.web != null) mBinding.web.removeCallbacks(mPushPreloadPoll);
+        mPushPreloadPoll = this::pollPushPreload;
+        if (mBinding != null && mBinding.web != null) mBinding.web.postDelayed(mPushPreloadPoll, 300);
+    }
+
+    private void pollPushPreload() {
+        if (mBinding == null || mBinding.web == null || !mPushPreloadPage.equals(mPushPageUrl)) {
+            finishPushPreload();
+            return;
+        }
+        if (SystemClock.uptimeMillis() > mPushPreloadDeadline) {
+            finishPushPreload();
+            return;
+        }
+        mBinding.web.evaluateJavascript(String.format(PRELOAD_READY_JS, mPushPreloadTabs[mPushPreloadPos]), v -> {
+            boolean ready = "1".equals(v == null ? "" : v.replace("\"", "").trim());
+            if (ready || SystemClock.uptimeMillis() > mPushPreloadTabDeadline) {
+                mPushPreloadPos++;
+                if (mPushPreloadPos >= mPushPreloadTabs.length) finishPushPreload();
+                else clickPreloadTab(mPushPreloadPos);
+                return;
+            }
+            schedulePushPreloadPoll();
+        });
+    }
+
+    private void finishPushPreload() {
+        if (mPushPreloadPoll != null && mBinding != null && mBinding.web != null) mBinding.web.removeCallbacks(mPushPreloadPoll);
+        mPushPreloadPoll = null;
+        // 点回原来选中的 tab（恢复用户视角；无原 tab 或页已切走时跳过）。
+        if (mPushPreloadActive >= 0 && mBinding != null && mBinding.web != null && mPushPreloadPage.equals(mPushPageUrl)) {
+            mBinding.web.evaluateJavascript(String.format(PRELOAD_CLICK_JS, mPushPreloadActive), v -> {
+            });
+        }
+        // 重探一次收全表，再走正常点推续跑（allowPreload=false，防循环）；页已切走/
+        // 浏览器已关时不续跑。
+        if (mBinding != null && mBinding.web != null && mPushPreloadPage.equals(mPushPageUrl)) {
+            continuePushPlay(false);
+        }
+    }
+
     // push v14 (c)：后台栈里现存浏览器的弱引用（onCreate 登记、onDestroy 注销；用户关掉
     // 浏览器后引用失效，点集直接回落 toast，不重建浏览器）。
     private static volatile WeakReference<WebPlayActivity> sLiveBrowser;
@@ -3190,6 +3286,18 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     // “点按钮”；mBrowserClickLanded 表示导航已落到目标页（mPushPageUrl == mBrowserClickPage）。
     private boolean mBrowserClickPageResolve;
     private boolean mBrowserClickLanded;
+    // push v16：gaze 懒加载面板预加载——只在点推那一刻跑（后台探针不跑，不扰用户浏览）：
+    // 探针报 preloadTabs（tab+按钮式线路里面板未加载的 tab 下标，见 PROBE_JS 的
+    // __musePreloadTabs）时逐个点开 tab 等面板出选集按钮，收完点回原 tab 再重探；
+    // mPushPreloadAttempted 是单次标记（一次点推最多预加载一轮，防重探循环），切页复位。
+    private Runnable mPushPreloadPoll;
+    private long mPushPreloadDeadline;
+    private long mPushPreloadTabDeadline;
+    private int[] mPushPreloadTabs;
+    private int mPushPreloadPos;
+    private int mPushPreloadActive = -1;
+    private String mPushPreloadPage = "";
+    private boolean mPushPreloadAttempted;
 
     /**
      * push v14 (c)：播放器请求后台浏览器点一集（data-id）。浏览器已关/已销毁时返回 false，
@@ -3399,6 +3507,26 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         mBrowserClickLanded = false;
     }
 
+    // push v16：电视站名回落（线路名）——与 BrowserMeta.siteName 同款逻辑，但 '-' 后跟数字时
+    // 不断段（FWAY-104、SNOS-334 是编号的一部分，不切成 104/334；口径与
+    // BrowserMeta.cutSuffix 的 A3 规则一致）。共用 BrowserMeta.siteName 是手机电视共用代码
+    // （手机 WebPlayActivity 同款调用），改它会连手机一起改，故电视侧本地复刻一份，
+    // 手机行为零变化。BOILERPLATE 与 BrowserMeta 的同名常量同值。
+    private static final String SITE_NAME_BOILERPLATE = "(高清完整版|完整版|高清版|免费在线观看|在线观看|在线播放|高清在线|免费观看|全集观看|免费在线|在线免费)";
+    private static String siteNameKeepNumber(String rawTitle, String fallback) {
+        if (rawTitle != null) {
+            String best = "";
+            for (String segment : rawTitle.split("-(?!\\d)|[_｜|—–]")) {
+                String s = segment.replaceAll(SITE_NAME_BOILERPLATE, "").trim();
+                if (s.length() < 2) continue;
+                if (s.contains("影院") || s.contains("影视") || s.contains("影城") || s.contains("剧场") || s.contains("视频")) return s;
+                if (s.length() <= 8) best = s;
+            }
+            if (!best.isEmpty()) return best;
+        }
+        return fallback == null ? "" : fallback.trim();
+    }
+
     /** push v1：MacCMS 播放页转播放——当前集直达流 + 全部线路表进原生播放器。 */
     private void startProbedPlay(String stream) {
         String rawTitle = mBinding.web.getTitle();
@@ -3419,7 +3547,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
             }
         } catch (Throwable ignored) {
         }
-        if (flag.isEmpty()) flag = BrowserMeta.siteName(rawTitle, mTitle);
+        if (flag.isEmpty()) flag = siteNameKeepNumber(rawTitle, mTitle);
         String episode = BrowserMeta.episodeName(mPushPageUrl, rawTitle);
         // push v12：真标签优先——探针带回 curEpName（HD中字/第33集）时一律用它，盖掉标题/网址序号；
         // 单片模式去掉标题取集（report11 §5 补丁）：标题里的「第X集」是假集名（如枫叶播放页标题
@@ -3556,6 +3684,9 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     protected void onDestroy() {
         // push v14 (c)：销毁时取消进行中的点集请求、注销现存浏览器（回调不再回交）。
         cancelBrowserEpisodeClick();
+        // push v16：销毁时撤掉未跑完的预加载轮询（回调不再续跑）。
+        if (mPushPreloadPoll != null && mBinding != null && mBinding.web != null) mBinding.web.removeCallbacks(mPushPreloadPoll);
+        mPushPreloadPoll = null;
         if (sLiveBrowser != null && sLiveBrowser.get() == this) sLiveBrowser = null;
         cancelPushProbeRetry();
         if (mBinding != null) {
