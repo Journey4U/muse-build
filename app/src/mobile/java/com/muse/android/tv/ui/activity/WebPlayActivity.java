@@ -1542,6 +1542,13 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         + "true;var anc=vv.parentElement,plc=false;while(anc&&anc!==document.body){if(/(^|[\\s_\\-])(player|playbox|dplayer)([\\s_\\-]|$)/i.test(ctxStr(anc))){plc=true;break;}anc=anc.parentElement;}if(plc&&vidSrcAny(vv))return "
         + "true;if(mv2&&vv===mv2&&vidSrcAny(vv))return true;}}catch(e){}return false;}catch(e){return false;}}function playerCfg(){try{var c=window.player_aaaa||window.player_data||window.player_config||window.MacPlayer;if(!c)return "
         + "'';return JSON.stringify(c);}catch(e){return '';}}return JSON.stringify({lines:out,diag:diag,pic:picOf(),player:playerCfg(),curEpName:(dp&&dp.curName)||curEpName,origin:location.origin,vid:vid,sid:sid,ep:curEp,mainStream:(dp&&dp.curUrl)||mainStream(),mainVideo:mainVideoSrc(),adSrcs:adSrcs(),adPlaying:adPlaying()?1:0,subEps:subs,hasMainPlayer:hasMainPlayer()?1:0,tabsFound:genTabsFound,episodesFound:genEpsFound,genericLines:genLines,genTabs:genTabList});})()";
+    // push v20：gaze 懒加载面板预加载——tab+按钮式线路有未加载面板（data-loaded=false）时逐个点开 tab 让站方填集、点回原 tab；返回 {"clicked":N,"pending":P}。
+    private static final String PROBE_PRELOAD_JS = "(function(){try{var all=document.querySelectorAll('[role=\"tab\"],[data-toggle=\"tab\"]');var groups=[];for(var i=0;i<all.length;i++){var t=all[i];var par=t.parentElement;if(!par)continue;var g=null;for(var gi=0;gi<groups.length;gi++)if(groups[gi].par===par){g=groups[gi];break;}if(!g){g={par:par,tabs:[]};groups.push(g);}g.tabs.push(t);}if(!window.__museProbePreloadPanels)window.__museProbePreloadPanels=[];var clicked=0,pending=0;function alreadyClicked(p){var a=window.__museProbePreloadPanels;for(var k=0;k<a.length;k++)if(a[k]===p)return true;return false;}function panelOf(el){var id='';try{id=el.getAttribute('aria-controls')||'';}catch(e){}var tgt='';try{tgt=el.getAttribute('data-target')||el.getAttribute('href')||'';}catch(e){}if(tgt&&tgt.charAt(0)==='#')id=tgt.slice(1);if(id){try{var pp=document.getElementById(id);if(pp)return pp;}catch(e){}}try{var par2=el.parentElement;if(!par2)return null;var sibs=par2.querySelectorAll('[role=\"tab\"]');var idx=-1;for(var k=0;k<sibs.length;k++)if(sibs[k]===el){idx=k;break;}if(idx<0)return null;var anc=par2;for(var d=0;d<4&&anc;d++){var panels=anc.querySelectorAll('[role=\"tabpanel\"]');if(panels.length===sibs.length)return panels[idx];anc=anc.parentElement;}}catch(e){}return null;}function isActive(el){try{var cl=el.getAttribute('class')||'';return /(^|\\s)(active|current|cur|selected|on)(\\s|$)/.test(cl)||el.getAttribute('aria-selected')==='true';}catch(e){return false;}}function hasEps(p){try{var bs=p.querySelectorAll('button');for(var i=0;i<bs.length;i++){var b=bs[i];if(b.getAttribute('data-id'))return true;var tx=(b.innerText||b.textContent||'').trim();if(/^第\\d+集$/.test(tx)||/^\\d+$/.test(tx))return true;}return false;}catch(e){return false;}}for(var gi2=0;gi2<groups.length;gi2++){var grp=groups[gi2];if(grp.tabs.length<2)continue;var gaze=true;var panels=[];for(var ti=0;ti<grp.tabs.length;ti++){var tab=grp.tabs[ti];if(tab.tagName!=='BUTTON'){gaze=false;break;}var pn=panelOf(tab);if(!pn||!pn.dataset||pn.dataset.loaded===undefined){gaze=false;break;}panels.push(pn);}if(!gaze)continue;var orig=null;for(var ai=0;ai<grp.tabs.length;ai++)if(isActive(grp.tabs[ai])){orig=grp.tabs[ai];break;}if(!orig)orig=grp.tabs[0];var groupClicked=0;for(var pi=0;pi<panels.length;pi++){var p2=panels[pi];if(p2.dataset.loaded==='true')continue;if(hasEps(p2))continue;pending++;if(alreadyClicked(p2))continue;try{grp.tabs[pi].click();}catch(e){}window.__museProbePreloadPanels.push(p2);clicked++;groupClicked++;}if(groupClicked>0&&orig){try{orig.click();}catch(e){}}}return JSON.stringify({clicked:clicked,pending:pending});}catch(e){return '{\"clicked\":0,\"pending\":0}';}})()";
+    // push v20：预加载轮询——返回还未出集的已点面板数（'0' 即齐了）。
+    private static final String PROBE_PRELOAD_POLL_JS = "(function(){try{var a=window.__museProbePreloadPanels;if(!a||!a.length)return '0';var n=0;for(var i=0;i<a.length;i++){var p=a[i];try{if(!p||p.isConnected===false)continue;if(p.dataset&&p.dataset.loaded==='true')continue;var bs=p.querySelectorAll('button');var has=false;for(var j=0;j<bs.length;j++){var b=bs[j];if(b.getAttribute('data-id')){has=true;break;}var tx=(b.innerText||b.textContent||'').trim();if(/^第\\d+集$/.test(tx)||/^\\d+$/.test(tx)){has=true;break;}}if(!has)n++;}catch(e){}}return String(n);}catch(e){return '0';}})()";
+    /** push v20：预加载轮询间隔 300ms、上限 20 轮（6 秒到顶即收表，不无限等站方接口）。 */
+    private static final long PROBE_PRELOAD_POLL_MS = 300;
+    private static final int PROBE_PRELOAD_MAX_TRIES = 20;
     private static final String VIDEO_PROBE = "(function(){try{function hasM(el){var n=el;while(n&&n!==document.body){var c=((n.getAttribute('class')||'')+' '+(n.getAttribute('id')||''));if(/(^|[\\s_\\-])(ad|ads|advert|advertisement|banner|sponsor|sponsored|promotion)([\\s_\\-]|$)/i.test(c))return "
                     + "true;n=n.parentElement;}return false;}function gif(v){var c=v.getAttribute('class')||'';if(/gifVideo|lazyVideo/i.test(c))return true;if(v.hasAttribute&&v.hasAttribute('data-mp4'))return true;return false;}function "
                     + "rec(el){var n=el;while(n&&n!==document.body){var c=((n.getAttribute('class')||'')+' '+(n.getAttribute('id')||''));if(/(^|[\\s_\\-])(recommend|recommended|related|thumbnail|thumbnails|preview|previews|more-videos|sidebar|also-watch)([\\s_\\-]|$)/i.test(c))return "
@@ -1588,6 +1595,10 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     private Runnable mPushProbeRetry;
     private int mPushProbeRetryCount;
     private String mPushProbeRetryPageUrl = "";
+    // push v20：gaze 懒加载面板预加载状态（tab+按钮式线路、面板 data-loaded=false 时先点开等站方填集）。
+    private Runnable mPushProbePreloadPoll;
+    private int mPushProbePreloadTries;
+    private String mPushProbePreloadPageUrl = "";
     private ActivityWebPlayBinding mBinding;
     private WebResourceResponse mEmpty;
     private HashSet<String> mBlockedHosts = new HashSet<>();
@@ -2061,6 +2072,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 // push v14：导航开始先藏推送钮——旧页嗅流亮起的钮不许带到新页，等新页探针跑完再由 updatePushButton 决定。
                 if (mBinding != null && mBinding.pushPlay != null) mBinding.pushPlay.setVisibility(View.GONE);
                 cancelPushProbeRetry();
+                cancelPushProbePreloadPoll();
             }
 
             @Override
@@ -2671,7 +2683,10 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         return true;
     }
 
-    /** push v1：多线探针——探当前播放页全部线路与选集表，存 mPushProbeLines；够格才亮播放按钮。后台线程进来时先 post 到主线程（evaluateJavascript 必须在主线程调）。 */
+    /** push v1：多线探针——探当前播放页全部线路与选集表，存 mPushProbeLines；够格才亮播放按钮。后台线程进来时先 post 到主线程（evaluateJavascript 必须在主线程调）。
+     * push v20：先跑 PROBE_PRELOAD_JS——tab+按钮式线路（gaze）有未加载面板（data-loaded=false）时逐个点开 tab
+     * 让站方自己填集，轮询等面板出选集按钮（300ms 一轮、最多 20 轮=6 秒），再跑 PROBE_JS 收表；
+     * 预加载已点回原来选中的 tab。MacCMS 式（面板已在 DOM 里）与枫叶（面板无 data-loaded）不触发、不多余点击。 */
     private void probePageInfo() {
         if (mBinding.web == null) return;
         if (android.os.Looper.myLooper() != android.os.Looper.getMainLooper()) {
@@ -2680,6 +2695,73 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         }
         // push v2：记下本次探针跑在哪一页——回调时页面可能已切走，回调里再记就锚错页。
         mPushProbePageUrl = mPushPageUrl;
+        cancelPushProbePreloadPoll();
+        mBinding.web.evaluateJavascript(PROBE_PRELOAD_JS, value -> {
+            if (mBinding == null || mBinding.web == null) return;
+            if (!mPushProbePageUrl.equals(mPushPageUrl)) return;
+            if (parsePreloadClicked(value) <= 0) {
+                probePageInfoCollect();
+                return;
+            }
+            schedulePushProbePreloadPoll();
+        });
+    }
+
+    /** push v20：预加载轮询——每 300ms 问一次还有几块已点面板未出集，齐了或 6 秒到顶就收表；页切走即停。 */
+    private void schedulePushProbePreloadPoll() {
+        if (mBinding == null || mBinding.web == null) return;
+        mPushProbePreloadTries = 0;
+        mPushProbePreloadPageUrl = mPushPageUrl;
+        mPushProbePreloadPoll = () -> {
+            if (mBinding == null || mBinding.web == null) return;
+            if (!mPushProbePreloadPageUrl.equals(mPushPageUrl)) return;
+            mBinding.web.evaluateJavascript(PROBE_PRELOAD_POLL_JS, value -> {
+                if (mBinding == null || mBinding.web == null) return;
+                if (!mPushProbePreloadPageUrl.equals(mPushPageUrl)) return;
+                if (parsePreloadPending(value) <= 0 || ++mPushProbePreloadTries >= PROBE_PRELOAD_MAX_TRIES) {
+                    mPushProbePreloadPoll = null;
+                    probePageInfoCollect();
+                    return;
+                }
+                if (mPushProbePreloadPoll != null) mBinding.web.postDelayed(mPushProbePreloadPoll, PROBE_PRELOAD_POLL_MS);
+            });
+        };
+        mBinding.web.postDelayed(mPushProbePreloadPoll, PROBE_PRELOAD_POLL_MS);
+    }
+
+    /** push v20：撤掉预加载轮询（新探针进场/切页/销毁时）。 */
+    private void cancelPushProbePreloadPoll() {
+        if (mPushProbePreloadPoll != null && mBinding != null && mBinding.web != null) {
+            mBinding.web.removeCallbacks(mPushProbePreloadPoll);
+        }
+        mPushProbePreloadPoll = null;
+    }
+
+    /** push v20：PROBE_PRELOAD_JS 回值里的 clicked（点开的未加载面板数）；解析失败按 0（直接收表，与 v19 一致）。 */
+    private int parsePreloadClicked(String value) {
+        try {
+            JSONObject obj = parseProbeJson(value);
+            if (obj == null) return 0;
+            return obj.optInt("clicked", 0);
+        } catch (Throwable ignored) {
+            return 0;
+        }
+    }
+
+    /** push v20：PROBE_PRELOAD_POLL_JS 回值（还未出集的已点面板数）；解析失败按 0（直接收表）。 */
+    private int parsePreloadPending(String value) {
+        if (value == null) return 0;
+        try {
+            String s = new JSONTokener(value).nextValue().toString().trim();
+            return Integer.parseInt(s);
+        } catch (Throwable ignored) {
+            return 0;
+        }
+    }
+
+    /** push v20：跑 PROBE_JS 收表（v19 原 probePageInfo 的收表回调，原样移入；预加载走完或无需预加载时调）。 */
+    private void probePageInfoCollect() {
+        if (mBinding == null || mBinding.web == null) return;
         mBinding.web.evaluateJavascript(PROBE_JS, value -> {
             // push v14：迟到的旧页探针回调直接丢弃——不许把旧页的表/主片流写回已切走的新页。
             if (!mPushProbePageUrl.equals(mPushPageUrl)) {
@@ -3442,6 +3524,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         if (sBrowserInstance != null && sBrowserInstance.get() == this) sBrowserInstance = null;
         if (pendingResolve != null) pendingResolve.onFailed();
         cancelPushProbeRetry();
+        cancelPushProbePreloadPoll();
         if (mBinding != null) {
             mBinding.web.loadUrl("about:blank");
             mBinding.web.destroy();
