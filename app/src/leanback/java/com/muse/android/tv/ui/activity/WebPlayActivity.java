@@ -1449,9 +1449,11 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         + "absUrl(h);}}catch(e){}return '';}function isCurBtn(el){try{var c=el.getAttribute('class')||'';if(/(^|\\s)(active|current|cur|selected|on|yH)(\\s|$)/.test(c))return true;if(el.getAttribute('aria-current'))return "
         + "true;if(el.getAttribute('aria-selected')==='true')return true;}catch(e){}return false;}function isCurTab(el){try{var c=el.getAttribute('class')||'';if(/(^|\\s)(active|current|cur|selected|on)(\\s|$)/.test(c))return "
         + "true;if(el.getAttribute('aria-selected')==='true')return true;}catch(e){}return false;}function tabPanelOf(tab){var tgt='';try{tgt=tab.getAttribute('aria-controls')||tab.getAttribute('data-target')||'';}catch(e){}if(!tgt){try{var "
-        + "h=tab.getAttribute('href')||'';if(h&&h.charAt(0)==='#')tgt=h;}catch(e){}}if(tgt){try{var id=tgt.charAt(0)==='#'?tgt.slice(1):tgt;var p=document.getElementById(id);if(p)return p;}catch(e){}}return null;}function "
-        + "panelEps(panel){var eps=[];var singles=[];var seen={};try{var btns=panel.querySelectorAll('button,a');for(var b=0;b<btns.length;b++){var btn=btns[b];if(ownHidden(btn))continue;try{if(btn.getAttribute('role')==='tab'||btn.getAttribute('data-toggle')==='tab')continue;}catch(e){}if(hasAdMark(btn))continue;var "
-        + "t=cleanName(txt(btn));if(!t||t.length>20)continue;var nm=epName(t);if(nm){if(seen[nm])continue;seen[nm]=1;eps.push({name:nm,url:btnUrlOf(btn),cur:isCurBtn(btn)?1:0,_i:b});}else{if(stopWord(t))continue;if(/^[【\\[]/.test(t))continue;singles.push({name:t,url:btnUrlOf(btn),cur:isCurBtn(btn)?1:0,_i:b});}}if(!eps.length&&singles.length===1){eps.push(singles[0]);}}catch(e){}eps.sort(function(x,y){var "
+        + "h=tab.getAttribute('href')||'';if(h&&h.charAt(0)==='#')tgt=h;}catch(e){}}if(tgt){try{var id=tgt.charAt(0)==='#'?tgt.slice(1):tgt;var p=document.getElementById(id);if(p)return p;}catch(e){}}try{var par=tab.parentElement;if(!par)return "
+        + "null;var sibs=par.querySelectorAll('[role=\"tab\"]');var idx=-1;for(var k=0;k<sibs.length;k++){if(sibs[k]===tab){idx=k;break;}}if(idx<0)return null;var anc=par;for(var d=0;d<4&&anc;d++){var panels=anc.querySelectorAll('[role=\"tabpanel\"]');if(panels.length===sibs.length)return "
+        + "panels[idx];anc=anc.parentElement;}}catch(e){}return null;}function panelEps(panel){var eps=[];var singles=[];var seen={};try{var btns=panel.querySelectorAll('button,a');for(var b=0;b<btns.length;b++){var "
+        + "btn=btns[b];if(ownHidden(btn))continue;try{if(btn.getAttribute('role')==='tab'||btn.getAttribute('data-toggle')==='tab')continue;}catch(e){}if(hasAdMark(btn))continue;var t=cleanName(txt(btn));if(!t||t.length>20)continue;var "
+        + "nm=epName(t);if(nm){if(seen[nm])continue;seen[nm]=1;eps.push({name:nm,url:btnUrlOf(btn),cur:isCurBtn(btn)?1:0,_i:b});}else{if(stopWord(t))continue;if(/^[【\\[]/.test(t))continue;singles.push({name:t,url:btnUrlOf(btn),cur:isCurBtn(btn)?1:0,_i:b});}}if(!eps.length&&singles.length===1){eps.push(singles[0]);}}catch(e){}eps.sort(function(x,y){var "
         + "nx=epNumOf(x.name),ny=epNumOf(y.name);if(nx>=0&&ny>=0&&nx!==ny)return nx-ny;return x._i-y._i;});var out=[];for(var k=0;k<eps.length;k++)out.push({name:eps[k].name,url:eps[k].url,cur:eps[k].cur});return "
         + "out;}function panelCurEp(eps){for(var i=0;i<eps.length;i++){if(eps[i].cur)return eps[i].name;}if(eps.length===1)return eps[0].name;return '';}function genericTabLines(){var res={lines:[],curEpName:'',tabsFound:0,epsFound:0,tabsPending:0};try{var "
         + "tabs=[];function addTab(el){if(!el)return;for(var q=0;q<tabs.length;q++){if(tabs[q]===el)return;}tabs.push(el);}var i,j;for(i=0;i<tabEls.length;i++)addTab(tabEls[i]);var rts=document.querySelectorAll('[role=\"tab\"],[data-toggle=\"tab\"]');for(i=0;i<rts.length;i++){if(!ownHidden(rts[i]))addTab(rts[i]);}res.tabsFound=tabs.length;if(tabs.length<2)return "
@@ -1477,11 +1479,13 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         + "cur=location.href.split('#')[0].split('?')[0];if(cur.charAt(cur.length-1)==='/')cur=cur.slice(0,-1);if(norm===cur)continue;if(seen[norm])continue;seen[norm]=1;var nm='';try{nm=cleanName(a.innerText||a.textContent||'');}catch(e){}out2.push({name:nm,url:u});}return "
         + "out2;}catch(e){return [];}}var curEpName='';for(var ce=0;ce<out.length;ce++){var epsC=out[ce].episodes;for(var cw=0;cw<epsC.length;cw++){if(epsC[cw].cur){curEpName=epsC[cw].name;break;}}if(curEpName)break;}var "
         + "dp=null;try{dp=dplayerEpisodes();}catch(e){dp=null;}if(dp&&dp.line)out.push(dp.line);var subs=[];try{subs=subEpsList();}catch(e){subs=[];}var gen=null;try{gen=genericTabLines();}catch(e){gen=null;}if(gen&&gen.lines&&gen.lines.length&&out.length===0&&!dp){for(var "
-        + "gi2=0;gi2<gen.lines.length;gi2++)out.push(gen.lines[gi2]);if(!curEpName&&gen.curEpName)curEpName=gen.curEpName;}var diag='';if((sorted.length>1&&tabNames.length!==sorted.length)||tabRaw.length){var dc=[];for(var "
-        + "d1=0;d1<sorted.length;d1++)dc.push(sorted[d1].sid+':'+(sorted[d1].candRaw||'-'));diag='tabs='+tabNames.length+' srcA='+document.querySelectorAll('[class*=\"source\"] a').length+' srcLi='+document.querySelectorAll('[class*=\"source\"] "
-        + "li').length+' cand='+dc.join('|');var dr=[];for(var d2=0;d2<sorted.length;d2++){var Lr=sorted[d2];if(!Lr.candRaw&&Lr.raws.length)dr.push(Lr.sid+'='+Lr.raws.join('~'));}if(dr.length)diag+=(diag?' ':'')+'raw='+dr.join('|');if(tabRaw.length)diag+=(diag?' "
-        + "':'')+'tabRaw='+tabRaw.join('|');if(tabSel>=0)diag+=(diag?' ':'')+'tsel='+tabSel;if(tabNames.length!==sorted.length){var hs=[];var cs=document.querySelectorAll('ul,ol,div');for(var hi=0;hi<cs.length&&hi<80;hi++){var "
-        + "c0=cs[hi];var ch=c0.children;if(!ch||ch.length<2||ch.length>8)continue;var ts2=[];var bad=false;for(var hj=0;hj<ch.length;hj++){var tt=tabText(ch[hj]);if(!tt||tt.length>12||epName(tt)){bad=true;break;}ts2.push(tt);}if(bad||ts2.length<2)continue;hs.push(((c0.getAttribute('class')||c0.tagName)||'').slice(0,30)+':'+ts2.slice(0,3).join('~'));if(hs.length>=3)break;}if(hs.length)diag+=(diag?' "
+        + "gi2=0;gi2<gen.lines.length;gi2++)out.push(gen.lines[gi2]);if(!curEpName&&gen.curEpName)curEpName=gen.curEpName;}else if(gen&&gen.lines&&gen.lines.length&&out.length>0){for(var gi3=0;gi3<gen.lines.length;gi3++){var "
+        + "gl=gen.lines[gi3];if(!gl.episodes||!gl.episodes.length)continue;var mm=(gl.episodes[0].url||'').match(/-(\\d+)-(\\d+)\\.html/);if(!mm)continue;var gsid=mm[1];for(var oi=0;oi<out.length;oi++){if(out[oi].sid===gsid&&/^线路\\d+$/.test(out[oi].name||'')){out[oi].name=gl.name;}}}}var "
+        + "diag='';if((sorted.length>1&&tabNames.length!==sorted.length)||tabRaw.length){var dc=[];for(var d1=0;d1<sorted.length;d1++)dc.push(sorted[d1].sid+':'+(sorted[d1].candRaw||'-'));diag='tabs='+tabNames.length+' "
+        + "srcA='+document.querySelectorAll('[class*=\"source\"] a').length+' srcLi='+document.querySelectorAll('[class*=\"source\"] li').length+' cand='+dc.join('|');var dr=[];for(var d2=0;d2<sorted.length;d2++){var "
+        + "Lr=sorted[d2];if(!Lr.candRaw&&Lr.raws.length)dr.push(Lr.sid+'='+Lr.raws.join('~'));}if(dr.length)diag+=(diag?' ':'')+'raw='+dr.join('|');if(tabRaw.length)diag+=(diag?' ':'')+'tabRaw='+tabRaw.join('|');if(tabSel>=0)diag+=(diag?' "
+        + "':'')+'tsel='+tabSel;if(tabNames.length!==sorted.length){var hs=[];var cs=document.querySelectorAll('ul,ol,div');for(var hi=0;hi<cs.length&&hi<80;hi++){var c0=cs[hi];var ch=c0.children;if(!ch||ch.length<2||ch.length>8)continue;var "
+        + "ts2=[];var bad=false;for(var hj=0;hj<ch.length;hj++){var tt=tabText(ch[hj]);if(!tt||tt.length>12||epName(tt)){bad=true;break;}ts2.push(tt);}if(bad||ts2.length<2)continue;hs.push(((c0.getAttribute('class')||c0.tagName)||'').slice(0,30)+':'+ts2.slice(0,3).join('~'));if(hs.length>=3)break;}if(hs.length)diag+=(diag?' "
         + "':'')+'hunt='+hs.join('|');}}function iframeVideo(){try{var fs=document.querySelectorAll('iframe');for(var i=0;i<fs.length;i++){try{var d=fs[i].contentDocument;if(!d)continue;var v=d.querySelector('video');if(!v)continue;var "
         + "s=v.currentSrc||v.src||'';if(s&&/\\.m3u8|\\.mp4/i.test(s))return s;}catch(e){}}return '';}catch(e){return '';}}function isStreamUrl(u){if(!u)return false;var l=(''+u).toLowerCase();var q=l.indexOf('?');var "
         + "p=q>0?l.substring(0,q):l;if(p.slice(-5)==='.m3u8'||p.slice(-4)==='.mp4')return true;var i=l.indexOf('.m3u8');while(i>=0){var a=i+5;if(a>=l.length||l.charAt(a)==='&'||l.charAt(a)==='#')return true;i=l.indexOf('.m3u8',a);}i=l.indexOf('.mp4');while(i>=0){var "
@@ -2742,19 +2746,23 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
 
     // push v3：探针补跑——选集表可能是 JS 后渲染的，页完那一刻还没进 DOM，探针跑空表按钮就不亮。
     // 页完后 0.5/1.5/3 秒各补跑一次，只在还没探到可用线路时跑，探到就停，最多 3 次；页切走或 Activity 销毁时不跑。
+    // push v13 F3：停条件只看表（probeLinesUsable() || hasSubEps()），嗅流状态不再压制补跑。
     // TV push v4 fix 3(b)：hsck 类播放器 iframe 在倒计时+点按后才挂载（页完 6 秒后），快补跑
     // （0.5/1.5/3 秒）跑完时 iframe 还不存在。按钮未亮且是 MacCMS 播放页时，每 5 秒再补跑，
     // 最多到第 14 次（约 60 秒），亮灯/切页/销毁即停——有界，绝不无界跑。
     private void schedulePushProbeRetry() {
         cancelPushProbeRetry();
-        if (probeLinesUsable() || hasFreshPushSniff() || hasFreshIframeVideo() || hasSubEps() || hasPushMainStream()) return;
+        // push v13 F3: retry stops on the table only (probeLinesUsable() || hasSubEps());
+        // a sniffed stream only says the player is playing, not that the table is in the
+        // DOM -- sniff state no longer suppresses the table retry.
+        if (probeLinesUsable() || hasSubEps()) return;
         if (mBinding == null || mBinding.web == null) return;
         mPushProbeRetryCount = 0;
         mPushProbeRetryPageUrl = mPushPageUrl;
         mPushProbeRetry = () -> {
             if (mBinding == null || mBinding.web == null) return;
             if (!mPushProbeRetryPageUrl.equals(mPushPageUrl)) return;
-            if (probeLinesUsable() || hasFreshPushSniff() || hasFreshIframeVideo() || hasSubEps() || hasPushMainStream()) return;
+            if (probeLinesUsable() || hasSubEps()) return;
             probePageInfo();
             mPushProbeRetryCount++;
             if (mPushProbeRetryCount < 3) {
@@ -3091,9 +3099,25 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         // 再取 VIDEO_PROBE 的主元素直链。取流顺位（不用时长）：① 探针 mainStream →
         // ② 主元素 http 直链（非 blob、非广告播放中、不在黑名单、过 isPushStreamUrl 门）→
         // ③ 已过滤的 mPushLastSniff → ④ TV 旧兜底：现扫 iframe 视频 / 探针 iframeVideo / player.url。
+        // push v13 F2: point-push re-run also writes the fresh table back (the table is a
+        // page-load snapshot, the stream is a point-push live value; a late-rendered table
+        // can still make it in time). Only a non-empty lines array is stored; an empty
+        // table never overwrites the old one. Page-anchored like probePageInfo: a late
+        // callback from an old page must not write its table back to the new page.
+        final String probePage = mPushPageUrl;
         mBinding.web.evaluateJavascript(PROBE_JS, pvalue -> {
             JSONObject pobj = parseProbeJson(pvalue);
-            if (pobj != null) storePushStreamFields(pobj);
+            if (pobj != null) {
+                storePushStreamFields(pobj);
+                if (probePage.equals(mPushPageUrl)) {
+                    JSONArray probeLines = pobj.optJSONArray("lines");
+                    if (probeLines != null && probeLines.length() > 0) {
+                        dedupePushLineNames(probeLines);
+                        mPushProbeLines = pobj.toString();
+                        DebugLogStore.add("WebPlay", "push 点推重探 线路=" + probeLines.length());
+                    }
+                }
+            }
             else {
                 mPushMainStream = "";
                 mPushAdSrcs = java.util.Collections.emptySet();

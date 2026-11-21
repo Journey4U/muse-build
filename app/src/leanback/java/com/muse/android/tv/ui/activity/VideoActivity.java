@@ -785,6 +785,9 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         // 带全部线路表时按线摆旗（当前线路置顶、当前集挂直达流、其余集留空 url 记 pageUrl、点开走 HTTP 解析）；摆成功就不再走单线路径。
         int index = applyBrowserLines(vod, episode);
         if (index >= 0) return index;
+        // push v13 F4(a)：表已落下、无当前集（-2）时不走单线回落——回落会把各线全改名为
+        // browserFlag；仍向调用方报 -1（不设 episode_index，不预选）。
+        if (index == -2) return -1;
         if (flag != null && !flag.isEmpty()) vod.setPlayFrom(flag);
         int firstEpIndex = -1;
         for (Flag item : vod.getFlags()) {
@@ -825,7 +828,7 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         }
     }
 
-    /** push v2：全部线路落地——每条线一面旗，当前线路置顶；当前集（探针 cur 标优先、无标时按集号对位兜底）挂已嗅到的直达流，其余集留空 url、记 pageUrl，未解析，点开时走 HTTP 解析。识别不出当前集时返回 -1 走旧路径。 */
+    /** push v2：全部线路落地——每条线一面旗，当前线路置顶；当前集（探针 cur 标优先、无标时按集号对位兜底）挂已嗅到的直达流，其余集留空 url、记 pageUrl，未解析，点开时走 HTTP 解析。无当前集时表照摆、流挂当前线首集、不预选，返回 -2（见 applyBrowserMeta）；表未摆上才返回 -1 走旧路径。 */
     private int applyBrowserLines(Vod vod, String episodeName) {
         String json = getIntent().getStringExtra("browserLines");
         if (json == null || json.isEmpty() || vod.getFlags().isEmpty()) return -1;
@@ -895,8 +898,13 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
                 }
                 if (list.isEmpty()) continue;
                 if (oi == 0 && lineCurrentIndex < 0) {
-                    // 当前线里始终没对上当前集：这次多线落地不成立，交回旧路径
-                    return -1;
+                    // push v13 F4(a)：当前线无当前集时不再整表作废——把嗅到的流挂到当前线首集
+                    // （播放器能播嗅到的流），但不标当前集（lineCurrentIndex 保持 -1，currentIndex
+                    // 返回 -1，不预选）；其余集照常摆全集。
+                    if (!streamPlaced) {
+                        list.get(0).setUrl(stream);
+                        streamPlaced = true;
+                    }
                 }
                 flagObj.getEpisodes().clear();
                 flagObj.getEpisodes().addAll(list);
@@ -919,7 +927,9 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
             }
             vod.setPlayFrom(from.toString());
             SpiderDebug.log("video-flow", "browser lines applied lines=%d current=%s", built.size(), built.get(0).getFlag());
-            return currentIndex;
+            // push v13 F4(a)：表已落下但无当前集时返回 -2（不是 -1）：applyBrowserMeta 见 -2 即
+            // 跳过单线回落（回落会把各线全改名为 browserFlag），仍向调用方报 -1，不设 episode_index。
+            return currentIndex >= 0 ? currentIndex : -2;
         } catch (Exception e) {
             return -1;
         }
