@@ -771,10 +771,14 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
                 // push v15 (e1)：HTTP 解析失败兜底——枫叶 parse 回 HTML 播放器页、纯 HTTP
                 // 解不出的确定性失败，改让后台栈里的现有浏览器直接导航到该集播放页，
                 // 站方自己解流、现有嗅探抓回（复用 v14 (c) 的轮询/回交机器，不另造）。
-                // url 为空的集无播放页可导航（如电视单片推送 pageUrl 缺口），直接原 toast；
-                // 浏览器已关（request 返回 false）也直接原 toast，不卡住。
-                if (!TextUtils.isEmpty(episode.getUrl())) {
-                    boolean requested = WebPlayActivity.requestBrowserPageResolve(episode.getUrl(), episode.getName(), new WebPlayActivity.BrowserEpisodeCallback() {
+                // 纠正（2026-11-21）：触发条件与导航地址一律用 getPageUrl()——getUrl()
+                // 是流地址（未解析时为空串），播放页地址在 getPageUrl()；按 getUrl()
+                // 判断兜底永不触发（探针表非当前集是 create(name, "") + setPageUrl）。
+                // 入口守卫已判 pageUrl 非空，此处判空只是防御；单片推送 pageUrl 缺口
+                // 的集根本进不了 resolveWebEpisode，仍走不到兜底（已知未修项，另批）。
+                // 浏览器已关（request 返回 false）直接原 toast，不卡住。
+                if (!TextUtils.isEmpty(episode.getPageUrl())) {
+                    boolean requested = WebPlayActivity.requestBrowserPageResolve(episode.getPageUrl(), episode.getName(), new WebPlayActivity.BrowserEpisodeCallback() {
                         @Override
                         public void onResolved(String url, Map<String, String> headers) {
                             hideProgress();
