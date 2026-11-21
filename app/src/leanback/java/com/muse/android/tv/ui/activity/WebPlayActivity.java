@@ -3186,6 +3186,10 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     private long mBrowserClickCandidateAt;
     private String mBrowserClickPage = "";
     private String mBrowserClickLine = "";
+    // push v15 (e1)：兜底导航模式标记——true 表示本次待解单是“导航到播放页”而不是
+    // “点按钮”；mBrowserClickLanded 表示导航已落到目标页（mPushPageUrl == mBrowserClickPage）。
+    private boolean mBrowserClickPageResolve;
+    private boolean mBrowserClickLanded;
 
     /**
      * push v14 (c)：播放器请求后台浏览器点一集（data-id）。浏览器已关/已销毁时返回 false，
@@ -3196,6 +3200,51 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         WebPlayActivity act = sLiveBrowser == null ? null : sLiveBrowser.get();
         if (act == null) return false;
         return act.startBrowserEpisodeClick(episodeId, lineName, episodeName, callback);
+    }
+
+    /**
+     * push v15 (e1)：解析失败兜底——播放器请求后台浏览器直接导航到某集播放页。
+     * 复用 v14 (c) 的同一套机器（seq、15 秒 deadline、500ms 轮询、首见候选多等一轮、
+     * 页切守卫、单 pending、回调），区别只有三处：① 不点按钮，改为 loadUrl(pageUrl)
+     * 直接导航到该集播放页；② 不做线 tab 预点（直接导航已进正确线路）；③ 页切守卫
+     * 的 mBrowserClickPage 置为目标 pageUrl（不是当前 mPushPageUrl）。浏览器已关/
+     * 已销毁时返回 false，调用方直接回落现有 toast；返回 true 表示请求已接下。
+     * 静音与 (c) 一致：电视 (c) 路无静音代码（仅探针 JS 把 v.loop&&v.muted 当广告
+     * 信号），故 (e1) 不另加；后台浏览器在兜底全程与 (c) 同样处于 paused 状态。
+     */
+    public static boolean requestBrowserPageResolve(String pageUrl, String episodeName, BrowserEpisodeCallback callback) {
+        if (pageUrl == null || !(pageUrl.startsWith("http://") || pageUrl.startsWith("https://")) || callback == null) return false;
+        WebPlayActivity act = sLiveBrowser == null ? null : sLiveBrowser.get();
+        if (act == null) return false;
+        return act.startBrowserPageResolve(pageUrl, episodeName, callback);
+    }
+
+    private boolean startBrowserPageResolve(String pageUrl, String episodeName, BrowserEpisodeCallback callback) {
+        if (mBinding == null || mBinding.web == null) return false;
+        cancelBrowserEpisodeClick();
+        mBrowserClickSeq++;
+        final int seq = mBrowserClickSeq;
+        mBrowserClickCallback = callback;
+        mBrowserClickPage = pageUrl;
+        mBrowserClickLine = "";
+        mBrowserClickPageResolve = true;
+        mBrowserClickLanded = false;
+        mBrowserClickBaselineSniff = mPushLastSniff == null ? "" : mPushLastSniff;
+        mBrowserClickBaselineAt = mPushSniffAt;
+        mBrowserClickBaselineMain = mPushMainStream == null ? "" : mPushMainStream;
+        mBrowserClickCandidate = "";
+        // push v15 (e1)：与 (c) 同款超时 15 秒（report18 建议值），到时无流即回落 toast。
+        mBrowserClickDeadline = SystemClock.uptimeMillis() + 15000;
+        mBinding.web.post(() -> {
+            if (seq != mBrowserClickSeq || mBrowserClickCallback == null) return;
+            if (mBinding == null || mBinding.web == null) {
+                finishBrowserEpisodeClick(seq, false, null, null);
+                return;
+            }
+            mBinding.web.loadUrl(pageUrl);
+            scheduleBrowserClickPoll(seq);
+        });
+        return true;
     }
 
     private boolean startBrowserEpisodeClick(String episodeId, String lineName, String episodeName, BrowserEpisodeCallback callback) {
@@ -3279,17 +3328,31 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
             finishBrowserEpisodeClick(seq, false, null, null);
             return;
         }
-        // 点集后用户在浏览器里切了页：本次请求作废。
-        if (!mBrowserClickPage.equals(mPushPageUrl)) {
+        if (mBrowserClickPageResolve) {
+            // push v15 (e1)：兜底是导航不是点按钮——页切守卫只在落到目标页之后才生效。
+            // 导航发出后、onPageStarted 更新 mPushPageUrl 之前仍是旧页，直接判失败会误杀；
+            // 落到目标页后用户/站方再切页才作废；一直落不到目标页则等到 15 秒超时。
+            if (mPushPageUrl.equals(mBrowserClickPage)) {
+                mBrowserClickLanded = true;
+            } else if (mBrowserClickLanded) {
+                finishBrowserEpisodeClick(seq, false, null, null);
+                return;
+            }
+        } else if (!mBrowserClickPage.equals(mPushPageUrl)) {
+            // 点集后用户在浏览器里切了页：本次请求作废。
             finishBrowserEpisodeClick(seq, false, null, null);
             return;
         }
         String sniff = mPushLastSniff == null ? "" : mPushLastSniff;
         boolean freshSniff = !sniff.isEmpty() && !sniff.equals(mBrowserClickBaselineSniff)
-                && mPushSniffAt > mBrowserClickBaselineAt && isPushStreamUrl(sniff);
+                && mPushSniffAt > mBrowserClickBaselineAt && isPushStreamUrl(sniff)
+                // push v15 (e1)：嗅流须是目标页嗅到的——导航前旧页刚嗅到的新分段不是目标集的流。
+                && (!mBrowserClickPageResolve || mPushSniffPageUrl.equals(mBrowserClickPage));
         String main = mPushMainStream == null ? "" : mPushMainStream;
         boolean freshMain = !main.isEmpty() && !main.equals(mBrowserClickBaselineMain) && isPushStreamUrl(main);
-        if (freshSniff || freshMain) {
+        // push v15 (e1)：导航落到目标页之前不认任何候选——旧页残留的流（导航前刚嗅到的
+        // 新分段）不是目标集的流，认了会播错集；落页后再走与 (c) 同款的首见多等一轮。
+        if ((!mBrowserClickPageResolve || mBrowserClickLanded) && (freshSniff || freshMain)) {
             String cand = freshSniff ? sniff : main;
             // 首见先记下候选、再等一轮（500ms）：嗅到流会触发 probePageInfo 刷新广告
             // 黑名单/片头广告标志，拿刷新后的状态再判，免得把片头广告流交回去。
@@ -3331,6 +3394,9 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         mBrowserClickPoll = null;
         mBrowserClickCallback = null;
         mBrowserClickCandidate = "";
+        // push v15 (e1)：清掉兜底模式标记，下一单 (c)/(e1) 各自重设，不带旧模式。
+        mBrowserClickPageResolve = false;
+        mBrowserClickLanded = false;
     }
 
     /** push v1：MacCMS 播放页转播放——当前集直达流 + 全部线路表进原生播放器。 */

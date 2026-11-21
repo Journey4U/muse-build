@@ -768,6 +768,37 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
 
             @Override
             public void onFailed() {
+                // push v15 (e1)：HTTP 解析失败兜底——枫叶 parse 回 HTML 播放器页、纯 HTTP
+                // 解不出的确定性失败，改让后台栈里的现有浏览器直接导航到该集播放页，
+                // 站方自己解流、现有嗅探抓回（复用 v14 (c) 的轮询/回交机器，不另造）。
+                // url 为空的集无播放页可导航（如电视单片推送 pageUrl 缺口），直接原 toast；
+                // 浏览器已关（request 返回 false）也直接原 toast，不卡住。
+                if (!TextUtils.isEmpty(episode.getUrl())) {
+                    boolean requested = WebPlayActivity.requestBrowserPageResolve(episode.getUrl(), episode.getName(), new WebPlayActivity.BrowserEpisodeCallback() {
+                        @Override
+                        public void onResolved(String url, Map<String, String> headers) {
+                            hideProgress();
+                            // push v6 Layer 1：与 HTTP 路同一守卫——解析中用户已切走别的集时不回切。
+                            if (isHostFinishing() || !episode.isSelected()) return;
+                            mWebEpHeaders = headers == null ? Collections.emptyMap() : headers;
+                            episode.setUrl(url);
+                            mVod.playResolvedEpisode(episode);
+                        }
+
+                        @Override
+                        public void onFailed() {
+                            hideProgress();
+                            if (isHostFinishing()) return;
+                            Notify.show(getString(R.string.browser_resolve_failed, episode.getName()));
+                        }
+                    });
+                    if (requested) {
+                        // 兜底进行中：progress 保持可见（本 onFailed 尚未 hideProgress），
+                        // 不弹失败 toast，等兜底回调再决定。
+                        showProgress();
+                        return;
+                    }
+                }
                 hideProgress();
                 Notify.show(getString(R.string.browser_resolve_failed, episode.getName()));
             }
