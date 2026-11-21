@@ -8,6 +8,8 @@ import android.graphics.Bitmap;
 import android.net.Uri;
 import android.net.http.SslError;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.Message;
 import android.os.SystemClock;
 import android.text.TextUtils;
@@ -54,6 +56,7 @@ import org.json.JSONObject;
 import org.json.JSONTokener;
 
 import java.io.ByteArrayInputStream;
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -1418,7 +1421,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         CLEAN_JS = sb.toString();
     }
     // push v1: fuzi 多线探针（MacCMS 播放页全部线路 + 每线选集表）与页面 video 直取探针——逐字取自 fuzi BrowserActivity，不转录。
-                            private static final String PROBE_JS = "(function(){function txt(el){return el?(el.innerText||'').trim():'';}function cleanName(t){return (t||'').replace(/[\\uE000-\\uF8FF]/g,'').replace(/\\s+/g,' ').trim();}function tabText(el){if(!el)return "
+                                private static final String PROBE_JS = "(function(){function txt(el){return el?(el.innerText||'').trim():'';}function cleanName(t){return (t||'').replace(/[\\uE000-\\uF8FF]/g,'').replace(/\\s+/g,' ').trim();}function tabText(el){if(!el)return "
         + "'';var parts=[];var ns=el.childNodes;for(var i=0;i<ns.length;i++){var n=ns[i];if(n.nodeType===3)parts.push(n.textContent||'');else if(n.nodeType===1){var tg=n.tagName;var cl=n.getAttribute('class')||'';if(tg==='I'||/badge|num|count/i.test(cl))continue;parts.push(n.innerText||n.textContent||'');}}return "
         + "cleanName(parts.join(' '));}function cleanCand(L){var c=L.cand||'';if(!c)return c;var cnt=L.order.length;var m=c.match(/^(.*?)[-_\\s·]*?(\\d+)$/);if(m&&parseInt(m[2],10)===cnt&&m[1]&&m[1].trim())c=m[1].trim();return "
         + "c.replace(/[-_\\s·]+$/,'');}function picOf(){try{var m=document.querySelector('meta[property=\"og:image\"],meta[name=\"twitter:image\"]');if(m&&m.content){try{return new URL(m.content,location.href).href}catch(e){return "
@@ -1432,8 +1435,8 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         + "bm[1]}}}}catch(e){}return '';}function epName(t){var m=t.match(/第\\s*\\d+\\s*[集期话回]|\\d+\\s*[集期]/);if(m)return m[0].replace(/\\s+/g,'');if(/^\\d{1,3}$/.test(t))return '第'+parseInt(t,10)+'集';return '';}var "
         + "STOP=/上一|下一|预告|播放|详情|首页|返回|收藏|分享|评论|清空|倒序|正序|排序|切换|展开|收起|更多|全部|点赞|纠错|下载|下集|上集/;function stopWord(t){return STOP.test(t)||/^(线路|来源)\\d{0,2}$/.test(t);}function isSourceTab(t){return /^播放源\\d{1,2}$/.test(t);}var "
         + "pm=location.pathname.match(/(\\d+)-(\\d+)-(\\d+)\\.html/);var vid=pm?pm[1]:'',sid=pm?pm[2]:'',curEp=pm?parseInt(pm[3],10):-1;if(!vid){var dv=location.pathname.match(/\\/(?:voddetail|vodplay|movie|detail|view|watch)\\/(\\d+)/);if(dv)vid=dv[1];}var "
-        + "lines={},lineOrder=[];function lineOf(s){if(!lines[s]){lines[s]={sid:s,cand:'',candRaw:'',raws:[],eps:{},order:[],singles:[]};lineOrder.push(lines[s]);}return lines[s];}function put(s,aep,name,url){var "
-        + "L=lineOf(s);var old=L.eps[aep];if(old){if(!old.clean&&name.clean){old.name=name.text;old.clean=true;old.url=url;}return;}var en={name:name.text,url:url,ep:aep,cur:(sid!==''&&s===sid&&aep===curEp),clean:name.clean};L.eps[aep]=en;L.order.push(en);}function "
+        + "lines={},lineOrder=[];function lineOf(s){if(!lines[s]){lines[s]={sid:s,cand:'',candRaw:'',raws:[],eps:{},order:[],singles:[]};lineOrder.push(lines[s]);}return lines[s];}function put(s,aep,name,url,id,path){var "
+        + "L=lineOf(s);var old=L.eps[aep];if(old){if(!old.clean&&name.clean){old.name=name.text;old.clean=true;old.url=url;}return;}var en={name:name.text,url:url,ep:aep,cur:(sid!==''&&s===sid&&aep===curEp),clean:name.clean,id:(id||''),path:(path||'')};L.eps[aep]=en;L.order.push(en);}function "
         + "nameOf(raw){var en=epName(raw);if(en)return{text:en,clean:true};return{text:raw,clean:false};}var links=document.querySelectorAll('a[href]');for(var j=0;j<links.length;j++){var a=links[j];var h=a.href||'';var "
         + "m=h.match(/(\\d+)-(\\d+)-(\\d+)\\.html($|\\?)/);if(!m)continue;if(vid&&m[1]!==vid)continue;var raw=txt(a);if(!raw)continue;var aep=parseInt(m[3],10);if(epName(raw)){put(m[2],aep,nameOf(raw),h);}else{var "
         + "craw=tabText(a);var inBox=false;try{inBox=!!(a.closest&&a.closest('.anthology-list-box,.anthology-list,.tab-pane,[id^=\"down\"],[id^=\"playlist\"],.playlist-box,[class*=\"playlist-box\"],.stui-content__playlist'));}catch(e){}if(inBox&&craw&&craw.length<=20&&craw.indexOf(':')<0&&!/^\\d+(\\.\\d+)?\\s*(小时|分钟|秒)$/.test(craw)&&!stopWord(craw)&&!/^[[【]/.test(craw)){var "
@@ -1464,10 +1467,11 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         + "cl=el.getAttribute('class')||'';return/(^|\\s)(active|current|cur|selected|on)(\\s|$)/.test(cl)||el.getAttribute('aria-selected')==='true';}catch(e){return false;}}function scanGenPanel(panel,sid,tabName,isActive,strict){if(!panel)return "
         + "0;var items=null;try{items=panel.querySelectorAll('button,a');}catch(e){return 0;}var cands=[];for(var i=0;i<items.length;i++){var el=items[i];var raw=cleanName(txt(el));if(!raw||raw.length>24)continue;if(stopWord(raw))continue;if(/^[[【]/.test(raw))continue;if(/^\\d+(\\.\\d+)?\\s*(小时|分钟|秒)$/.test(raw))continue;if(raw.indexOf(':')>=0)continue;var "
         + "rawHref='';try{rawHref=el.getAttribute('href')||'';}catch(e){}var href=rawHref;if(href){try{href=new URL(href,location.href).href;}catch(e){}}var en=epName(raw);var hm=rawHref.match(/(\\d+)-(\\d+)-(\\d+)\\.html/);if(strict&&!en&&!hm)continue;var "
-        + "epNum=-1;if(en){var dm=raw.match(/(\\d+)/);if(dm)epNum=parseInt(dm[1],10);}else{if(hm)epNum=parseInt(hm[3],10);}var act=false;try{var cl2=el.getAttribute('class')||'';act=/(^|\\s)(active|current|cur|selected|on|yH)(\\s|$)/.test(cl2)||el.getAttribute('aria-current')==='true'||el.getAttribute('aria-selected')==='true';}catch(e){}cands.push({raw:raw,href:href,en:en,ep:epNum,act:act});}if(!cands.length)return "
+        + "epNum=-1;if(en){var dm=raw.match(/(\\d+)/);if(dm)epNum=parseInt(dm[1],10);}else{if(hm)epNum=parseInt(hm[3],10);}var act=false;try{var cl2=el.getAttribute('class')||'';act=/(^|\\s)(active|current|cur|selected|on|yH)(\\s|$)/.test(cl2)||el.getAttribute('aria-current')==='true'||el.getAttribute('aria-selected')==='true';}catch(e){}var "
+        + "eid='',epath='';try{if(el.tagName==='BUTTON'||!rawHref){eid=el.getAttribute('data-id')||'';epath=el.getAttribute('data-path')||'';}}catch(e){}cands.push({raw:raw,href:href,en:en,ep:epNum,act:act,id:eid,path:epath});}if(!cands.length)return "
         + "0;var L=lineOf(sid);if(tabName&&!L.genName)L.genName=tabName;if(isActive)L.genCur=1;var named=0;for(var j=0;j<cands.length;j++)if(cands[j].en)named++;if(named===0&&cands.length===1){var c0=cands[0];var "
-        + "ep0=c0.ep>0?c0.ep:1;var u0=c0.href||location.href;var dup=false;for(var k=0;k<L.singles.length;k++)if(L.singles[k].name===c0.raw&&L.singles[k].url===u0)dup=true;if(!dup)L.singles.push({name:c0.raw,url:u0,ep:ep0});put(sid,ep0,{text:c0.raw,clean:false},u0);L.fromGeneric=1;if(c0.act){var "
-        + "eo=L.eps[ep0];if(eo)eo.cur=true;}return 1;}var n=0;for(var j2=0;j2<cands.length;j2++){var c=cands[j2];if(!c.en||c.ep<0)continue;var u=c.href||location.href;put(sid,c.ep,{text:c.en,clean:true},u);L.fromGeneric=1;if(c.act){var "
+        + "ep0=c0.ep>0?c0.ep:1;var u0=c0.href||location.href;var dup=false;for(var k=0;k<L.singles.length;k++)if(L.singles[k].name===c0.raw&&L.singles[k].url===u0)dup=true;if(!dup)L.singles.push({name:c0.raw,url:u0,ep:ep0});put(sid,ep0,{text:c0.raw,clean:false},u0,c0.id,c0.path);L.fromGeneric=1;if(c0.act){var "
+        + "eo=L.eps[ep0];if(eo)eo.cur=true;}return 1;}var n=0;for(var j2=0;j2<cands.length;j2++){var c=cands[j2];if(!c.en||c.ep<0)continue;var u=c.href||location.href;put(sid,c.ep,{text:c.en,clean:true},u,c.id,c.path);L.fromGeneric=1;if(c.act){var "
         + "eo2=L.eps[c.ep];if(eo2)eo2.cur=true;}n++;}return n;}function fallbackScope(tab){var n=tab.parentElement;for(var d=0;d<3&&n;d++){try{var bs=n.querySelectorAll('button,a');for(var i=0;i<bs.length;i++){var "
         + "t2=cleanName(txt(bs[i]));if(epName(t2))return n;var h2=bs[i].getAttribute('href')||'';if(/(\\d+)-(\\d+)-(\\d+)\\.html/.test(h2))return n;}}catch(e){}n=n.parentElement;}return null;}(function(){var all=document.querySelectorAll('[role=\"tab\"],[data-toggle=\"tab\"]');var "
         + "groups=[];for(var i=0;i<all.length;i++){var t=all[i];var par=t.parentElement;if(!par)continue;var g=null;for(var gi=0;gi<groups.length;gi++)if(groups[gi].par===par){g=groups[gi];break;}if(!g){g={par:par,tabs:[]};groups.push(g);}g.tabs.push(t);}for(var "
@@ -1477,7 +1481,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         + "scanned={};for(var xi=0;xi<tabEls.length;xi++){var tel=tabEls[xi];var pn2=panelOfTab(tel);var fb2=false;if(!pn2){pn2=fallbackScope(tel);fb2=true;}if(!pn2)continue;var id2=pn2.id||'';if(id2&&scanned[id2])continue;if(id2)scanned[id2]=1;var "
         + "nm2=tabNames[xi]||genTabName(tel);var sid3=boxSid(pn2);if(!sid3)sid3='g'+(genSidSeq++);var act3=genTabActive(tel);var got2=scanGenPanel(pn2,sid3,nm2,act3,fb2);genEpsFound+=got2;}})();sorted=lineOrder.filter(function(L){return "
         + "L.order.length>0;});sorted.sort(function(a,b){return parseInt(a.sid,10)-parseInt(b.sid,10);});var out=[];for(var z=0;z<sorted.length&&z<8;z++){var L=sorted[z];L.order.sort(function(x,y){return x.ep-y.ep;});L.cand=cleanCand(L);var "
-        + "tn=tabFor[L.sid]||'';var nm=tn||L.genName||((sid!==''&&L.sid===sid&&activeName)?activeName:(L.cand||('线路'+(out.length+1))));var eps=[];for(var w=0;w<L.order.length&&w<300;w++){var o=L.order[w];eps.push({name:o.name,url:o.url,cur:o.cur?1:0});}out.push({sid:L.sid,name:nm,cur:((sid!==''&&L.sid===sid)||L.genCur)?1:0,episodes:eps});}var "
+        + "tn=tabFor[L.sid]||'';var nm=tn||L.genName||((sid!==''&&L.sid===sid&&activeName)?activeName:(L.cand||('线路'+(out.length+1))));var eps=[];for(var w=0;w<L.order.length&&w<300;w++){var o=L.order[w];eps.push({name:o.name,url:o.url,cur:o.cur?1:0,id:o.id||'',path:o.path||''});}out.push({sid:L.sid,name:nm,cur:((sid!==''&&L.sid===sid)||L.genCur)?1:0,episodes:eps});}var "
         + "genLines=0;for(var zg=0;zg<sorted.length&&zg<8;zg++){if(sorted[zg].fromGeneric)genLines++;}var curEpName='';for(var ce=0;ce<out.length;ce++){var epsC=out[ce].episodes;for(var cw=0;cw<epsC.length;cw++){if(epsC[cw].cur){curEpName=epsC[cw].name;break;}}if(curEpName)break;}var "
         + "dp=null;try{dp=dplayerEpisodes();}catch(e){dp=null;}if(dp&&dp.line)out.push(dp.line);var subs=[];try{subs=subEpsList();}catch(e){subs=[];}var diag='';if((sorted.length>1&&tabNames.length!==sorted.length)||tabRaw.length){var "
         + "dc=[];for(var d1=0;d1<sorted.length;d1++)dc.push(sorted[d1].sid+':'+(sorted[d1].candRaw||'-'));diag='tabs='+tabNames.length+' srcA='+document.querySelectorAll('[class*=\"source\"] a').length+' srcLi='+document.querySelectorAll('[class*=\"source\"] "
@@ -1567,6 +1571,18 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     private volatile boolean mPushPlayPending = false;
     private volatile String mPushPagePic = "";
     private volatile String mPushPageUrl = "";
+    // push v18 (c)：后台浏览器内点集解流——播放器点无 href 按钮式选集（带 data-id，如 gaze）
+    // 时，不新建隐藏 WebView，用留在后台栈里的本实例点按钮、站方自己解流、嗅探抓回播放器。
+    // 点按会切掉浏览器自己的当前播放（Liu 已知情并点头）；后台 WebView 媒体加载可能被节流，
+    // 本次只做原型：解流期间先恢复计时器（web.onResume），解完/超时/失败再按活动状态恢复暂停。
+    private static WeakReference<WebPlayActivity> sBrowserInstance;
+    private BrowserResolveCallback mBrowserResolveCallback;
+    private String mBrowserResolveKnownStream = "";
+    private long mBrowserResolveAt;
+    private final Handler mBrowserResolveHandler = new Handler(Looper.getMainLooper());
+    private Runnable mBrowserResolveTimeout;
+    private boolean mBrowserResolveWebResumed;
+    private boolean mActivityResumed;
     // push v3：探针补跑状态（选集表可能是 JS 后渲染的，页完那一刻还没进 DOM）。
     private Runnable mPushProbeRetry;
     private int mPushProbeRetryCount;
@@ -1664,6 +1680,8 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
 
     @Override
     protected void initView(Bundle savedInstanceState) {
+        // push v18 (c)：本实例即后台浏览器入口（播放器点集时经静态方法找到它）。
+        sBrowserInstance = new WeakReference<>(this);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         Intent intent = getIntent();
         mTitle = intent.getStringExtra("title");
@@ -1890,6 +1908,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                     mPushSniffAt = System.currentTimeMillis();
                     mPushSniffPageUrl = mPushPageUrl;
                     capturePushSniffHeaders(request, reqUrl);
+                    maybeDeliverBrowserResolve(reqUrl);
                     probePageInfo();
                 }
                 return super.shouldInterceptRequest(view, request);
@@ -3062,6 +3081,118 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     }
 
     /** push v1：MacCMS 播放页转播放——当前集直达流 + 全部线路表进原生播放器。 */
+    /** push v18 (c)：浏览器内点集解流的回交回调（主线程回调）。 */
+    public interface BrowserResolveCallback {
+        void onStream(String url, Map<String, String> headers);
+        void onFailed();
+    }
+
+    /** push v18 (c)：浏览器内点集解流的超时——15 秒（report16 建议值）。 */
+    private static final long BROWSER_RESOLVE_TIMEOUT_MS = 15000;
+
+    /**
+     * push v18 (c)：请后台栈里的现有浏览器点 data-id 按钮解流。返回 false 表示浏览器已关
+     * （无实例/已销毁），调用方直接回落现有 toast；返回 true 表示已接单，结果经回调回交
+     * （按钮找不到/15 秒超时走 onFailed）。不新建 WebView，只用用户自己打开的可见浏览器。
+     * epId 只放行 [A-Za-z0-9_-]（站方 row.id 形），拼进 JS 选择器前不再转义。
+     */
+    public static boolean requestBrowserResolve(String epId, BrowserResolveCallback callback) {
+        if (callback == null || TextUtils.isEmpty(epId) || !epId.matches("[A-Za-z0-9_\\-]+")) return false;
+        WebPlayActivity host = sBrowserInstance == null ? null : sBrowserInstance.get();
+        if (host == null || host.isFinishing() || host.isDestroyed() || host.mBinding == null || host.mBinding.web == null) return false;
+        host.runOnUiThread(() -> host.startBrowserResolve(epId, callback));
+        return true;
+    }
+
+    /** push v18 (c)：取消一单待解请求（播放器销毁时调用；identity 比对，只取消自己那单，不回调）。 */
+    public static void cancelBrowserResolve(BrowserResolveCallback callback) {
+        if (callback == null) return;
+        WebPlayActivity host = sBrowserInstance == null ? null : sBrowserInstance.get();
+        if (host == null) return;
+        host.runOnUiThread(() -> {
+            if (host.mBrowserResolveCallback == callback) host.clearBrowserResolveState();
+        });
+    }
+
+    /** push v18 (c)：在后台浏览器里点 data-id 按钮解流（主线程）。只点当前面板已渲染的按钮；跨线未加载面板的集点不到、直接失败（原型口径）。 */
+    private void startBrowserResolve(String epId, BrowserResolveCallback callback) {
+        // 上一单未完先静默取消（只清状态、不回调旧单——旧单的播放器已切走别的集，Layer 1 守卫本就会丢弃它）。
+        clearBrowserResolveState();
+        mBrowserResolveCallback = callback;
+        mBrowserResolveKnownStream = mPushLastSniff == null ? "" : mPushLastSniff;
+        mBrowserResolveAt = System.currentTimeMillis();
+        // 后台 WebView 处于 onPause 节流态：点按后的站方 fetch/WASM/媒体加载未必跑得起来，
+        // 先恢复计时器，解完（或超时/失败）再按活动状态恢复暂停；不新建 WebView。
+        try {
+            mBinding.web.onResume();
+            mBrowserResolveWebResumed = true;
+        } catch (Throwable ignored) {
+        }
+        // 先静音全部 video 元素再点——点按会切掉浏览器自己的当前播放，静音避免后台出声。
+        String js = "(function(){try{var vs=document.querySelectorAll('video');for(var i=0;i<vs.length;i++){try{vs[i].muted=true;vs[i].volume=0;}catch(e){}}var b=document.querySelector('button[data-id=\""
+                + epId + "\"]');if(!b)return 'not-found';b.click();return 'clicked';}catch(e){return 'error';}})()";
+        mBrowserResolveTimeout = () -> {
+            BrowserResolveCallback cb = mBrowserResolveCallback;
+            clearBrowserResolveState();
+            if (cb != null) cb.onFailed();
+        };
+        mBrowserResolveHandler.postDelayed(mBrowserResolveTimeout, BROWSER_RESOLVE_TIMEOUT_MS);
+        try {
+            mBinding.web.evaluateJavascript(js, value -> {
+                if (mBrowserResolveCallback != callback) return;
+                String r = value == null ? "" : value.replace("\"", "");
+                if ("not-found".equals(r) || "error".equals(r)) {
+                    BrowserResolveCallback cb = mBrowserResolveCallback;
+                    clearBrowserResolveState();
+                    if (cb != null) cb.onFailed();
+                }
+                // 'clicked'：等嗅探抓流（15 秒超时兜底）。
+            });
+        } catch (Throwable e) {
+            BrowserResolveCallback cb = mBrowserResolveCallback;
+            clearBrowserResolveState();
+            if (cb != null) cb.onFailed();
+        }
+    }
+
+    /** push v18 (c)：只清待解单状态，不回调（调用方在清状态前后自行决定是否回调）。 */
+    private void clearBrowserResolveState() {
+        if (mBrowserResolveTimeout != null) {
+            mBrowserResolveHandler.removeCallbacks(mBrowserResolveTimeout);
+            mBrowserResolveTimeout = null;
+        }
+        mBrowserResolveCallback = null;
+        mBrowserResolveKnownStream = "";
+        if (mBrowserResolveWebResumed) {
+            mBrowserResolveWebResumed = false;
+            // 只有活动仍在后台时才恢复暂停；用户已回到浏览器时不动（onResume 已恢复计时器）。
+            if (!mActivityResumed) {
+                try {
+                    if (mBinding != null && mBinding.web != null) mBinding.web.onPause();
+                } catch (Throwable ignored) {
+                }
+            }
+        }
+    }
+
+    /**
+     * push v18 (c)：嗅到新流时，若有待解单且该流不是点按前已知的旧流，回交给等待中的播放器。
+     * 后台线程调用（shouldInterceptRequest 嗅探分支），回调贴回主线程；广告黑名单流在嗅探
+     * 分支入口已滤掉，不会进这里。片头广告流若不在黑名单里仍可能被当作正片交回——原型已知风险，待真机验证。
+     */
+    private void maybeDeliverBrowserResolve(String url) {
+        BrowserResolveCallback cb = mBrowserResolveCallback;
+        if (cb == null) return;
+        if (TextUtils.isEmpty(url) || url.equals(mBrowserResolveKnownStream)) return;
+        if (mPushSniffAt < mBrowserResolveAt) return;
+        Map<String, String> headers = pushPlayHeaders();
+        runOnUiThread(() -> {
+            if (mBrowserResolveCallback != cb) return;
+            clearBrowserResolveState();
+            cb.onStream(url, headers);
+        });
+    }
+
     private void startProbedPlay(String stream) {
         String rawTitle = mBinding.web.getTitle();
         if (rawTitle == null) rawTitle = "";
@@ -3212,17 +3343,24 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     @Override
     protected void onResume() {
         super.onResume();
+        mActivityResumed = true;
         mBinding.web.onResume();
     }
 
     @Override
     protected void onPause() {
+        mActivityResumed = false;
         mBinding.web.onPause();
         super.onPause();
     }
 
     @Override
     protected void onDestroy() {
+        // push v18 (c)：浏览器销毁时待解单直接失败（播放器等不到流时回落现有 toast，不无限等）。
+        BrowserResolveCallback pendingResolve = mBrowserResolveCallback;
+        clearBrowserResolveState();
+        if (sBrowserInstance != null && sBrowserInstance.get() == this) sBrowserInstance = null;
+        if (pendingResolve != null) pendingResolve.onFailed();
         cancelPushProbeRetry();
         if (mBinding != null) {
             mBinding.web.loadUrl("about:blank");

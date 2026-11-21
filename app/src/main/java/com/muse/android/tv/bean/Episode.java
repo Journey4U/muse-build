@@ -25,6 +25,10 @@ public class Episode implements Parcelable, Diffable<Episode> {
     /** push v2：push 交接会话元数据（该集播放页地址），不进 Parcelable；每次交接由探针 JSON 重建。 */
     private String pageUrl;
 
+    /** push v18 (b)：push 交接会话元数据（探针带的无 href 按钮式选集标识 data-id/data-path，如 gaze），不进 Parcelable；每次交接由探针 JSON 重建。 */
+    private String browserEpId;
+    private String browserEpPath;
+
     private int index;
     private int number;
     private boolean selected;
@@ -83,6 +87,24 @@ public class Episode implements Parcelable, Diffable<Episode> {
 
     public void setPageUrl(String pageUrl) {
         this.pageUrl = pageUrl;
+    }
+
+    /** push v18 (b)：该集的按钮式选集标识 data-id（无 href 按钮式选集才有，如 gaze；其余站为空）。 */
+    public String getBrowserEpId() {
+        return TextUtils.isEmpty(browserEpId) ? "" : browserEpId;
+    }
+
+    public void setBrowserEpId(String browserEpId) {
+        this.browserEpId = browserEpId;
+    }
+
+    /** push v18 (b)：该集的按钮式选集标识 data-path（与 data-id 同源，仅作备用标识）。 */
+    public String getBrowserEpPath() {
+        return TextUtils.isEmpty(browserEpPath) ? "" : browserEpPath;
+    }
+
+    public void setBrowserEpPath(String browserEpPath) {
+        this.browserEpPath = browserEpPath;
     }
 
     public int getIndex() {

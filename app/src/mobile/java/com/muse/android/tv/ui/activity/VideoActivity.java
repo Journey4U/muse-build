@@ -161,6 +161,8 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private boolean mPlayRequested;
     /** push v17 F4(a)：applyBrowserLines 是否已把全集表摆进 vod（摆了表但认不出当前集时返回 -1，applyBrowserMeta 不走单线回落）。 */
     private boolean mBrowserLinesApplied;
+    /** push v18 (c)：浏览器内点集解流进行中的回调（销毁时取消该单）。 */
+    private WebPlayActivity.BrowserResolveCallback mBrowserResolveCallback;
     private long mInfoTxBytes;
     private long mInfoRxBytes;
     private long mInfoTime;
@@ -1619,6 +1621,41 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     @Override
     public boolean resolveWebEpisode(Flag flag, Episode episode) {
         if (episode == null || TextUtils.isEmpty(episode.getPageUrl())) return false;
+        // push v18 (c)：无 href 按钮式选集（探针带 data-id，如 gaze）不走 HTTP 解析器——
+        // 解析器对这类集四层全败；改走后台栈里的现有浏览器点按钮、站方自己解流、嗅探抓回。
+        // 只对 url 为空且带 data-id 的集启用，其余站（MacCMS/子页/MissAV/hsck/NB/P站/奇优/枫叶）
+        // 一律走原路、不动。浏览器已关/点按失败/15 秒超时回落现有 toast。
+        if (TextUtils.isEmpty(episode.getUrl()) && !TextUtils.isEmpty(episode.getBrowserEpId())) {
+            showProgress();
+            Notify.show(getString(R.string.browser_resolving_episode, episode.getName()));
+            WebPlayActivity.BrowserResolveCallback cb = new WebPlayActivity.BrowserResolveCallback() {
+                @Override
+                public void onStream(String url, Map<String, String> headers) {
+                    mBrowserResolveCallback = null;
+                    hideProgress();
+                    // push v6 Layer 1：解析中用户已切走别的集时不回切；已选中的集只重跑 playEpisode，不重进 selectEpisode。
+                    if (isHostFinishing() || !episode.isSelected()) return;
+                    mWebEpHeaders = headers == null ? Collections.emptyMap() : headers;
+                    episode.setUrl(url);
+                    mVod.playResolvedEpisode(episode);
+                }
+
+                @Override
+                public void onFailed() {
+                    mBrowserResolveCallback = null;
+                    hideProgress();
+                    if (isHostFinishing()) return;
+                    Notify.show(getString(R.string.browser_resolve_failed, episode.getName()));
+                }
+            };
+            mBrowserResolveCallback = cb;
+            if (WebPlayActivity.requestBrowserResolve(episode.getBrowserEpId(), cb)) return true;
+            // 浏览器已关（后台栈里无 WebPlayActivity 实例）：直接回落现有失败提示，不走 HTTP 解析。
+            mBrowserResolveCallback = null;
+            hideProgress();
+            Notify.show(getString(R.string.browser_resolve_failed, episode.getName()));
+            return true;
+        }
         showProgress();
         Notify.show(getString(R.string.browser_resolving_episode, episode.getName()));
         HttpEpisodeResolver.resolveFresh(this, episode.getPageUrl(), getIntent().getStringExtra("browserOrigin"), getIntent().getStringExtra("browserVid"), new HttpEpisodeResolver.Callback() {
@@ -1802,10 +1839,14 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
                         streamPlaced = true;
                         Episode created = Episode.create(name, stream);
                         created.setPageUrl(url);
+                        created.setBrowserEpId(ep.optString("id"));
+                        created.setBrowserEpPath(ep.optString("path"));
                         list.add(created);
                     } else {
                         Episode created = Episode.create(name, "");
                         created.setPageUrl(url);
+                        created.setBrowserEpId(ep.optString("id"));
+                        created.setBrowserEpPath(ep.optString("path"));
                         list.add(created);
                     }
                 }
@@ -1867,10 +1908,14 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
                 if (obj.optInt("cur", 0) == 1 || url.equals(page)) {
                     current = Episode.create(name, stream);
                     current.setPageUrl(url);
+                    current.setBrowserEpId(obj.optString("id"));
+                    current.setBrowserEpPath(obj.optString("path"));
                     list.add(current);
                 } else {
                     Episode ep = Episode.create(name, "");
                     ep.setPageUrl(url);
+                    ep.setBrowserEpId(obj.optString("id"));
+                    ep.setBrowserEpPath(obj.optString("path"));
                     list.add(ep);
                 }
             }
@@ -3156,6 +3201,11 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     @Override
     protected void onDestroy() {
+        // push v18 (c)：播放器销毁时取消浏览器内点集解流的待解单（静默取消，不回调）。
+        if (mBrowserResolveCallback != null) {
+            WebPlayActivity.cancelBrowserResolve(mBrowserResolveCallback);
+            mBrowserResolveCallback = null;
+        }
         mClock.release();
         saveHistory(true);
         Timer.get().reset();
