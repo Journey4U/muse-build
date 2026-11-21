@@ -27,6 +27,8 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
+import java.lang.ref.WeakReference;
+
 import androidx.appcompat.app.AlertDialog;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -1405,7 +1407,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         CLEAN_JS = sb.toString();
     }
     // push v1: fuzi 多线探针（MacCMS 播放页全部线路 + 每线选集表）与页面 video 直取探针——逐字取自 fuzi BrowserActivity，不转录。
-                    private static final String PROBE_JS = "(function(){function txt(el){return el?(el.innerText||'').trim():'';}function cleanName(t){return (t||'').replace(/[\\uE000-\\uF8FF]/g,'').replace(/\\s+/g,' ').trim();}function tabText(el){if(!el)return "
+                        private static final String PROBE_JS = "(function(){function txt(el){return el?(el.innerText||'').trim():'';}function cleanName(t){return (t||'').replace(/[\\uE000-\\uF8FF]/g,'').replace(/\\s+/g,' ').trim();}function tabText(el){if(!el)return "
         + "'';var parts=[];var ns=el.childNodes;for(var i=0;i<ns.length;i++){var n=ns[i];if(n.nodeType===3)parts.push(n.textContent||'');else if(n.nodeType===1){var tg=n.tagName;var cl=n.getAttribute('class')||'';if(tg==='I'||/badge|num|count/i.test(cl))continue;var "
         + "ct=(n.innerText||n.textContent||'').trim();if(ct==='广告'||/^广告?\\d+\\s*集$/.test(ct))continue;parts.push(n.innerText||n.textContent||'');}}return cleanName(parts.join(' '));}function cleanCand(L){var c=L.cand||'';if(!c)return "
         + "c;var cnt=L.order.length;var m=c.match(/^(.*?)[-_\\s·]*?(\\d+)$/);if(m&&parseInt(m[2],10)===cnt&&m[1]&&m[1].trim())c=m[1].trim();return c.replace(/[-_\\s·]+$/,'');}function picOf(){try{var m=document.querySelector('meta[property=\"og:image\"],meta[name=\"twitter:image\"]');if(m&&m.content){try{return "
@@ -1453,8 +1455,8 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         + "null;var sibs=par.querySelectorAll('[role=\"tab\"]');var idx=-1;for(var k=0;k<sibs.length;k++){if(sibs[k]===tab){idx=k;break;}}if(idx<0)return null;var anc=par;for(var d=0;d<4&&anc;d++){var panels=anc.querySelectorAll('[role=\"tabpanel\"]');if(panels.length===sibs.length)return "
         + "panels[idx];anc=anc.parentElement;}}catch(e){}return null;}function panelEps(panel){var eps=[];var singles=[];var seen={};try{var btns=panel.querySelectorAll('button,a');for(var b=0;b<btns.length;b++){var "
         + "btn=btns[b];if(ownHidden(btn))continue;try{if(btn.getAttribute('role')==='tab'||btn.getAttribute('data-toggle')==='tab')continue;}catch(e){}if(hasAdMark(btn))continue;var t=cleanName(txt(btn));if(!t||t.length>20)continue;var "
-        + "nm=epName(t);if(nm){if(seen[nm])continue;seen[nm]=1;eps.push({name:nm,url:btnUrlOf(btn),cur:isCurBtn(btn)?1:0,_i:b});}else{if(stopWord(t))continue;if(/^[【\\[]/.test(t))continue;singles.push({name:t,url:btnUrlOf(btn),cur:isCurBtn(btn)?1:0,_i:b});}}if(!eps.length&&singles.length===1){eps.push(singles[0]);}}catch(e){}eps.sort(function(x,y){var "
-        + "nx=epNumOf(x.name),ny=epNumOf(y.name);if(nx>=0&&ny>=0&&nx!==ny)return nx-ny;return x._i-y._i;});var out=[];for(var k=0;k<eps.length;k++)out.push({name:eps[k].name,url:eps[k].url,cur:eps[k].cur});return "
+        + "bd={id:'',mid:'',path:''};try{bd.id=btn.getAttribute('data-id')||'';bd.mid=btn.getAttribute('data-mid')||'';bd.path=btn.getAttribute('data-path')||'';}catch(e){}var nm=epName(t);if(nm){if(seen[nm])continue;seen[nm]=1;eps.push({name:nm,url:btnUrlOf(btn),cur:isCurBtn(btn)?1:0,id:bd.id,mid:bd.mid,path:bd.path,_i:b});}else{if(stopWord(t))continue;if(/^[【\\[]/.test(t))continue;singles.push({name:t,url:btnUrlOf(btn),cur:isCurBtn(btn)?1:0,id:bd.id,mid:bd.mid,path:bd.path,_i:b});}}if(!eps.length&&singles.length===1){eps.push(singles[0]);}}catch(e){}eps.sort(function(x,y){var "
+        + "nx=epNumOf(x.name),ny=epNumOf(y.name);if(nx>=0&&ny>=0&&nx!==ny)return nx-ny;return x._i-y._i;});var out=[];for(var k=0;k<eps.length;k++)out.push({name:eps[k].name,url:eps[k].url,cur:eps[k].cur,id:eps[k].id||'',mid:eps[k].mid||'',path:eps[k].path||''});return "
         + "out;}function panelCurEp(eps){for(var i=0;i<eps.length;i++){if(eps[i].cur)return eps[i].name;}if(eps.length===1)return eps[0].name;return '';}function genericTabLines(){var res={lines:[],curEpName:'',tabsFound:0,epsFound:0,tabsPending:0};try{var "
         + "tabs=[];function addTab(el){if(!el)return;for(var q=0;q<tabs.length;q++){if(tabs[q]===el)return;}tabs.push(el);}var i,j;for(i=0;i<tabEls.length;i++)addTab(tabEls[i]);var rts=document.querySelectorAll('[role=\"tab\"],[data-toggle=\"tab\"]');for(i=0;i<rts.length;i++){if(!ownHidden(rts[i]))addTab(rts[i]);}res.tabsFound=tabs.length;if(tabs.length<2)return "
         + "res;var firstName='';var curLineEp='';for(i=0;i<tabs.length;i++){var tab=tabs[i];var name=tabText(tab);if(!name||name.length>24||epName(name))continue;if(stopWord(name)&&!isSourceTab(name))continue;if(!firstName)firstName=name;var "
@@ -1754,6 +1756,8 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 finish();
             }
         } else if (!mIds.isEmpty()) playEpisode(mPosition);
+        // push v14 (c)：登记现存浏览器，供播放器点集时请求后台点按钮；onDestroy 注销。
+        sLiveBrowser = new WeakReference<>(this);
     }
 
     @Override
@@ -3153,6 +3157,182 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         });
     }
 
+    // ===== push v14 (c)：浏览器内点集解流（原型）=====
+    // 播放器点 gaze 式按钮集（有 data-id、无 url）时，不走 HTTP 解析器：让留在后台栈里
+    // 的现有浏览器点一下该集按钮，站方自己的 JS 解出流，现有嗅探（mPushLastSniff）抓到
+    // 后交回播放器。不新建任何 WebView（不用用户自己打开的可见浏览器之外的 WebView），
+    // 但会切掉浏览器自己的当前播放（Liu 已知情并点头）。生死点：后台 WebView 的媒体加载
+    // 可能被节流，点按钮后嗅探器未必抓得到流——本次只做原型，交 Liu 真机验证。
+    /** push v14 (c)：浏览器内点集解流的回交（与 HttpEpisodeResolver.Callback 同形）。 */
+    public interface BrowserEpisodeCallback {
+        void onResolved(String url, Map<String, String> headers);
+        void onFailed();
+    }
+
+    // push v14 (c)：后台栈里现存浏览器的弱引用（onCreate 登记、onDestroy 注销；用户关掉
+    // 浏览器后引用失效，点集直接回落 toast，不重建浏览器）。
+    private static volatile WeakReference<WebPlayActivity> sLiveBrowser;
+
+    // push v14 (c)：一次点集请求的进行中状态（同一时刻只许一单；新单静默丢弃旧单——
+    // 旧单的播放器回调有 isSelected 守卫，绝不回调旧单，免得旧集 toast/进度乱冒）。
+    private BrowserEpisodeCallback mBrowserClickCallback;
+    private int mBrowserClickSeq;
+    private Runnable mBrowserClickPoll;
+    private long mBrowserClickDeadline;
+    private String mBrowserClickBaselineSniff = "";
+    private long mBrowserClickBaselineAt;
+    private String mBrowserClickBaselineMain = "";
+    private String mBrowserClickCandidate = "";
+    private long mBrowserClickCandidateAt;
+    private String mBrowserClickPage = "";
+    private String mBrowserClickLine = "";
+
+    /**
+     * push v14 (c)：播放器请求后台浏览器点一集（data-id）。浏览器已关/已销毁时返回 false，
+     * 调用方直接回落现有 toast；返回 true 表示请求已接下（等待态由调用方显示）。
+     */
+    public static boolean requestBrowserEpisodeClick(String episodeId, String lineName, String episodeName, BrowserEpisodeCallback callback) {
+        if (episodeId == null || episodeId.isEmpty() || callback == null) return false;
+        WebPlayActivity act = sLiveBrowser == null ? null : sLiveBrowser.get();
+        if (act == null) return false;
+        return act.startBrowserEpisodeClick(episodeId, lineName, episodeName, callback);
+    }
+
+    private boolean startBrowserEpisodeClick(String episodeId, String lineName, String episodeName, BrowserEpisodeCallback callback) {
+        if (mBinding == null || mBinding.web == null) return false;
+        cancelBrowserEpisodeClick();
+        mBrowserClickSeq++;
+        final int seq = mBrowserClickSeq;
+        mBrowserClickCallback = callback;
+        mBrowserClickPage = mPushPageUrl;
+        mBrowserClickLine = lineName == null ? "" : lineName;
+        mBrowserClickBaselineSniff = mPushLastSniff == null ? "" : mPushLastSniff;
+        mBrowserClickBaselineAt = mPushSniffAt;
+        mBrowserClickBaselineMain = mPushMainStream == null ? "" : mPushMainStream;
+        mBrowserClickCandidate = "";
+        // push v14 (c)：超时 15 秒（report16 建议值），到时无流即回落 toast。
+        mBrowserClickDeadline = SystemClock.uptimeMillis() + 15000;
+        mBinding.web.post(() -> runBrowserEpisodeClickJs(episodeId, seq, false));
+        return true;
+    }
+
+    private static String escapeBrowserClickId(String id) {
+        if (id == null) return "";
+        return id.replace("\\", "\\\\").replace("\"", "\\\"");
+    }
+
+    private void runBrowserEpisodeClickJs(String episodeId, int seq, boolean tabTried) {
+        if (seq != mBrowserClickSeq || mBrowserClickCallback == null) return;
+        if (mBinding == null || mBinding.web == null) {
+            finishBrowserEpisodeClick(seq, false, null, null);
+            return;
+        }
+        String js = "(function(){try{var b=document.querySelector('button[data-id=\""
+                + escapeBrowserClickId(episodeId) + "\"]');if(!b)return 'missing';b.click();return 'ok';}catch(e){return 'err';}})()";
+        mBinding.web.evaluateJavascript(js, value -> {
+            if (seq != mBrowserClickSeq || mBrowserClickCallback == null) return;
+            String r = value == null ? "" : value.replace("\"", "").trim();
+            if ("ok".equals(r)) {
+                scheduleBrowserClickPoll(seq);
+                return;
+            }
+            // 按钮不在 DOM 里：目标集可能在未加载的线面板里（站方懒加载）——先点对应线
+            // tab，等面板加载后再点一次；tab 也找不到时直接失败。
+            if (!tabTried && !mBrowserClickLine.isEmpty()) {
+                tryBrowserClickLineTab(episodeId, seq);
+                return;
+            }
+            finishBrowserEpisodeClick(seq, false, null, null);
+        });
+    }
+
+    private void tryBrowserClickLineTab(String episodeId, int seq) {
+        if (mBinding == null || mBinding.web == null) {
+            finishBrowserEpisodeClick(seq, false, null, null);
+            return;
+        }
+        String line = mBrowserClickLine.replace("\\", "\\\\").replace("'", "\\'");
+        String js = "(function(){try{var ts=document.querySelectorAll('[role=\"tab\"],[data-toggle=\"tab\"]');"
+                + "for(var i=0;i<ts.length;i++){var t=(ts[i].innerText||ts[i].textContent||'').trim();"
+                + "if(t==='" + line + "'){ts[i].click();return 'ok';}}return 'missing';}catch(e){return 'err';}})()";
+        mBinding.web.evaluateJavascript(js, value -> {
+            if (seq != mBrowserClickSeq || mBrowserClickCallback == null) return;
+            String r = value == null ? "" : value.replace("\"", "").trim();
+            if (!"ok".equals(r)) {
+                finishBrowserEpisodeClick(seq, false, null, null);
+                return;
+            }
+            // 站方切线后懒加载面板（loadSourceGroup），等 1.5 秒再点该集按钮。
+            mBinding.web.postDelayed(() -> runBrowserEpisodeClickJs(episodeId, seq, true), 1500);
+        });
+    }
+
+    private void scheduleBrowserClickPoll(int seq) {
+        if (mBrowserClickPoll != null && mBinding != null && mBinding.web != null) mBinding.web.removeCallbacks(mBrowserClickPoll);
+        mBrowserClickPoll = () -> pollBrowserEpisodeClick(seq);
+        if (mBinding != null && mBinding.web != null) mBinding.web.postDelayed(mBrowserClickPoll, 500);
+    }
+
+    private void pollBrowserEpisodeClick(int seq) {
+        if (seq != mBrowserClickSeq || mBrowserClickCallback == null) return;
+        if (mBinding == null || mBinding.web == null) {
+            finishBrowserEpisodeClick(seq, false, null, null);
+            return;
+        }
+        // 点集后用户在浏览器里切了页：本次请求作废。
+        if (!mBrowserClickPage.equals(mPushPageUrl)) {
+            finishBrowserEpisodeClick(seq, false, null, null);
+            return;
+        }
+        String sniff = mPushLastSniff == null ? "" : mPushLastSniff;
+        boolean freshSniff = !sniff.isEmpty() && !sniff.equals(mBrowserClickBaselineSniff)
+                && mPushSniffAt > mBrowserClickBaselineAt && isPushStreamUrl(sniff);
+        String main = mPushMainStream == null ? "" : mPushMainStream;
+        boolean freshMain = !main.isEmpty() && !main.equals(mBrowserClickBaselineMain) && isPushStreamUrl(main);
+        if (freshSniff || freshMain) {
+            String cand = freshSniff ? sniff : main;
+            // 首见先记下候选、再等一轮（500ms）：嗅到流会触发 probePageInfo 刷新广告
+            // 黑名单/片头广告标志，拿刷新后的状态再判，免得把片头广告流交回去。
+            if (!cand.equals(mBrowserClickCandidate)) {
+                mBrowserClickCandidate = cand;
+                mBrowserClickCandidateAt = SystemClock.uptimeMillis();
+            } else if (SystemClock.uptimeMillis() - mBrowserClickCandidateAt >= 500) {
+                if (!mPushAdSrcs.contains(cand) && !mPushAdPlaying) {
+                    finishBrowserEpisodeClick(seq, true, cand, validatedPushHeaders());
+                    return;
+                }
+                // 候选是广告（或正放片头广告）：丢弃它、继续等别的流；把当前值记为新
+                // 基线，同一条地址不再二次候选。
+                mBrowserClickBaselineSniff = sniff;
+                mBrowserClickBaselineMain = main;
+                mBrowserClickCandidate = "";
+            }
+        }
+        if (SystemClock.uptimeMillis() > mBrowserClickDeadline) {
+            finishBrowserEpisodeClick(seq, false, null, null);
+            return;
+        }
+        if (mBinding != null && mBinding.web != null) mBinding.web.postDelayed(mBrowserClickPoll, 500);
+    }
+
+    private void finishBrowserEpisodeClick(int seq, boolean ok, String url, Map<String, String> headers) {
+        if (seq != mBrowserClickSeq) return;
+        BrowserEpisodeCallback cb = mBrowserClickCallback;
+        cancelBrowserEpisodeClick();
+        if (cb == null) return;
+        if (ok) cb.onResolved(url, headers);
+        else cb.onFailed();
+    }
+
+    private void cancelBrowserEpisodeClick() {
+        if (mBrowserClickPoll != null && mBinding != null && mBinding.web != null) {
+            mBinding.web.removeCallbacks(mBrowserClickPoll);
+        }
+        mBrowserClickPoll = null;
+        mBrowserClickCallback = null;
+        mBrowserClickCandidate = "";
+    }
+
     /** push v1：MacCMS 播放页转播放——当前集直达流 + 全部线路表进原生播放器。 */
     private void startProbedPlay(String stream) {
         String rawTitle = mBinding.web.getTitle();
@@ -3308,6 +3488,9 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
 
     @Override
     protected void onDestroy() {
+        // push v14 (c)：销毁时取消进行中的点集请求、注销现存浏览器（回调不再回交）。
+        cancelBrowserEpisodeClick();
+        if (sLiveBrowser != null && sLiveBrowser.get() == this) sLiveBrowser = null;
         cancelPushProbeRetry();
         if (mBinding != null) {
             mBinding.web.loadUrl("about:blank");

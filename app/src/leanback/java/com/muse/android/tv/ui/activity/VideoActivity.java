@@ -720,6 +720,39 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     @Override
     public boolean resolveWebEpisode(Flag flag, Episode episode) {
         if (episode == null || TextUtils.isEmpty(episode.getPageUrl())) return false;
+        // push v14 (c)：按钮式选集（有站方 id、无 url，如 gaze）不走 HTTP 解析器——
+        // 让后台栈里的现有浏览器点该集按钮，站方自己解出流、现有嗅探抓回。其它站
+        // （有 url 的 MacCMS/子页/单片）一律走下面的原路，不动。
+        if (!TextUtils.isEmpty(episode.getBrowserId()) && TextUtils.isEmpty(episode.getUrl())) {
+            boolean requested = WebPlayActivity.requestBrowserEpisodeClick(episode.getBrowserId(),
+                    flag == null ? "" : flag.getFlag(), episode.getName(), new WebPlayActivity.BrowserEpisodeCallback() {
+                        @Override
+                        public void onResolved(String url, Map<String, String> headers) {
+                            hideProgress();
+                            // push v6 Layer 1：与 HTTP 路同一守卫——解析中用户已切走别的集时不回切。
+                            if (isHostFinishing() || !episode.isSelected()) return;
+                            mWebEpHeaders = headers == null ? Collections.emptyMap() : headers;
+                            episode.setUrl(url);
+                            mVod.playResolvedEpisode(episode);
+                        }
+
+                        @Override
+                        public void onFailed() {
+                            hideProgress();
+                            if (isHostFinishing()) return;
+                            Notify.show(getString(R.string.browser_resolve_failed, episode.getName()));
+                        }
+                    });
+            if (requested) {
+                showProgress();
+                Notify.show(getString(R.string.browser_resolving_episode, episode.getName()));
+                return true;
+            }
+            // 后台已无浏览器（用户已关掉）：直接回落现有 toast，不再走 HTTP 解析器
+            // （播放页地址不是流地址、vid 为空，解析器四层全败，只是多等一次网络）。
+            Notify.show(getString(R.string.browser_resolve_failed, episode.getName()));
+            return true;
+        }
         showProgress();
         Notify.show(getString(R.string.browser_resolving_episode, episode.getName()));
         HttpEpisodeResolver.resolve(this, episode.getPageUrl(), getIntent().getStringExtra("browserOrigin"), getIntent().getStringExtra("browserVid"), new HttpEpisodeResolver.Callback() {
@@ -868,6 +901,9 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
             order.add(currentLine);
             for (int i = 0; i < names.size(); i++) if (i != currentLine) order.add(i);
             List<Flag> built = new ArrayList<>();
+            // push v14 (b)：浏览器播放页地址，无 url 的按钮集用它作 pageUrl。
+            String browserPage = getIntent().getStringExtra("browserPage");
+            if (browserPage == null) browserPage = "";
             boolean streamPlaced = false;
             int currentIndex = -1;
             for (int oi = 0; oi < order.size(); oi++) {
@@ -881,18 +917,27 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
                     JSONObject ep = eps.getJSONObject(j);
                     String name = ep.optString("name");
                     String url = ep.optString("url");
-                    if (name.isEmpty() || url.isEmpty()) continue;
+                    // push v14 (b)：按钮式选集（gaze 式）没有 url、但带站方 id——照样落表，
+                    // pageUrl 记浏览器播放页地址（点集时走浏览器内点集解流，不走 HTTP 解析）。
+                    String browserId = ep.optString("id");
+                    String browserPath = ep.optString("path");
+                    if (name.isEmpty() || (url.isEmpty() && browserId.isEmpty())) continue;
+                    String pageUrl = url.isEmpty() ? browserPage : url;
                     boolean isCurrent = oi == 0 && !streamPlaced && (ep.optInt("cur", 0) == 1
                             || (episodeName != null && !episodeName.isEmpty() && episodeNumber(episodeName) >= 0 && episodeNumber(episodeName) == episodeNumber(name)));
                     if (isCurrent) {
                         lineCurrentIndex = list.size();
                         streamPlaced = true;
                         Episode created = Episode.create(name, stream);
-                        created.setPageUrl(url);
+                        created.setPageUrl(pageUrl);
+                        created.setBrowserId(browserId);
+                        created.setBrowserPath(browserPath);
                         list.add(created);
                     } else {
                         Episode created = Episode.create(name, "");
-                        created.setPageUrl(url);
+                        created.setPageUrl(pageUrl);
+                        created.setBrowserId(browserId);
+                        created.setBrowserPath(browserPath);
                         list.add(created);
                     }
                 }
