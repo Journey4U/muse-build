@@ -1013,7 +1013,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         "phzgw.cc,demjpgtf.zvpxyyql.cc,api2.jpfviwgkz.cc,xxycw341.com,vnhgr465.com,caow.us,583.cc,9521.com,2726.com,831",
         "9.com,9212.app,322.cc,384.tv,4477.tv,177.gg,5651.com,275.cc,391.cc,837.tv,1x4g6f2.com,aizhantj.com,0cy5aps.com",
         ",ax8rylb.com,7xkpxuw.com,4gl3g.z.com,mehqk5u.com,smun7ro.com,67x8epk.com,kvkluj8.com,lw1su4n.com,hcxftcl.com,n",
-        "f65hwr.com,3dzmgtc.com,dkepyys.com,hv7hpkk.com,tq.qwehkg.top,ta.dqgjla.top,tz.erghsasq.top,magsrv.com\".split(','));functi",
+        "f65hwr.com,3dzmgtc.com,dkepyys.com,hv7hpkk.com,tq.qwehkg.top,ta.dqgjla.top,tz.erghsasq.top,magsrv.com,forkedspare.com\".split(','));functi",
         "on isAdDomain(h){if(!h)return false;h=h.toLowerCase();if(__museAdSet.has(h))return true;var i=h.indexOf('.');w",
         "hile(i>=0){h=h.slice(i+1);if(__museAdSet.has(h))return true;i=h.indexOf('.');}return false;}function isAdUrl(u",
         "){try{var x=new URL(u,location.href);return !!x.hostname&&isAdDomain(x.hostname);}catch(e){return false;}}func",
