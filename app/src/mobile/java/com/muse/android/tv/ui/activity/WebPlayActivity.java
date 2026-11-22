@@ -1060,7 +1060,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         "nue;var href=a.getAttribute('href')||'';if(!href)continue;if(foreign(href))a.style.display='none';}}\nfunction ",
         "noteHide(rule,el){try{if(!window.__museHideLog)window.__museHideLog=[];if(window.__museHideLog.length<20){var ",
         "cn=(el.className&&el.className.baseVal!==undefined)?el.className.baseVal:(el.className||'');window.__museHideL",
-        "og.push(rule+':'+(el.tagName||'')+'.'+String(cn).slice(0,30));}}catch(e){}}\nfunction sweep(){killLoaderPadding",
+        "og.push(rule+':'+(el.tagName||'')+'.'+String(cn).slice(0,30));}}catch(e){}}\n/*push v28 F1*/function adFrameDoc(d){try{if(!d||!d.body)return false;var loc='';try{loc=String(d.location&&d.location.href||'');}catch(e){}if(/cdn-cgi\\/challenge|captcha|turnstile|challenges\\.cloudflare/i.test(loc))return false;if(d.querySelector('[class*=captcha],[id*=captcha],.cf-turnstile,[class*=turnstile],[id*=challenge]'))return false;var site='';try{site=String(d.location.hostname||'').toLowerCase().replace(/^www\\./,'');}catch(e){}var ad=0,els=d.querySelectorAll('script[src],iframe[src]');for(var i=0;i<els.length;i++){var s=els[i].getAttribute('src')||'';if(/^\\s*\\/\\//.test(s))s='https:'+s.trim();var m=/^\\s*https?:\\/\\/([^\\/?#:]+)/i.exec(s);if(m&&isAdDomain(m[1].toLowerCase()))ad++;}if(!ad)return false;var as=d.querySelectorAll('a[href]');for(var j=0;j<as.length;j++){var h=(as[j].getAttribute('href')||'').trim();if(!h||h.charAt(0)==='#'||/^javascript:/i.test(h))continue;var hm=/^\\s*(?:https?:)?\\/\\/([^\\/?#:]+)/i.exec(h);if(!hm)return false;var hh=hm[1].toLowerCase().replace(/^www\\./,'');if(site&&(hh===site||hh.slice(-site.length-1)==='.'+site||site.slice(-hh.length-1)==='.'+hh))return false;}if(d.querySelector('video,audio,form,input,button,textarea,select'))return false;var c=d.body.cloneNode(true);var rm=c.querySelectorAll('script,style,noscript,template');for(var k=0;k<rm.length;k++)if(rm[k].parentNode)rm[k].parentNode.removeChild(rm[k]);if((c.textContent||'').replace(/\\s+/g,'').length>0)return false;return true;}catch(e){return false;}}function killAdFrames(){var fs=document.querySelectorAll('iframe');for(var i=0;i<fs.length;i++){var f=fs[i];if(f.__museF1)continue;var d=null;try{d=f.contentDocument;}catch(e){d=null;}if(!d){f.__museF1=1;continue;}var lh='';try{lh=String(d.location.href||'');}catch(e){}if(!lh||lh==='about:blank'||d.readyState!=='complete')continue;f.__museF1=1;if(adFrameDoc(d)){try{f.style.setProperty('display','none','important');}catch(e){}try{f.src='about:blank';}catch(e){}}}}function sweep(){try{killAdFrames();}catch(e){}killLoaderPadding",
         "();killPreRoll();pruneExtraVideos();",
         // v76：假分类/假视频（跳转完成后，外链 <a> 藏掉；真分类/真视频是站内相对路径）+ 赌博横幅墙（javascript:void(0) 含图 <a> 藏掉）。
         // v77：直接进站也激活——isRealSite()（页含 ≥2 站内正片链接即真实站）时同样触发；发布站页无站内正片链接，不触发。
@@ -1636,6 +1636,9 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     /** push v23 P2'：点按意图记录——{所点本站 <a> 的地址, 点按所在页地址}；页面 window 捕获阶段 click 监听经 JS 桥写入
      * （只记录，永不放行）。非链接点按写 {"", 页}；新页开始导航即清。字段跟本浏览器实例走，不是全局状态。 */
     private volatile String[] mClickMark = null;
+    /** push v28 F2a：按下记录（mousedown/pointerdown 捕获阶段，格式同 mClickMark）——广告脚本可能在按下那一刻就开窗，
+     * 早于 click 记录；只用于新窗口路径判定，主框路径不用（主框照 v23 只认 click）。新页开始导航即清。 */
+    private volatile String[] mPressMark = null;
     /** push v23 P2'：主框最近一次开始导航的地址——拦下劫持后还原用户本意前，判断主框是否已在去那个链接的路上。 */
     private volatile String mClickLastStarted = "";
     // v93 跳转链路(v73 起放 Activity 层:onCreateWindow 放行中转跳转后也要记,供 302 跟进认)。
@@ -2053,6 +2056,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 mFollowJumpHost = false;
                 // push v23 P2'：新页开始导航——清点按记录（新页的点按重新记），记下主框去向供还原判断。
                 mClickMark = null;
+                mPressMark = null;
                 mClickLastStarted = url;
                 if (followJumpHost && !TextUtils.isEmpty(mJumpHost)) {
                     try {
@@ -2206,6 +2210,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 // push v23 P2'：新窗口创建这一刻（站方 window.open 同步触发，必早于异步拿到的广告地址）快照点按记录
                 // 与所在页；真实地址到来时按快照判，不受主框之后跳走的影响（无竞态、不计时）。
                 final String[] clickSnap = mClickMark;
+                final String[] pressSnap = mPressMark;
                 final String clickPage = view.getUrl();
                 WebView tempWebView = new WebView(view.getContext());
                 tempWebView.setWebViewClient(new WebViewClient() {
@@ -2221,8 +2226,17 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                             // 还原用户本意（打开所点的本站链接，主框已在去的路上则不重复）。
                             DebugLogStore.add("WebPlay", "push v23 点按劫持拦截(弹窗) 点=" + clickSnap[0] + " 去=" + url);
                             restoreClickTarget(view, clickSnap[0]);
+                        } else if (isTapHijack(clickSnap, clickPage, url, redirect, isUserGesture)
+                                || isTapHijack(pressSnap, clickPage, url, redirect, isUserGesture)) {
+                            // push v28 F2a：点/按的是本站任意元素（按钮、菜单等），弹出的却是外站，且外站地址不在
+                            // 被点元素及其祖先的 href/onclick/data-* 属性里 → 劫持：丢弃该窗（只在新窗口路径，主框不动）。
+                            DebugLogStore.add("WebPlay", "push v28 点按劫持拦截(弹窗·元素) 去=" + url + " 手势=" + isUserGesture);
                         } else if (isAllowedNewWindowUrl(url, isUserGesture)) {
                             // 放行:在当前 WebView 打开;让 mJumpHost 跟到新页(修 v72 mUserGestured 缺陷)。
+                            // push v28 诊断（验收后撤）：记放行的新窗口去向。
+                            DebugLogStore.add("WebPlay", "push v28 放行新窗口 目标=" + url + " 手势=" + isUserGesture
+                                    + " 点=" + (clickSnap == null ? "-" : (clickSnap[0].isEmpty() ? "元素" : clickSnap[0]))
+                                    + " 按=" + (pressSnap == null ? "-" : (pressSnap[0].isEmpty() ? "元素" : pressSnap[0])));
                             mFollowJumpHost = true;
                             view.loadUrl(url);
                         }
@@ -2454,13 +2468,16 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     /** push v23 P2'：点按意图记录脚本——window 捕获阶段（早于站方在 document 上的捕获监听、早于广告脚本的 window.open）
      * 记下真实点按（isTrusted）所点的本站 <a> 地址交给 Java；href 为空/# 锚点/javascript:/指向本页的，按「非链接点按」记空。
      * 只读 DOM、不改页面、不阻止事件；每页只装一次。 */
-    private static final String CLICK_MARK_JS = "(function(){try{if(window.__museClickMark)return;window.__museClickMark=1;window.addEventListener('click',function(e){try{if(!e.isTrusted)return;var b=window.museClickGuard;if(!b||!b.mark)return;var t=e.target,a=null;while(t&&t!==document){if(t.tagName&&String(t.tagName).toUpperCase()==='A'&&t.getAttribute&&t.getAttribute('href')!==null){a=t;break;}t=t.parentNode;}var h='';if(a){var raw=(a.getAttribute('href')||'').trim();if(raw&&raw.charAt(0)!=='#'&&!/^javascript:/i.test(raw)){var abs=a.href;if(typeof abs==='string'&&/^https?:/i.test(abs)&&abs.split('#')[0]!==location.href.split('#')[0])h=abs;}}b.mark(h,location.href);}catch(x){}},true);}catch(e){}})();";
+    private static final String CLICK_MARK_JS = "(function(){try{if(window.__museClickMark)return;window.__museClickMark=1;function at(t0){var o='';var t=t0;while(t&&t.nodeType===1&&o.length<4000){var as=t.attributes;if(as){for(var i=0;i<as.length;i++){var n=String(as[i].name||'').toLowerCase();if(n==='href'||n==='onclick'||n==='action'||n==='formaction'||n.indexOf('data-')===0)o+=String(as[i].value||'')+' ';}}t=t.parentNode;}return o.slice(0,4000).toLowerCase();}function rec(e,kind){try{if(!e.isTrusted)return;var b=window.museClickGuard;if(!b||!b.mark)return;var t=e.target,a=null;while(t&&t!==document){if(t.tagName&&String(t.tagName).toUpperCase()==='A'&&t.getAttribute&&t.getAttribute('href')!==null){a=t;break;}t=t.parentNode;}var h='';if(a){var raw=(a.getAttribute('href')||'').trim();if(raw&&raw.charAt(0)!=='#'&&!/^javascript:/i.test(raw)){var abs=a.href;if(typeof abs==='string'&&/^https?:/i.test(abs)&&abs.split('#')[0]!==location.href.split('#')[0])h=abs;}}b.mark(h,location.href,at(e.target),kind);}catch(x){}}window.addEventListener('click',function(e){rec(e,'click');},true);window.addEventListener('mousedown',function(e){rec(e,'press');},true);window.addEventListener('pointerdown',function(e){rec(e,'press');},true);}catch(e){}})();";
 
     /** push v23 P2'：JS 桥——只写点按记录，永不放行（即便广告 iframe 伪造调用，最多让壳子多拦它自己的跳转）。 */
     private final class ClickMarkBridge {
         @android.webkit.JavascriptInterface
-        public void mark(String href, String docUrl) {
-            mClickMark = new String[]{href == null ? "" : href, docUrl == null ? "" : docUrl};
+        public void mark(String href, String docUrl, String attrs, String kind) {
+            String[] m = new String[]{href == null ? "" : href, docUrl == null ? "" : docUrl, attrs == null ? "" : attrs};
+            // push v28 F2a：按下（mousedown/pointerdown）另存一份，只给新窗口路径用；点按（click）照 v23 写 mClickMark。
+            if ("press".equals(kind)) mPressMark = m;
+            else mClickMark = m;
         }
     }
 
@@ -2494,6 +2511,37 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         if (!sameSite(hrefHost, docHost)) return false;
         if (sameSite(targetHost, hrefHost)) return false;
         if (isJumpServiceUrl(target, docHost)) return false;
+        return true;
+    }
+
+    /** push v28 F2a：新窗口路径的元素点按劫持判定（全满足才算）——①有手势；②有点/按记录且属于当前页；
+     * ③记录是本站链接时按 v23 原判；记录不是链接（按钮/菜单/div 等）时：去向与该页不同站，且去向域名
+     * 不出现在被点元素及其祖先的 href/onclick/action/data-* 属性里；④不是服务器重定向；⑤不是 v92 中转链接。
+     * 只在新窗口（onCreateWindow）路径调用，主框导航不走这里（PLMM 防丢页「无需等待」是主框 JS 跳转，不受影响）。 */
+    private boolean isTapHijack(String[] mark, String pageUrl, String target, boolean redirect, boolean gesture) {
+        if (!gesture || mark == null || mark.length < 3 || redirect) return false;
+        if (!TextUtils.isEmpty(mark[0])) return isClickHijack(mark, pageUrl, target, false);
+        String doc = mark[1];
+        if (TextUtils.isEmpty(doc) || TextUtils.isEmpty(pageUrl) || TextUtils.isEmpty(target)) return false;
+        if (!clickNoHash(doc).equals(clickNoHash(pageUrl))) return false;
+        String docHost = clickHostOf(doc);
+        String targetHost = clickHostOf(target);
+        if (docHost.isEmpty() || targetHost.isEmpty()) return false;
+        if (sameSite(targetHost, docHost)) return false;
+        if (isJumpServiceUrl(target, docHost)) return false;
+        String attrs = mark[2] == null ? "" : mark[2];
+        if (!attrs.isEmpty()) {
+            if (attrs.contains(targetHost)) return false;
+            String root = registrableDomain(targetHost);
+            if (root != null && attrs.contains(root)) return false;
+            try {
+                String uni = java.net.IDN.toUnicode(targetHost).toLowerCase(Locale.US);
+                if (!uni.equals(targetHost) && attrs.contains(uni)) return false;
+                String uroot = registrableDomain(uni);
+                if (uroot != null && !uni.equals(targetHost) && attrs.contains(uroot)) return false;
+            } catch (Exception ignored) {
+            }
+        }
         return true;
     }
 
