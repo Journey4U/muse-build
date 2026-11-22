@@ -660,12 +660,14 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
             if (entry != null && !entry.isEmpty() && !entry.contains("[工具:")) {
                 String origin = originOf(entry);
                 if (origin != null) {
+                    // v21（跳转1 修法，扩大的 A）：条目「主页url」原样返回完整地址，不截 origin——
+                    // 跳转逻辑可能活在非根路径上（如 PLMM 防丢url /放松身心/），截成 origin 会落到托管默认页。
                     // 重定向站：http 的发布页是 JS 跳转页（跳第三方中转站会被 webview 跨站拦截成白屏），
                     // https 直接 301 到真实站，走网络层不被拦截——故升 https（v91）。
-                    if (isRedirectSite(site) && origin.startsWith("http://")) {
-                        origin = "https://" + origin.substring("http://".length());
+                    if (isRedirectSite(site) && entry.startsWith("http://")) {
+                        entry = "https://" + entry.substring("http://".length());
                     }
-                    return origin + "/";
+                    return entry;
                 }
             }
         }
@@ -749,7 +751,7 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
                 if (!key.startsWith(prefix)) continue;
                 String raw = object.optString(key, "");
                 if (raw.isEmpty()) continue;
-                String home = toHomeUrl(site, object, raw);
+                String home = toHomeUrl(site, object, raw, true);
                 if (home != null) return home;
             }
         }
@@ -775,7 +777,7 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     private static String domainUrlFromObject(Site site, JSONObject object) {
         String rawC = object.optString("域名-c", "");
         if (!rawC.isEmpty()) {
-            String home = toHomeUrl(site, object, rawC);
+            String home = toHomeUrl(site, object, rawC, false);
             if (home != null) return home;
         }
         java.util.Iterator<String> keys = object.keys();
@@ -784,7 +786,7 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
             if (!key.contains("域名") || key.equals("域名-c")) continue;
             String raw = object.optString(key, "");
             if (raw.isEmpty()) continue;
-            String home = toHomeUrl(site, object, raw);
+            String home = toHomeUrl(site, object, raw, false);
             if (home != null) return home;
         }
         return null;
@@ -793,8 +795,10 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     /** 把规则里的一条网址变成可进 webview 的主页地址。
      * 含 [工具: 的是重定向模板：展开后返回完整地址（带查询串），不截 origin——
      * 查询串就是跳转指令，截掉只剩服务根就 404（hsck v60 实证：cktongji.com:8899/ 裸根 404）。
+     * keepPath（发布站/防丢url）：原样返回完整地址——跳转逻辑可能活在非根路径上
+     * （PLMM /放松身心/，v21 跳转1 修法），截成 origin 会落到托管默认页。
      * 干净网址取 origin；重定向站 http→https（v91）；IP 跳过。 */
-    private static String toHomeUrl(Site site, JSONObject object, String raw) {
+    private static String toHomeUrl(Site site, JSONObject object, String raw, boolean keepPath) {
         boolean isTool = raw.contains("[工具:");
         String value = resolveDomainTemplate(object, raw);
         if (!value.startsWith("http://") && !value.startsWith("https://")) return null;
@@ -806,6 +810,13 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         if (origin == null || isIpHost(origin)) return null;
         if (isRedirectSite(site) && origin.startsWith("http://")) {
             origin = "https://" + origin.substring("http://".length());
+        }
+        if (keepPath) {
+            // 发布站/防丢url：跳转页本身可能在非根路径，原样返回完整地址。
+            if (isRedirectSite(site) && value.startsWith("http://")) {
+                value = "https://" + value.substring("http://".length());
+            }
+            return value;
         }
         return origin + "/";
     }
