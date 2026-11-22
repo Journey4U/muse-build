@@ -1531,7 +1531,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         + "'';var p1=parseQuoted(t,call);if(!p1)return '';var rest=t.slice(p1[1]);var m=/^\\s*,\\s*(\\d+)\\s*,\\s*(\\d+)\\s*,\\s*/.exec(rest);if(!m)return '';var a=parseInt(m[1],10),c=parseInt(m[2],10);var k1=parseQuoted(t,p1[1]+m[0].length);if(!k1)return "
         + "'';var p=p1[0],k=k1[0].split('|');for(var j2=c-1;j2>=0;j2--){var tok=tokOf(j2,a);var rep=(k[j2]!==undefined&&k[j2]!=='')?k[j2]:tok;if(rep===tok)continue;p=p.replace(new RegExp('\\\\b'+tok+'\\\\b','g'),rep);}return "
         + "p;}function packedSource(){try{var ss=document.querySelectorAll('script');for(var i=0;i<ss.length;i++){var t=ss[i].textContent||'';if(t.indexOf('eval(function(p,a,c,k,e,d)')<0)continue;var dec=decodePacker(t);if(!dec)continue;var "
-        + "m=/source\\s*[:=]\\s*[^;]{0,400}?(https?:\\/\\/[^'\"\\s;]+\\.(?:m3u8|mp4)[^'\"\\s;]*)/.exec(dec);if(m&&isStreamUrl(m[1]))return m[1];}}catch(e){}return '';}function perfM3u8(){try{if(!window.performance||!performance.getEntriesByType)return "
+        + "m=/source\\s*[:=]\\s*[^;]{0,400}?(https?:\\/\\/[^'\"\\s;]+\\.(?:m3u8|mp4)[^'\"\\s;]*)/.exec(dec);if(m&&isStreamUrl(m[1])){var rw=pageRw(m[1]);return (rw&&isStreamUrl(rw))?rw:m[1];}}}catch(e){}return '';}function pageRw(raw){try{var RW=/\\b([A-Za-z_$][\\w$]*)\\s*=\\s*\\1\\.replace\\(\\s*\\/((?:\\\\.|[^\\/\\\\\\n])+)\\/([gimsuy]*)\\s*,\\s*(['\"])([^'\"\\n]*)\\4\\s*\\)/g;var ss=document.querySelectorAll('script');for(var i=0;i<ss.length;i++){var t=ss[i].textContent||'';if(t.indexOf('.replace(')<0)continue;var m;RW.lastIndex=0;while((m=RW.exec(t))){if(m[1]!=='source')continue;var re;try{re=new RegExp(m[2],m[3]);}catch(e){continue;}var out=raw.replace(re,m[5]);if(out===raw)continue;try{if(new URL(out).origin===location.origin)return out;}catch(e){}}}}catch(e){}return '';}function perfM3u8(){try{if(!window.performance||!performance.getEntriesByType)return "
         + "'';var es=performance.getEntriesByType('resource');var found=[];for(var i=0;i<es.length;i++){var u=es[i].name||'';if(/\\.m3u8($|[?&#])/i.test(u)&&found.indexOf(u)<0)found.push(u);}if(found.length===1)return "
         + "found[0];return '';}catch(e){return '';}}function frameStream(){try{var AD=/(^|[\\s_\\-])(ad|ads|advert|advertisement|banner|sponsor|sponsored|promotion)([\\s_\\-]|$)/i;var PL=/(^|[\\s_\\-])(player|playbox|dplayer)([\\s_\\-]|$)/i;var RC=/(^|[\\s_\\-])(recommend|recommended|related|thumbnail|thumbnails|preview|previews|more-videos|sidebar|also-watch)([\\s_\\-]|$)/i;function cx(el){return ((el.getAttribute&&el.getAttribute('class'))||'')+' '+((el.getAttribute&&el.getAttribute('id'))||'');}function up(el,re){var d=el.ownerDocument,n=el;while(n&&n!==d.body&&n!==d.documentElement){if(re.test(cx(n)))return true;n=n.parentElement;}return false;}var fr=document.querySelectorAll('iframe');for(var k=0;k<fr.length;k++){var f=fr[k];if(up(f,AD)||!up(f,PL))continue;var d=null,w=null;try{d=f.contentDocument;w=f.contentWindow;}catch(e){}if(!d||!d.body)continue;var vs=d.querySelectorAll('video'),best=null,bs=-1;for(var i=0;i<vs.length;i++){var v=vs[i];if(up(v,AD)||up(v,RC)||(v.loop&&v.muted))continue;var r=v.getBoundingClientRect(),a=r.width*r.height;if(a>bs){bs=a;best=v;}}if(best){var s='';try{s=best.currentSrc||best.getAttribute('src')||'';}catch(e){}if(/^https?:/i.test(s)&&isStreamUrl(s))return s;}try{var es=w.performance.getEntriesByType('resource'),fl=[];for(var j=0;j<es.length;j++){var u=es[j].name||'';if(/\\.m3u8($|[?&#])/i.test(u)&&fl.indexOf(u)<0)fl.push(u);}if(fl.length===1)return fl[0];}catch(e){}}return '';}catch(e){return '';}}function mainStream(){try{var mv=mainVideo();if(mv&&!adPlaying()){var s=vidSrc(mv);if(s&&/^https?:/i.test(s)&&isStreamUrl(s))return s;}try{var c=window.player_aaaa||window.player_data||window.player_config||window.MacPlayer;if(c&&c.url&&isStreamUrl(c.url))return "
         + "absUrl(c.url);}catch(e){}var md=mediaDefDefault();if(md)return md;var pk=packedSource();if(pk)return pk;var pf=perfM3u8();if(pf)return pf;var fsr=frameStream();if(fsr)return fsr;return '';}catch(e){return '';}}function hasMainPlayer(){try{var "
@@ -1626,6 +1626,11 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     /** v76：跳转已用——v61/v74/v92 放行一次跨站跳转后记下起跳 host；真实站落地时清 mJumpHost，之后真实站上的跨站点击不再放行（假分类/假视频）。 */
     private boolean mJumpUsed = false;
     private String mJumpOriginHost = null;
+    /** push v23 P2'：点按意图记录——{所点本站 <a> 的地址, 点按所在页地址}；页面 window 捕获阶段 click 监听经 JS 桥写入
+     * （只记录，永不放行）。非链接点按写 {"", 页}；新页开始导航即清。字段跟本浏览器实例走，不是全局状态。 */
+    private volatile String[] mClickMark = null;
+    /** push v23 P2'：主框最近一次开始导航的地址——拦下劫持后还原用户本意前，判断主框是否已在去那个链接的路上。 */
+    private volatile String mClickLastStarted = "";
     // v93 跳转链路(v73 起放 Activity 层:onCreateWindow 放行中转跳转后也要记,供 302 跟进认)。
     private String mJumpAnchorHost = null;
     private String mJumpRelayHost = null;
@@ -1852,6 +1857,8 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         String ua = Setting.getUa();
         if (!TextUtils.isEmpty(ua)) setting.setUserAgentString(ua);
         mBinding.web.setWebViewClient(webViewClient());
+        // push v23 P2'：点按意图记录桥（只有一个 mark 方法，只写 mClickMark，不能放行任何东西）。
+        mBinding.web.addJavascriptInterface(new ClickMarkBridge(), "museClickGuard");
         mChromeClient = webChromeClient();
         mBinding.web.setWebChromeClient(mChromeClient);
     }
@@ -1955,6 +1962,16 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 if (isPopunderPath(request.getUrl().getPath())) {
                     return true;
                 }
+                // push v23 P2'：点按劫持守卫（放在 v61/v74 之前，只会多拦）——用户点的是本站 <a>，去向却是外站
+                // （广告脚本在同一次点击里改走 location.href）→ 拦；服务器 301/302（isRedirect）与 v92 中转豁免；
+                // 点外站链接/按钮/没点按一律不介入（发布页、防丢页自动跳不受影响）。拦下后打开用户实际点的本站链接。
+                String[] clickMark = mClickMark;
+                if (isClickHijack(clickMark, view.getUrl(), request.getUrl().toString(), request.isRedirect())) {
+                    mClickMark = null;
+                    DebugLogStore.add("WebPlay", "push v23 点按劫持拦截(主框) 点=" + clickMark[0] + " 去=" + request.getUrl());
+                    restoreClickTarget(view, clickMark[0]);
+                    return true;
+                }
                 // v61：发布站/跳转页上的人工点按放行——主页本身就是发布站/防丢url 或 [工具:重定向] 跳转页时，
                 // 用户在该页上点按进真实站是正常操作（有些发布站不自动跳，必须人工点）。只放行「当前页就是跳转页」
                 // 且带手势的点按；目标是已知广告域名时照样拦。v76：落到真实站即清 mJumpHost，这里不再生效
@@ -2027,6 +2044,9 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 // mUserGestured 一旦置 true 永不复位,点按到达发布页后 mJumpHost 卡在旧 host,v61 永远对不上)。
                 boolean followJumpHost = !mUserGestured || mFollowJumpHost;
                 mFollowJumpHost = false;
+                // push v23 P2'：新页开始导航——清点按记录（新页的点按重新记），记下主框去向供还原判断。
+                mClickMark = null;
+                mClickLastStarted = url;
                 if (followJumpHost && !TextUtils.isEmpty(mJumpHost)) {
                     try {
                         String newHost = Uri.parse(url).getHost();
@@ -2165,16 +2185,25 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 // 用 isAllowedNewWindowUrl 判断(与 shouldOverrideUrlLoading 同一套规则)。
                 // 注意:这里只处理新窗口请求;同标签的自动跨域跳转走 shouldOverrideUrlLoading
                 // (v74:跳转页到非广告域名放行,其余照旧拦截)。
+                // push v23 P2'：新窗口创建这一刻（站方 window.open 同步触发，必早于异步拿到的广告地址）快照点按记录
+                // 与所在页；真实地址到来时按快照判，不受主框之后跳走的影响（无竞态、不计时）。
+                final String[] clickSnap = mClickMark;
+                final String clickPage = view.getUrl();
                 WebView tempWebView = new WebView(view.getContext());
                 tempWebView.setWebViewClient(new WebViewClient() {
                     private boolean mHandled = false;
 
-                    private void handleNewWindowUrl(String url) {
+                    private void handleNewWindowUrl(String url, boolean redirect) {
                         if (mHandled) return;
                         // v74：空白页不占标记、不销毁——新窗口先报 about:blank 时，等真正的 URL 再判断。
                         if (TextUtils.isEmpty(url) || url.equals("about:blank")) return;
                         mHandled = true;
-                        if (isAllowedNewWindowUrl(url, isUserGesture)) {
+                        if (isClickHijack(clickSnap, clickPage, url, redirect)) {
+                            // push v23 P2'：点的是本站链接、弹出的却是外站 → 劫持：丢弃该窗，不装进主页面；
+                            // 还原用户本意（打开所点的本站链接，主框已在去的路上则不重复）。
+                            DebugLogStore.add("WebPlay", "push v23 点按劫持拦截(弹窗) 点=" + clickSnap[0] + " 去=" + url);
+                            restoreClickTarget(view, clickSnap[0]);
+                        } else if (isAllowedNewWindowUrl(url, isUserGesture)) {
                             // 放行:在当前 WebView 打开;让 mJumpHost 跟到新页(修 v72 mUserGestured 缺陷)。
                             mFollowJumpHost = true;
                             view.loadUrl(url);
@@ -2185,14 +2214,14 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
 
                     @Override
                     public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest request) {
-                        handleNewWindowUrl(request.getUrl().toString());
+                        handleNewWindowUrl(request.getUrl().toString(), request.isRedirect());
                         return true;
                     }
 
                     @Override
                     public void onPageStarted(WebView v, String url, Bitmap favicon) {
                         // 兜底:若 shouldOverrideUrlLoading 未被调用,在这里拦截。
-                        handleNewWindowUrl(url);
+                        handleNewWindowUrl(url, false);
                     }
                 });
                 WebView.WebViewTransport transport = (WebView.WebViewTransport) resultMsg.obj;
@@ -2401,7 +2430,61 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     /** v76：跑 CLEAN_JS 前先把跳转状态（真实站落地与否）告诉页面，供假链接/广告墙规则用。 */
     private void evalCleanJs(WebView view) {
         String flag = "window.__museJumpDone=" + (TextUtils.isEmpty(mJumpHost) ? "true" : "false") + ";";
-        view.evaluateJavascript(flag + CLEAN_JS, value -> view.setVisibility(View.VISIBLE));
+        view.evaluateJavascript(flag + CLICK_MARK_JS + CLEAN_JS, value -> view.setVisibility(View.VISIBLE));
+    }
+
+    /** push v23 P2'：点按意图记录脚本——window 捕获阶段（早于站方在 document 上的捕获监听、早于广告脚本的 window.open）
+     * 记下真实点按（isTrusted）所点的本站 <a> 地址交给 Java；href 为空/# 锚点/javascript:/指向本页的，按「非链接点按」记空。
+     * 只读 DOM、不改页面、不阻止事件；每页只装一次。 */
+    private static final String CLICK_MARK_JS = "(function(){try{if(window.__museClickMark)return;window.__museClickMark=1;window.addEventListener('click',function(e){try{if(!e.isTrusted)return;var b=window.museClickGuard;if(!b||!b.mark)return;var t=e.target,a=null;while(t&&t!==document){if(t.tagName&&String(t.tagName).toUpperCase()==='A'&&t.getAttribute&&t.getAttribute('href')!==null){a=t;break;}t=t.parentNode;}var h='';if(a){var raw=(a.getAttribute('href')||'').trim();if(raw&&raw.charAt(0)!=='#'&&!/^javascript:/i.test(raw)){var abs=a.href;if(typeof abs==='string'&&/^https?:/i.test(abs)&&abs.split('#')[0]!==location.href.split('#')[0])h=abs;}}b.mark(h,location.href);}catch(x){}},true);}catch(e){}})();";
+
+    /** push v23 P2'：JS 桥——只写点按记录，永不放行（即便广告 iframe 伪造调用，最多让壳子多拦它自己的跳转）。 */
+    private final class ClickMarkBridge {
+        @android.webkit.JavascriptInterface
+        public void mark(String href, String docUrl) {
+            mClickMark = new String[]{href == null ? "" : href, docUrl == null ? "" : docUrl};
+        }
+    }
+
+    private static String clickNoHash(String url) {
+        if (url == null) return "";
+        int i = url.indexOf('#');
+        return i >= 0 ? url.substring(0, i) : url;
+    }
+
+    private static String clickHostOf(String url) {
+        try {
+            String h = Uri.parse(url).getHost();
+            return h == null ? "" : h.toLowerCase(Locale.US);
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    /** push v23 P2'：点按劫持判定（全满足才算）——①有点按记录且点的是 <a>；②记录属于当前页；③所点链接与该页同站；
+     * ④去向与所点链接不同站；⑤不是服务器重定向；⑥不是 v92 中转链接。不看页面是不是发布站、不数链接、不认尺寸/时长。 */
+    private boolean isClickHijack(String[] mark, String pageUrl, String target, boolean redirect) {
+        if (mark == null || mark.length < 2 || redirect) return false;
+        String href = mark[0];
+        String doc = mark[1];
+        if (TextUtils.isEmpty(href) || TextUtils.isEmpty(doc) || TextUtils.isEmpty(pageUrl) || TextUtils.isEmpty(target)) return false;
+        if (!clickNoHash(doc).equals(clickNoHash(pageUrl))) return false;
+        String docHost = clickHostOf(doc);
+        String hrefHost = clickHostOf(href);
+        String targetHost = clickHostOf(target);
+        if (docHost.isEmpty() || hrefHost.isEmpty() || targetHost.isEmpty()) return false;
+        if (!sameSite(hrefHost, docHost)) return false;
+        if (sameSite(targetHost, hrefHost)) return false;
+        if (isJumpServiceUrl(target, docHost)) return false;
+        return true;
+    }
+
+    /** push v23 P2'：拦下劫持后还原用户本意——主框打开所点的本站链接；主框已在该页或正去该页则不重复加载。 */
+    private void restoreClickTarget(WebView view, String href) {
+        if (view == null || TextUtils.isEmpty(href)) return;
+        String want = clickNoHash(href);
+        if (want.equals(clickNoHash(view.getUrl())) || want.equals(clickNoHash(mClickLastStarted))) return;
+        view.post(() -> view.loadUrl(href));
     }
 
     private boolean isAllowedNewWindowUrl(String url, boolean hasGesture) {

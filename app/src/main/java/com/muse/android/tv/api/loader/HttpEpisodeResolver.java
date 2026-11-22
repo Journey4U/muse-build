@@ -107,7 +107,7 @@ public class HttpEpisodeResolver {
     private static final Pattern EP_NUMBER = Pattern.compile("(\\d+)");
     private static final Pattern PACKER_ARGS = Pattern.compile("\\('([\\s\\S]*?)',(\\d+),(\\d+),'([\\s\\S]*?)'\\.split\\('\\|'\\)");
     private static final Pattern PACKER_WORD = Pattern.compile("\\b[a-z0-9]+\\b");
-    private static final Pattern REWRITE_TPL = Pattern.compile("\\.replace\\([^,]*,\\s*['\"]([^'\"]*?)\\$1/?['\"]\\)");
+    private static final Pattern REWRITE_TPL = Pattern.compile("\\.replace\\(\\s*(?:/(?:\\\\.|[^/\\\\\\n])+/[gimsuy]*|[^,]*)\\s*,\\s*['\"]([^'\"]*?)\\$1/?['\"]\\)");
     private static final Pattern SCHEME_HOST = Pattern.compile("^(https?://[^/]+)");
 
     public interface Callback {
