@@ -33,9 +33,11 @@ import android.os.Handler;
 import android.os.Looper;
 import android.text.TextUtils;
 import android.webkit.CookieManager;
+import android.webkit.WebSettings;
 
 import com.github.catvod.crawler.DebugLogStore;
 import com.github.catvod.net.OkHttp;
+import com.muse.android.tv.App;
 import com.muse.android.tv.setting.Setting;
 import com.muse.android.tv.utils.Sniffer;
 
@@ -422,7 +424,7 @@ public class HttpEpisodeResolver {
     private Map<String, String> subPageHeaders(String parentUrl, String subUrl) {
         Map<String, String> headers = new LinkedHashMap<>();
         headers.put("Referer", parentUrl);
-        headers.put("User-Agent", Setting.getUa());
+        headers.put("User-Agent", nativeUa());
         String cookie = getCookie(subUrl);
         if (TextUtils.isEmpty(cookie)) cookie = getCookie(parentUrl);
         if (!TextUtils.isEmpty(cookie)) headers.put("Cookie", cookie);
@@ -1128,11 +1130,37 @@ public class HttpEpisodeResolver {
 
     // ================= 请求头 / 地址 / 收尾 =================
 
+    private static volatile String sWebUa;
+
+    /**
+     * push v25 (A)：App 自发请求（播前探活 / 本解析器）用的 UA。用户设了 UA 照旧用用户的；
+     * 没设时用 WebView 自己发的 UA（WebSettings.getDefaultUserAgent），取不到再用系统 http.agent。
+     * 原先留空会被 OkHttp 补成默认的 okhttp/x.y.z，missav2 对 okhttp/ 开头的 UA 一律回 500
+     * （同地址同 Referer，浏览器 UA / Media3 UA / Dalvik UA 均 200）。不是全局 UA 设置项，不改蜘蛛请求。
+     */
+    public static String nativeUa() {
+        String ua = Setting.getUa();
+        if (!TextUtils.isEmpty(ua)) return ua;
+        String cached = sWebUa;
+        if (cached != null) return cached;
+        String w = "";
+        try {
+            w = WebSettings.getDefaultUserAgent(App.get());
+        } catch (Throwable ignored) {
+        }
+        if (TextUtils.isEmpty(w)) {
+            String d = System.getProperty("http.agent");
+            w = d == null ? "" : d;
+        }
+        if (!TextUtils.isEmpty(w)) sWebUa = w;
+        return w;
+    }
+
     /** 与旧解析器相同的取头法：Referer=播放页、UA=Setting、Cookie=WebView 同源。 */
     private Map<String, String> pageHeaders(String url) {
         Map<String, String> headers = new LinkedHashMap<>();
         headers.put("Referer", url);
-        headers.put("User-Agent", Setting.getUa());
+        headers.put("User-Agent", nativeUa());
         String cookie = getCookie(url);
         if (!TextUtils.isEmpty(cookie)) headers.put("Cookie", cookie);
         return headers;
@@ -1141,7 +1169,7 @@ public class HttpEpisodeResolver {
     private Map<String, String> streamHeaders(String streamUrl, String pageUrl) {
         Map<String, String> headers = new LinkedHashMap<>();
         headers.put("Referer", pageUrl);
-        headers.put("User-Agent", Setting.getUa());
+        headers.put("User-Agent", nativeUa());
         String cookie = getCookie(streamUrl);
         if (TextUtils.isEmpty(cookie)) cookie = getCookie(pageUrl);
         if (!TextUtils.isEmpty(cookie)) headers.put("Cookie", cookie);

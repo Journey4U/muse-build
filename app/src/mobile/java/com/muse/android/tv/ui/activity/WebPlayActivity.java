@@ -1590,6 +1590,13 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     private Runnable mBrowserResolveTimeout;
     private Runnable mBrowserResolveMute;
     private boolean mBrowserResolveWebResumed;
+    // push v25 (B)：页面兜底导航（page-resolve）模式——落地后探针主片优先，嗅流只在无主片时用。
+    private boolean mBrowserResolvePageMode;
+    private boolean mBrowserResolvePageStarted;
+    private boolean mBrowserResolvePageDone;
+    private String mBrowserResolveSniff = "";
+    private Runnable mBrowserResolveForce;
+    private static final long BROWSER_RESOLVE_SNIFF_WAIT_MS = 3000;
     private boolean mActivityResumed;
     // push v3：探针补跑状态（选集表可能是 JS 后渲染的，页完那一刻还没进 DOM）。
     private Runnable mPushProbeRetry;
@@ -2088,6 +2095,12 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 mPushSniffPageUrl = "";
                 mPushHasMainPlayer = false;
                 mPushSniffedHeaders = null;
+                // push v25 (B)：页面兜底待解单的导航已开始（之后的 onPageFinished 才算目标页落地）。
+                if (mBrowserResolveCallback != null && mBrowserResolvePageMode) {
+                    mBrowserResolvePageStarted = true;
+                    mBrowserResolvePageDone = false;
+                    mBrowserResolveSniff = "";
+                }
                 mPushPlayPending = false;
                 // push v14：导航开始先藏推送钮——旧页嗅流亮起的钮不许带到新页，等新页探针跑完再由 updatePushButton 决定。
                 if (mBinding != null && mBinding.pushPlay != null) mBinding.pushPlay.setVisibility(View.GONE);
@@ -2147,6 +2160,11 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                     try {
                         view.evaluateJavascript(MUTE_ALL_VIDEOS_JS, null);
                     } catch (Throwable ignored) {
+                    }
+                    // push v25 (B)：目标页落地——先跑探针，有主片交主片；无主片且已嗅到流才交嗅流。
+                    if (mBrowserResolvePageMode && mBrowserResolvePageStarted) {
+                        mBrowserResolvePageDone = true;
+                        tryDeliverPageResolve(false);
                     }
                 }
                 // push v3：选集表可能是 JS 后渲染的，页完那一刻还没进 DOM——0.5/1.5/3 秒各补跑一次，探到可用线路就停。
@@ -3358,6 +3376,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     private void startBrowserPageResolve(String pageUrl, BrowserResolveCallback callback) {
         clearBrowserResolveState();
         mBrowserResolveCallback = callback;
+        mBrowserResolvePageMode = true;
         mBrowserResolveKnownStream = mPushLastSniff == null ? "" : mPushLastSniff;
         mBrowserResolveAt = System.currentTimeMillis();
         // 后台 WebView 处于 onPause 节流态：导航后站方 fetch/JS/媒体加载未必跑得起来，
@@ -3408,6 +3427,15 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
             mBrowserResolveHandler.removeCallbacks(mBrowserResolveMute);
             mBrowserResolveMute = null;
         }
+        // push v25 (B)：撤掉页面兜底的嗅流等待，复位页面模式（(c) 路从不设，恒为初值）。
+        if (mBrowserResolveForce != null) {
+            mBrowserResolveHandler.removeCallbacks(mBrowserResolveForce);
+            mBrowserResolveForce = null;
+        }
+        mBrowserResolvePageMode = false;
+        mBrowserResolvePageStarted = false;
+        mBrowserResolvePageDone = false;
+        mBrowserResolveSniff = "";
         mBrowserResolveCallback = null;
         mBrowserResolveKnownStream = "";
         if (mBrowserResolveWebResumed) {
@@ -3435,9 +3463,59 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         Map<String, String> headers = pushPlayHeaders();
         runOnUiThread(() -> {
             if (mBrowserResolveCallback != cb) return;
+            // push v25 (B)：页面兜底模式不再「导航后第一条新嗅流立刻交回」——同站广告帧（missav2 /herebyad4）
+            // 的 mp4 会抢先被交出去。改为记下候选嗅流，交给 tryDeliverPageResolve 按「探针主片 > 嗅流」定。
+            // (c) 点按钮模式照旧立刻交回（点集瞬间探针可能还读到旧集主片，会播错集）。
+            if (mBrowserResolvePageMode) {
+                if (!mBrowserResolvePageStarted) return;
+                mBrowserResolveSniff = url;
+                tryDeliverPageResolve(false);
+                if (!mBrowserResolvePageDone && mBrowserResolveForce == null) {
+                    mBrowserResolveForce = () -> {
+                        mBrowserResolveForce = null;
+                        if (mBrowserResolveCallback != cb) return;
+                        tryDeliverPageResolve(true);
+                    };
+                    mBrowserResolveHandler.postDelayed(mBrowserResolveForce, BROWSER_RESOLVE_SNIFF_WAIT_MS);
+                }
+                return;
+            }
             clearBrowserResolveState();
             cb.onStream(url, headers);
         });
+    }
+
+    /**
+     * push v25 (B)：页面兜底模式的回交判定（主线程）。现跑 PROBE_JS：探针 mainStream（主播放器声明地址，
+     * 按结构认，不用时长）可用且不在广告黑名单 → 交主片；否则在目标页已落地或嗅流等待到点（force）时，
+     * 交候选嗅流（仍排除探针广告黑名单）；都没有就继续等（15 秒超时照旧走 onFailed）。
+     */
+    private void tryDeliverPageResolve(boolean force) {
+        BrowserResolveCallback cb = mBrowserResolveCallback;
+        if (cb == null || !mBrowserResolvePageMode || mBinding == null || mBinding.web == null) return;
+        try {
+            mBinding.web.evaluateJavascript(PROBE_JS, value -> {
+                if (mBrowserResolveCallback != cb) return;
+                JSONObject pobj = parseProbeJson(value);
+                if (pobj != null) storePushStreamFields(pobj);
+                String main = mPushMainStream;
+                if (!TextUtils.isEmpty(main) && isPushStreamUrl(main) && !mPushAdSrcs.contains(main)) {
+                    DebugLogStore.add("WebPlay", "push v25 兜底交主片 " + main);
+                    Map<String, String> h = pushPlayHeaders();
+                    clearBrowserResolveState();
+                    cb.onStream(main, h);
+                    return;
+                }
+                String sniff = mBrowserResolveSniff;
+                if (!TextUtils.isEmpty(sniff) && !mPushAdSrcs.contains(sniff) && (mBrowserResolvePageDone || force)) {
+                    DebugLogStore.add("WebPlay", "push v25 兜底无主片交嗅流 " + sniff);
+                    Map<String, String> h = pushPlayHeaders();
+                    clearBrowserResolveState();
+                    cb.onStream(sniff, h);
+                }
+            });
+        } catch (Throwable ignored) {
+        }
     }
 
     private void startProbedPlay(String stream) {
