@@ -811,7 +811,7 @@ public final class MpvHlsProxy extends NanoHTTPD {
         if (!Setting.isAdblock() || !isVodPlaylist(text)) return text;
         if (kernel == PlayerSetting.MPV && !videoPlaylist) return text;
         try {
-            String filtered = HlsAdsParser.process(text);
+            String filtered = HlsAdsParser.process(text, url);
             if (kernel == PlayerSetting.MPV) {
                 HlsAdTimeline timeline = HlsAdTimeline.from(text, filtered);
                 SessionStats stats = sessionStats.get(session);

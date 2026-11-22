@@ -379,7 +379,7 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
         while ((line = reader.readLine()) != null) {
           sb.append(line).append("\n");
         }
-        String m3u8 = HlsAdsParser.process(sb.toString());
+        String m3u8 = HlsAdsParser.process(sb.toString(), uri == null ? null : uri.toString());
         reader = new BufferedReader(new StringReader(m3u8));
       }
 

@@ -56,12 +56,21 @@ public final class HlsAdsParser {
   private static final double DURATION_AD_TOTAL_RATIO_LIMIT = 0.15;
 
   public static String process(String m3u8) {
+    return process(m3u8, null);
+  }
+
+  /**
+   * playlistUrl：本清单自己的地址（Exo 取 parse(uri) 的 uri，MPV 代理取请求 url）。
+   * 用来认「正片锚点」：正片分片所在目录与清单自己的目录同源同路径；
+   * 被缝进来的广告段来自另一个目录。只认结构，不看段数多少、不看时长。
+   */
+  public static String process(String m3u8, String playlistUrl) {
     if (TextUtils.isEmpty(m3u8) || !m3u8.contains(TAG_ENDLIST)) {
       return m3u8;
     }
     Log.d(TAG, "開始執行 HlsAdsParser。");
     String[] lines = Util.split(m3u8, "\\r?\\n");
-    Set<Integer> adSegmentIndexes = findAds(lines);
+    Set<Integer> adSegmentIndexes = findAds(lines, playlistUrl);
     if (adSegmentIndexes.isEmpty()) {
       Log.d(TAG, "沒有偵測到廣告片段，保留原始播放清單。");
       return m3u8;
@@ -70,10 +79,15 @@ public final class HlsAdsParser {
     return rebuildM3u8(lines, adSegmentIndexes, m3u8.length());
   }
 
-  private static Set<Integer> findAds(String[] lines) {
+  private static Set<Integer> findAds(String[] lines, String playlistUrl) {
     Log.d(TAG, "執行主要策略：檔名與路徑分析。");
     List<String> allSegments = getSegments(lines);
     Log.d(TAG, "播放清單共有 " + allSegments.size() + " 個媒體片段。");
+    // 先认正片锚点：认出来就以它为准（含「结构不干净、不动」），不再落到段数/时长猜测。
+    Set<Integer> anchored = findAdsByAnchor(allSegments, lines, playlistUrl);
+    if (anchored != null) {
+      return anchored;
+    }
     Set<Integer> adsFromFilename = findAdsByFilename(allSegments);
     if (!adsFromFilename.isEmpty()) {
       Log.d(TAG, "主要策略命中，使用檔名與路徑分析結果。");
@@ -332,6 +346,104 @@ public final class HlsAdsParser {
     }
     Log.d(TAG, "路徑結構分組不適合判斷，改用前綴分析。");
     return findAdsByPrefixAnalysis(allSegments);
+  }
+
+
+  /** 返回 null = 认不出锚点（交回原逻辑）；空集 = 认出锚点但结构不干净、不动。 */
+  private static Set<Integer> findAdsByAnchor(
+      List<String> segments, String[] lines, String playlistUrl) {
+    if (TextUtils.isEmpty(playlistUrl)) {
+      return null;
+    }
+    java.net.URI base;
+    try {
+      base = new java.net.URI(playlistUrl.trim());
+    } catch (Exception e) {
+      return null;
+    }
+    String[] baseDir = dirParts(base.getRawPath());
+    if (baseDir.length == 0) {
+      return null;
+    }
+    Map<String, List<Integer>> groups = new HashMap<>();
+    Map<String, Integer> scores = new HashMap<>();
+    for (int i = 0; i < segments.size(); i++) {
+      java.net.URI u;
+      try {
+        u = base.resolve(segments.get(i));
+      } catch (Exception e) {
+        return null;
+      }
+      String key = (u.getHost() == null ? "" : u.getHost()) + "|" + dirOf(u.getRawPath());
+      List<Integer> g = groups.get(key);
+      if (g == null) {
+        g = new ArrayList<>();
+        groups.put(key, g);
+        boolean sameHost = u.getHost() == null || u.getHost().equalsIgnoreCase(base.getHost());
+        scores.put(key, sameHost ? sharedLeading(baseDir, dirParts(u.getRawPath())) : 0);
+      }
+      g.add(i);
+    }
+    if (groups.size() < 2) {
+      return null;
+    }
+    // 正片家族：与清单自己的目录至少共享两级路径的分片组（同一部片的各码率/分段目录都算）。
+    Set<Integer> anchor = new HashSet<>();
+    int best = 0;
+    for (Map.Entry<String, Integer> e : scores.entrySet()) {
+      best = Math.max(best, e.getValue());
+      if (e.getValue() >= 2) {
+        anchor.addAll(groups.get(e.getKey()));
+      }
+    }
+    if (anchor.isEmpty()) {
+      Log.d(TAG, "錨點分析：沒有片段與清單同目錄（best=" + best + "），交回原策略。");
+      return null;
+    }
+    if (anchor.size() == segments.size()) {
+      Log.d(TAG, "錨點分析：所有片段都與清單同源，路徑上沒有外來片段。");
+      return null;
+    }
+    // 结构闸：异目录分片必须整块（不连续标签之间）都是异目录，才剔。
+    for (List<Integer> block : getDiscontinuityBlocks(lines)) {
+      boolean hasAnchor = false;
+      boolean hasForeign = false;
+      for (int idx : block) {
+        if (anchor.contains(idx)) hasAnchor = true; else hasForeign = true;
+      }
+      if (hasAnchor && hasForeign) {
+        Log.d(TAG, "錨點分析：異目錄片段與正片混在同一區塊，結構不乾淨，不動。");
+        return Collections.emptySet();
+      }
+    }
+    Set<Integer> ads = new HashSet<>();
+    for (int i = 0; i < segments.size(); i++) {
+      if (!anchor.contains(i)) ads.add(i);
+    }
+    Log.d(TAG, "錨點分析：剔除異目錄片段 " + ads.size() + " 個。");
+    return ads;
+  }
+
+  private static String dirOf(String path) {
+    if (path == null) return "";
+    int i = path.lastIndexOf('/');
+    return i >= 0 ? path.substring(0, i) : "";
+  }
+
+  private static String[] dirParts(String path) {
+    String d = dirOf(path);
+    List<String> out = new ArrayList<>();
+    for (String p : d.split("/")) {
+      if (!p.isEmpty()) out.add(p);
+    }
+    return out.toArray(new String[0]);
+  }
+
+  private static int sharedLeading(String[] a, String[] b) {
+    int n = Math.min(a.length, b.length);
+    int i = 0;
+    while (i < n && a[i].equals(b[i])) i++;
+    return i;
   }
 
   private static String getStructuralIdentifier(String segmentUrl) {
