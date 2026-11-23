@@ -1150,7 +1150,6 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mWebUrl = detailPageUrl();
         if (TextUtils.isEmpty(mWebUrl)) mWebUrl = episodePageUrl();
         mWebHeader = null;
-        Site site = getSite();
     }
 
     /** 本片详情页地址：详情请求用的 id，绝对地址直接用，相对地址拼本站域名；裸 id 走配置里的页面模板。 */

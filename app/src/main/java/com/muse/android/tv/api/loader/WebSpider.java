@@ -4720,7 +4720,6 @@ public class WebSpider extends Spider {
                 if (!bad && !TextUtils.isEmpty(name) && Boolean.TRUE.equals(V33_TITLE_FROM_TAG.get())) {
                     String[] tm = LIST_META.get(normKey(abs(url)));
                     if (tm != null && !TextUtils.isEmpty(tm[0]) && !tm[0].equals(name) && !adLikeText(tm[0]) && tm[0].trim().length() >= 1) {
-                        log("v33 片名 <title> 回落 → 用列表片名 " + name + " → " + tm[0]);
                         vod.put("vod_name", tm[0]);
                         name = tm[0];
                     }
@@ -5256,7 +5255,6 @@ public class WebSpider extends Spider {
             boolean ok = tabs.size() == sids.size() && !sids.contains("") && new java.util.HashSet<>(sids).size() == sids.size();
             if (ok) for (String sd : sids) if (!grouped.containsKey(sd)) ok = false;
             if (!ok) {
-                log("v33 线路名配对不成立 tabs=" + tabs.size() + " panels=" + sids.size() + " → 照旧");
                 return;
             }
             for (int i = 0; i < tabs.size(); i++) {
@@ -5269,7 +5267,6 @@ public class WebSpider extends Spider {
             for (Map.Entry<String, List<String[]>> en : grouped.entrySet()) if (!re.containsKey(en.getKey())) re.put(en.getKey(), en.getValue());
             grouped.clear();
             grouped.putAll(re);
-            log("v33 线路名 tab-面板配对 " + sids + " → " + lineName);
         } catch (Throwable ignored) {
         }
     }
@@ -5314,7 +5311,6 @@ public class WebSpider extends Spider {
         lineName.put("line1", "默认线路");
         if (tabSplit) {
             lineName.putAll(tabLineName);
-            log("v34 通用详情按标签页拆线路 " + tabLineName.values() + "（" + abs(id) + "）");
         }
         if (grouped.isEmpty()) {
             // r344：合集/专辑型详情页 —— 页面本身不是播放页，而是同模式高频链接列表

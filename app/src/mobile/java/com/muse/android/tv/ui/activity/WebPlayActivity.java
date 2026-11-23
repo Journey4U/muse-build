@@ -2001,8 +2001,6 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                     if (fm != null) {
                         mClickMark = null;
                         mPressMark = null;
-                        // push v30 诊断（验收后撤）
-                        DebugLogStore.add("WebPlay", "push v30 外站点击被改道 点=" + fm[0] + " 去=" + reqUrl3);
                         restoreClickTarget(view, fm[0]);
                         return true;
                     }
@@ -2265,33 +2263,22 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                             //（只为避开广告脚本写死的 500ms 事件锁，不拿时长判广告；按下后已收到真实点击则不补）。
                             String restoreHref = sameSiteMarkHref(clickSnap, clickPage);
                             if (TextUtils.isEmpty(restoreHref)) restoreHref = sameSiteMarkHref(pressSnap, clickPage);
-                            // push v29 诊断（验收后撤）：补「按=」。
-                            DebugLogStore.add("WebPlay", "push v28 点按劫持拦截(弹窗·元素) 去=" + url + " 手势=" + isUserGesture
-                                    + " 点=" + (clickSnap == null ? "-" : (clickSnap[0].isEmpty() ? "元素" : clickSnap[0]))
-                                    + " 按=" + (pressSnap == null ? "-" : (pressSnap[0].isEmpty() ? "元素" : pressSnap[0])));
+                            DebugLogStore.add("WebPlay", "push v28 点按劫持拦截(弹窗·元素) 去=" + url + " 手势=" + isUserGesture);
                             if (!TextUtils.isEmpty(restoreHref)) {
-                                DebugLogStore.add("WebPlay", "push v29 拦后打开所按链接 " + restoreHref);
                                 restoreClickTarget(view, restoreHref);
                             } else {
                                 view.postDelayed(() -> {
                                     if (!clickNoHash(clickPage).equals(clickNoHash(view.getUrl()))) return;
-                                    view.evaluateJavascript("window.__museReplayPress?window.__museReplayPress():'nofn'",
-                                            v -> DebugLogStore.add("WebPlay", "push v29 拦后补点 结果=" + v));
+                                    view.evaluateJavascript("window.__museReplayPress?window.__museReplayPress():'nofn'", null);
                                 }, 600);
                             }
                         } else if (isUserGesture && (isForeignClickDetour(clickSnap, clickPage, url, redirect)
                                 || isForeignClickDetour(pressSnap, clickPage, url, redirect))) {
                             // push v30 R32-3：点/按的是外站 <a>，弹出的却是第三个站 → 丢弃该窗，打开用户点的那个外站链接。
                             String[] fm = isForeignClickDetour(clickSnap, clickPage, url, redirect) ? clickSnap : pressSnap;
-                            // push v30 诊断（验收后撤）
-                            DebugLogStore.add("WebPlay", "push v30 外站点击被改道(弹窗) 点=" + fm[0] + " 去=" + url);
                             restoreClickTarget(view, fm[0]);
                         } else if (isAllowedNewWindowUrl(url, isUserGesture)) {
                             // 放行:在当前 WebView 打开;让 mJumpHost 跟到新页(修 v72 mUserGestured 缺陷)。
-                            // push v28 诊断（验收后撤）：记放行的新窗口去向。
-                            DebugLogStore.add("WebPlay", "push v28 放行新窗口 目标=" + url + " 手势=" + isUserGesture
-                                    + " 点=" + (clickSnap == null ? "-" : (clickSnap[0].isEmpty() ? "元素" : clickSnap[0]))
-                                    + " 按=" + (pressSnap == null ? "-" : (pressSnap[0].isEmpty() ? "元素" : pressSnap[0])));
                             mFollowJumpHost = true;
                             view.loadUrl(url);
                         }
