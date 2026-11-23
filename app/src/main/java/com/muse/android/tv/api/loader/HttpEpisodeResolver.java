@@ -366,7 +366,6 @@ public class HttpEpisodeResolver {
         }
         String stream = extractDplayerUrl(res.body);
         if (TextUtils.isEmpty(stream)) {
-            log("L5 sub miss no-dplayer sub=" + trunc(sub.url));
             return null;
         }
         String name = sub.name;
@@ -450,19 +449,15 @@ public class HttpEpisodeResolver {
 
     private String layer0(int sid, int epNum, Map<String, String> headers) {
         if (TextUtils.isEmpty(origin) || TextUtils.isEmpty(vid)) {
-            log("L0 skip no-origin-vid");
             return null;
         }
         List<List<Ep>> show = loadShow(headers);
         if (show == null) return null;
         Ep ep = findEpisode(show, sid, epNum);
         if (ep == null) {
-            log("L0 miss no-ep sid=" + sid + " ep=" + epNum);
             return null;
         }
-        log("L0 ep=" + ep.name + " stream=" + trunc(ep.url));
         if (!validStream(ep.url)) {
-            log("L0 miss not-direct stream=" + trunc(ep.url));
             return null;
         }
         if (!probe(ep.url, headers)) {
@@ -478,7 +473,6 @@ public class HttpEpisodeResolver {
         List<List<Ep>> cached = SHOW_CACHE.get(key);
         if (cached != null) return cached;
         if (API_CLOSED.contains(key)) {
-            log("L0 skip api-closed");
             return null;
         }
         String base = origin.endsWith("/") ? origin.substring(0, origin.length() - 1) : origin;
@@ -580,7 +574,6 @@ public class HttpEpisodeResolver {
     private String layer1(String html, Map<String, String> headers, List<String> extraCandidates) {
         Matcher pm = PLAYER_VAR.matcher(html);
         if (!pm.find()) {
-            log("L1 player_aaaa absent");
             return null;
         }
         JSONObject pa;
@@ -593,19 +586,15 @@ public class HttpEpisodeResolver {
         String url = pa.optString("url", "");
         String from = pa.optString("from", "");
         if (TextUtils.isEmpty(url)) {
-            log("L1 player_aaaa empty-url from=" + from);
             return null;
         }
         if (url.startsWith("http")) {
-            log("L1 url plaintext from=" + from + " stream=" + trunc(url));
             if (validStream(url) && probe(url, headers)) return url;
-            if (!validStream(url)) log("L1 plaintext not-direct");
-            else log("L1 plaintext probe-fail");
+            if (validStream(url)) log("L1 plaintext probe-fail");
             extraCandidates.add(url);
             return null;
         }
         if (!TextUtils.isEmpty(from)) {
-            log("L1 url ciphertext from=" + from);
             String stream = ddResolve(html, headers, url, from);
             if (!TextUtils.isEmpty(stream) && validStream(stream) && probe(stream, headers)) return stream;
             if (!TextUtils.isEmpty(stream)) log("L1 dd stream invalid/probe-fail " + trunc(stream));
@@ -615,7 +604,6 @@ public class HttpEpisodeResolver {
             if (!TextUtils.isEmpty(art)) return art;
             return null;
         }
-        log("L1 url id-form=" + trunc(url));
         return null;
     }
 
@@ -632,7 +620,6 @@ public class HttpEpisodeResolver {
         if (TextUtils.isEmpty(token) || TextUtils.isEmpty(from)) return null;
         String playerJs = playerJsUrl(from, firstGroup(MACCMS_PATH, html));
         if (TextUtils.isEmpty(playerJs)) {
-            log("L1 art miss no-player-js from=" + from);
             return null;
         }
         HttpResult js = get(playerJs, headers);
@@ -642,12 +629,10 @@ public class HttpEpisodeResolver {
         }
         String artPath = firstGroup(ART_PHP_PATH, js.body);
         if (TextUtils.isEmpty(artPath)) {
-            log("L1 art miss no-art-path");
             return null;
         }
         String artPhp = absUrl(artPath, playerJs);
         if (!artPhp.startsWith("http")) {
-            log("L1 art miss bad-art-url");
             return null;
         }
         String signedUrl = "";
@@ -664,7 +649,6 @@ public class HttpEpisodeResolver {
             return null;
         }
         if (TextUtils.isEmpty(signedUrl)) {
-            log("L1 art miss no-signed-url");
             return null;
         }
         String jmurl = "";
@@ -683,7 +667,6 @@ public class HttpEpisodeResolver {
             return null;
         }
         if (TextUtils.isEmpty(jmurl)) {
-            log("L1 art miss no-jmurl");
             return null;
         }
         jmurl = jmurl.replace("\\/", "/");
@@ -691,7 +674,6 @@ public class HttpEpisodeResolver {
             log("L1 art miss probe-fail jmurl=" + trunc(jmurl));
             return null;
         }
-        log("L1 art hit jmurl=" + trunc(jmurl));
         return jmurl;
     }
 
@@ -732,13 +714,11 @@ public class HttpEpisodeResolver {
     private String ddResolve(String html, Map<String, String> headers, String enc, String from) {
         Matcher cm = PLAYER_CFG_SRC.matcher(html);
         if (!cm.find()) {
-            log("L1 dd miss no-playerconfig");
             return "";
         }
         String cfgUrl = absUrl(cm.group(1), pageUrl);
         String prefix = parsePrefix(cfgUrl, headers, from);
         if (TextUtils.isEmpty(prefix)) {
-            log("L1 dd miss no-parse from=" + from);
             return "";
         }
         String parseUrl;
@@ -761,11 +741,9 @@ public class HttpEpisodeResolver {
             }
         }
         if (TextUtils.isEmpty(u)) {
-            log("L1 dd miss no-url-in-parse-resp len=" + res.body.length());
             return "";
         }
         u = u.replace("\\/", "/");
-        log("L1 dd hit stream=" + trunc(u));
         return u;
     }
 
@@ -809,15 +787,12 @@ public class HttpEpisodeResolver {
         candidates.removeIf(c -> c != null && (c.contains("magnet:") || c.contains("magnet%3A") || c.contains("magnet%3a")));
         List<String> ordered = new ArrayList<>();
         for (String c : candidates) if (validStream(c)) ordered.add(c);
-        log("L2 cands=" + ordered.size() + " raw=" + candidates.size());
         int tried = 0;
         for (String cand : ordered) {
             if (tried++ >= MAX_CANDIDATES) break;
             if (probeWithReferer(cand, headers, pageUrl)) return cand;
             if (!TextUtils.isEmpty(frameRef) && probeWithReferer(cand, headers, frameRef)) return cand;
-            log("L2 probe-fail cand=" + trunc(cand));
         }
-        log("L2 miss");
         return null;
     }
 
@@ -840,7 +815,6 @@ public class HttpEpisodeResolver {
             String stream = artResolveFrame(frame, headers);
             if (!TextUtils.isEmpty(stream)) return stream;
         }
-        log("L4 miss");
         return null;
     }
 
@@ -856,7 +830,6 @@ public class HttpEpisodeResolver {
         String from = firstGroup(ART_FROM, inner.body);
         if (TextUtils.isEmpty(url) || TextUtils.isEmpty(sign) || TextUtils.isEmpty(from)
                 || !inner.body.contains("api.php")) {
-            log("L4 miss no-art-vars frame=" + trunc(framePage));
             return null;
         }
         int slash = framePage.lastIndexOf('/');
@@ -879,13 +852,10 @@ public class HttpEpisodeResolver {
         }
         String stream = artStreamFromJson(res.body);
         if (TextUtils.isEmpty(stream)) {
-            log("L4 api miss no-url len=" + res.body.length());
             return null;
         }
         stream = stream.replace("\\/", "/");
-        log("L4 api hit stream=" + trunc(stream));
         if (!validStream(stream)) {
-            log("L4 api hit not-direct");
             return null;
         }
         if (!probe(stream, apiHeaders)) {

@@ -1886,6 +1886,12 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
                 String host = request.getUrl().getHost();
                 String reqUrl = request.getUrl().toString();
+                // v92 金牌诊断：验证挑战——站点的 /api 被 307 到 /GE/CC/VALIDATOR 时，跟过去的请求会在这里出现；
+                // 记下来才知道接口是不是被验证拦了（只记前 20 次，接口重试循环时不刷屏）。
+                if (reqUrl.toLowerCase(Locale.US).contains("/ge/cc/validator") && mValidatorLogs < 20) {
+                    mValidatorLogs++;
+                    DebugLogStore.add("WebPlay", "validator hit url=" + reqUrl);
+                }
                 // 奇优根除（v115）：gdw.js / xs2.js 是奇优的纯广告加载器（gdw.js 写 #noiddiv + WebSocket 远程代码注底部横幅；
                 // xs2.js 往列表插「小说」推荐卡），只在奇优站内按文件名子串拦，别的站不碰（文件名可能撞）。不带 query 串，站方改版也不怕。
                 // v116 补漏：兄弟插卡器 xs.js（与 xs2.js 同模板）此前未拦——"xs2.js" 子串不含 "xs.js"；
@@ -2200,6 +2206,15 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
             @Override
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
                 super.onReceivedError(view, request, error);
+                // v92 金牌诊断：主框错误记下来，看页面是不是加载失败变黑。
+                // v95：子资源错误也记（去重 + 上限 20 条）——JS 分块加载失败会让页面水合卡住变黑，之前只记主框看不到。
+                if (request == null) return;
+                String errUrl = String.valueOf(request.getUrl());
+                if (request.isForMainFrame()) {
+                    DebugLogStore.add("WebPlay", "page error url=" + errUrl + " code=" + error.getErrorCode() + " desc=" + error.getDescription());
+                } else if (mResErrUrls.size() < 20 && mResErrUrls.add(errUrl)) {
+                    DebugLogStore.add("WebPlay", "res error url=" + errUrl + " code=" + error.getErrorCode());
+                }
             }
 
             @Override
@@ -2293,6 +2308,14 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
 
             @Override
             public boolean onConsoleMessage(ConsoleMessage consoleMessage) {
+                // v92 金牌诊断：只记页面报错，看 JS 是不是报错导致页面黑掉。
+                // v95：按文案去重（上限 20 条不同报错）——之前按条数截前 10 条，AudioContext 刷 10 次就把真正的报错盖住了。
+                if (consoleMessage != null && consoleMessage.messageLevel() == ConsoleMessage.MessageLevel.ERROR) {
+                    String msg = consoleMessage.message();
+                    if (msg != null && mConsoleErrSeen.size() < 20 && mConsoleErrSeen.add(msg)) {
+                        DebugLogStore.add("WebPlay", "console error " + msg + " @" + consoleMessage.sourceId() + ":" + consoleMessage.lineNumber());
+                    }
+                }
                 return super.onConsoleMessage(consoleMessage);
             }
 
@@ -3029,10 +3052,14 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
             if (lines != null && lines.length() > 0) {
                 boolean renamed = dedupePushLineNames(lines);
                 mPushProbeLines = renamed ? obj.toString() : json;
+                DebugLogStore.add("WebPlay", "push 多线探针 线路=" + lines.length());
+                String diag = obj.optString("diag");
+                if (!diag.isEmpty()) DebugLogStore.add("WebPlay", "push 探针诊断 " + diag);
                 return true;
             } else if (hasSub) {
                 // push v12：无分集表但有子帖表时也存下来，供点推时走子页解析层。
                 mPushProbeLines = json;
+                DebugLogStore.add("WebPlay", "push 子页探针 子帖=" + subEps.length());
                 return true;
             }
         } catch (Throwable ignored) {
