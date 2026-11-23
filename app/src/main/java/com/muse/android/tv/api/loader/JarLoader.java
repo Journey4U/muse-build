@@ -129,7 +129,7 @@ public class JarLoader {
         } catch (Throwable e) {
             // 失败不缓存：jar 下载/加载/init 的瞬时失败不得让站点在本进程内永久失效，
             // 下次打开自动重试；失败原因写进应用内蜘蛛日志，不再只 printStackTrace 静默。
-            SpiderDebug.log("jar-spider", "create failed key=" + key + " api=" + api);
+            SpiderDebug.error("jar-spider", "create failed key=" + key + " api=" + api);
             SpiderDebug.log("jar-spider", e);
             return new SpiderNull();
         }

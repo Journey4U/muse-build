@@ -36,6 +36,7 @@ import com.muse.android.tv.R;
 import com.muse.android.tv.api.DanmakuApi;
 import com.muse.android.tv.api.SiteApi;
 import com.muse.android.tv.api.config.VodConfig;
+import com.muse.android.tv.api.loader.HttpEpisodeResolver;
 import com.muse.android.tv.api.loader.LocalSourceHub;
 import com.muse.android.tv.bean.Danmaku;
 import com.muse.android.tv.bean.Episode;
@@ -73,6 +74,7 @@ import com.muse.android.tv.ui.adapter.PartAdapter;
 import com.muse.android.tv.ui.adapter.QualityAdapter;
 import com.muse.android.tv.ui.adapter.QuickAdapter;
 import com.muse.android.tv.ui.custom.CustomKeyDownVod;
+import com.muse.android.tv.ui.custom.CustomWebView;
 import com.muse.android.tv.ui.custom.CustomMovement;
 import com.muse.android.tv.ui.dialog.ChapterDialog;
 import com.muse.android.tv.ui.dialog.ContentDialog;
@@ -99,6 +101,7 @@ import com.github.bassaer.library.MDColor;
 import com.github.catvod.crawler.SpiderDebug;
 
 import org.greenrobot.eventbus.Subscribe;
+import org.json.JSONArray;
 import org.json.JSONObject;
 import org.greenrobot.eventbus.ThreadMode;
 
@@ -107,7 +110,10 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -120,6 +126,12 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     private ActivityVideoBinding mBinding;
     private VideoViewModel mViewModel;
     private VodPlaybackController mVod;
+    /** push v2：浏览器全集待解析集的请求头（HTTP 解析完即用；startPlayback 合并后清空——fuzi 在 getPlayer 里先清后读的 bug 不带过来）。 */
+    private Map<String, String> mWebEpHeaders = Collections.emptyMap();
+    /** push v32（方案 R，电视 v19 补）：网页源本集正交 WebView 嗅探时的播放页地址；嗅探失败（error_play_parse）按回落 b 用浏览器打开它。 */
+    private String mWebSniffPage;
+    /** push v32：网页源 parse=1 先走 HttpEpisodeResolver 的轮次号；换集/重播后旧回调作废。 */
+    private int mWebResolveSeq;
     private FlagAdapter mFlagAdapter;
     private EpisodeAdapter mEpisodeAdapter;
     private QualityAdapter mQualityAdapter;
@@ -204,6 +216,104 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         intent.putExtra("id", id);
         putPic(intent, pic);
         activity.startActivity(intent);
+    }
+
+    /** push v1：直达播放并附带请求头（浏览器页嗅流转播放用：带上网页的 Referer/UA/Cookie）。走与 start(url) 相同的推送通道，请求头经 playHeaders 透传、在 startPlayback 前并入结果。 */
+    public static void startWithHeaders(Activity activity, String url, Map<String, String> headers) {
+        startWithHeaders(activity, url, headers, null, null, null);
+    }
+
+    /** push v1：同上，再带网页侧提取的片名/线路名/集名，播放页显示真标题而不是网址、推送、01。 */
+    public static void startWithHeaders(Activity activity, String url, Map<String, String> headers, String title, String flag, String episode) {
+        startWithHeaders(activity, url, headers, title, flag, episode, null, null);
+    }
+
+    /** push v1：另带同线路选集表（JSON 数组 [{name,url}]）与当前播放页网址，播放器据此摆出全集。 */
+    public static void startWithHeaders(Activity activity, String url, Map<String, String> headers, String title, String flag, String episode, String episodesJson, String pageUrl) {
+        startWithHeaders(activity, url, headers, title, flag, episode, episodesJson, pageUrl, null);
+    }
+
+    /** push v1：再带全部线路表（JSON {lines:[{name,episodes:[{name,url,cur}]}]}），播放器摆出全部线路，当前线路置顶。 */
+    public static void startWithHeaders(Activity activity, String url, Map<String, String> headers, String title, String flag, String episode, String episodesJson, String pageUrl, String linesJson) {
+        startWithHeaders(activity, url, headers, title, flag, episode, episodesJson, pageUrl, linesJson, null);
+    }
+
+    /** push v1：再带探针抓到的页面海报（browserPic）——落地时写进 VOD，历史记录不再全是占位图。 */
+    public static void startWithHeaders(Activity activity, String url, Map<String, String> headers, String title, String flag, String episode, String episodesJson, String pageUrl, String linesJson, String pic) {
+        Intent intent = new Intent(activity, VideoActivity.class);
+        intent.putExtra("collect", false);
+        intent.putExtra("name", url);
+        intent.putExtra("key", SiteApi.PUSH);
+        intent.putExtra("id", url);
+        intent.putExtra("playHeaders", headersToJson(headers));
+        if (title != null && !title.isEmpty()) intent.putExtra("browserTitle", title);
+        if (flag != null && !flag.isEmpty()) intent.putExtra("browserFlag", flag);
+        if (episode != null && !episode.isEmpty()) intent.putExtra("browserEpisode", episode);
+        if (episodesJson != null && !episodesJson.isEmpty()) intent.putExtra("browserEpisodes", episodesJson);
+        if (pageUrl != null && !pageUrl.isEmpty()) intent.putExtra("browserPage", pageUrl);
+        if (linesJson != null && !linesJson.isEmpty()) intent.putExtra("browserLines", linesJson);
+        if (pic != null && !pic.isEmpty()) intent.putExtra("browserPic", pic);
+        activity.startActivity(intent);
+    }
+
+    /** push v2：再带浏览器探针的来源站（origin）、剧号（vid）、线路号（sid）与集号（nid），供 HTTP 解析器走 Provide API；只在非空时写进 intent。 */
+    public static void startWithHeaders(Activity activity, String url, Map<String, String> headers, String title, String flag, String episode, String episodesJson, String pageUrl, String linesJson, String pic, String origin, String vid, String sid, String nid) {
+        startWithHeaders(activity, url, headers, title, flag, episode, episodesJson, pageUrl, linesJson, pic, origin, vid, sid, nid, null, null, null);
+    }
+
+    /** push v33 M1（电视 v19 补）：再带当前页读到的简介/年份/地区（browserContent/browserYear/browserArea），只在非空时写进 intent。 */
+    public static void startWithHeaders(Activity activity, String url, Map<String, String> headers, String title, String flag, String episode, String episodesJson, String pageUrl, String linesJson, String pic, String origin, String vid, String sid, String nid, String content, String year, String area) {
+        Intent intent = new Intent(activity, VideoActivity.class);
+        if (content != null && !content.isEmpty()) intent.putExtra("browserContent", content);
+        if (year != null && !year.isEmpty()) intent.putExtra("browserYear", year);
+        if (area != null && !area.isEmpty()) intent.putExtra("browserArea", area);
+        intent.putExtra("collect", false);
+        intent.putExtra("name", url);
+        intent.putExtra("key", SiteApi.PUSH);
+        intent.putExtra("id", url);
+        intent.putExtra("playHeaders", headersToJson(headers));
+        if (title != null && !title.isEmpty()) intent.putExtra("browserTitle", title);
+        if (flag != null && !flag.isEmpty()) intent.putExtra("browserFlag", flag);
+        if (episode != null && !episode.isEmpty()) intent.putExtra("browserEpisode", episode);
+        if (episodesJson != null && !episodesJson.isEmpty()) intent.putExtra("browserEpisodes", episodesJson);
+        if (pageUrl != null && !pageUrl.isEmpty()) intent.putExtra("browserPage", pageUrl);
+        if (linesJson != null && !linesJson.isEmpty()) intent.putExtra("browserLines", linesJson);
+        if (pic != null && !pic.isEmpty()) intent.putExtra("browserPic", pic);
+        if (origin != null && !origin.isEmpty()) intent.putExtra("browserOrigin", origin);
+        if (vid != null && !vid.isEmpty()) intent.putExtra("browserVid", vid);
+        if (sid != null && !sid.isEmpty()) intent.putExtra("browserSid", sid);
+        if (nid != null && !nid.isEmpty()) intent.putExtra("browserNid", nid);
+        activity.startActivity(intent);
+    }
+
+    /** push v1：请求头 Map ↔ JSON（MuseTV 无 MusicHeaders，用 JSONObject 直写）。 */
+    private static String headersToJson(Map<String, String> headers) {
+        if (headers == null || headers.isEmpty()) return "";
+        try {
+            JSONObject obj = new JSONObject();
+            for (Map.Entry<String, String> e : headers.entrySet()) {
+                if (e.getKey() == null || e.getValue() == null) continue;
+                obj.put(e.getKey(), e.getValue());
+            }
+            return obj.toString();
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    private static Map<String, String> headersFromJson(String json) {
+        Map<String, String> map = new LinkedHashMap<>();
+        if (json == null || json.isEmpty()) return map;
+        try {
+            JSONObject obj = new JSONObject(json);
+            Iterator<String> keys = obj.keys();
+            while (keys.hasNext()) {
+                String k = keys.next();
+                map.put(k, obj.optString(k));
+            }
+        } catch (Exception ignored) {
+        }
+        return map;
     }
 
     private static void putPic(Intent intent, String pic) {
@@ -421,7 +531,21 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     }
 
     private void onDetailObserved(VodDetailResult result) {
+        // push v2：浏览器转播放——详情落下后先把网页侧的片名/线路/集名摆进 VOD，再走正常详情流；
+        // 当前集序号经 episode_index 透传给选集（不用集名匹配），用完立即清掉，免得后续切线误用。
+        int browserIndex = -1;
+        // push v33 M1：推送带来的简介/年份/地区，详情对应字段为空时填（不覆盖蜘蛛已有的）。
+        if (result != null && result.result() != null) applyBrowserInfo(result.result().getVod());
+        if (result != null && result.result() != null && (getIntent().hasExtra("browserTitle") || getIntent().hasExtra("browserLines"))) {
+            browserIndex = applyBrowserMeta(result.result().getVod());
+        }
+        // push v16：单片推送（无线表/全集表；标题为空时 applyBrowserMeta 不进）也要给当前集记 pageUrl，
+        // 否则 v4 探活与 v5 报错恢复都因 pageUrl 为空跳过、(e1) 兜底进不了 resolveWebEpisode。
+        // 已记过 pageUrl 或非单片时 markSinglePushEpisode 自身为空操作（由手机 v15 同款移植）。
+        if (browserIndex < 0 && result != null && result.result() != null) markSinglePushEpisode(result.result().getVod());
+        if (browserIndex >= 0) getIntent().putExtra("episode_index", browserIndex);
         mVod.onDetailResult(result);
+        if (browserIndex >= 0) getIntent().removeExtra("episode_index");
     }
 
     private void onPlaybackObserved(PlaybackResult<VodPlayRequest> result) {
@@ -595,7 +719,411 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         } else if (getSite().isWebPlay()) {
             startWebPlayer(result);
         } else {
+            // push v2：浏览器转播放的请求头（playHeaders + 待解析集 HTTP 解析头）并入结果，PlaySpec 会把它带给播放器；
+            // fuzi 在 getPlayer 里先清后读的 bug 不带过来——这里先合并、再清空。
+            Map<String, String> extraHeaders = new LinkedHashMap<>();
+            extraHeaders.putAll(headersFromJson(getIntent().getStringExtra("playHeaders")));
+            extraHeaders.putAll(mWebEpHeaders);
+            if (!extraHeaders.isEmpty()) {
+                if (result.getHeader().isEmpty()) result.setHeader(extraHeaders);
+                else result.getHeader().putAll(extraHeaders);
+            }
+            mWebEpHeaders = Collections.emptyMap();
+            mWebSniffPage = null;
+            final int seq = ++mWebResolveSeq;
+            String page = url == null ? "" : url;
+            if (getSite().isWebSource() && result.getParse() == 1 && (page.startsWith("http://") || page.startsWith("https://"))) {
+                // push v32（方案 R，加固 a；电视 v19 补）：网页源要嗅探时，先用推送线现成的纯 HTTP 解析器
+                // （player_aaaa、候选探活、ArtPlayer、art.php 链，浏览器同款 UA）现解播放页；解出直接播，
+                // 解不出再走参考实现的 WebView 嗅探（WebSpider 自动点播脚本 + 加固 b）。只对网页源生效，其他源走下面原路。
+                CustomWebView.setExtraAdFilter(AdDomains::isAdDomain);
+                showProgress();
+                HttpEpisodeResolver.resolveFresh(this, page, null, null, new HttpEpisodeResolver.Callback() {
+                    @Override
+                    public void onResolved(String stream, Map<String, String> headers) {
+                        if (isHostFinishing() || seq != mWebResolveSeq) return;
+                        result.setUrl(stream);
+                        result.setParse(0);
+                        if (headers != null && !headers.isEmpty()) {
+                            if (result.getHeader().isEmpty()) result.setHeader(new LinkedHashMap<>(headers));
+                            else result.getHeader().putAll(headers);
+                        }
+                        startPlayer(getHistoryKey(), result, false, getSite().getTimeout(), startPositionMs, metadata);
+                    }
+
+                    @Override
+                    public void onFailed() {
+                        if (isHostFinishing() || seq != mWebResolveSeq) return;
+                        mWebSniffPage = page;
+                        startPlayer(getHistoryKey(), result, useParse, getSite().getTimeout(), startPositionMs, metadata);
+                    }
+                });
+                return;
+            }
             startPlayer(getHistoryKey(), result, useParse, getSite().getTimeout(), startPositionMs, metadata);
+        }
+    }
+
+    // ===== push v2：浏览器转播放落地（多线表 + HTTP 集解析）=====
+
+    /** push v2：浏览器待解析集（url 为空、pageUrl 为播放页地址）——走纯 HTTP 解析器取直链，解析成功后把直链写回该集并续播。 */
+    @Override
+    public boolean resolveWebEpisode(Flag flag, Episode episode) {
+        if (episode == null || TextUtils.isEmpty(episode.getPageUrl())) return false;
+        // push v14 (c)：按钮式选集（有站方 id、无 url，如 gaze）不走 HTTP 解析器——
+        // 让后台栈里的现有浏览器点该集按钮，站方自己解出流、现有嗅探抓回。其它站
+        // （有 url 的 MacCMS/子页/单片）一律走下面的原路，不动。
+        if (!TextUtils.isEmpty(episode.getBrowserId()) && TextUtils.isEmpty(episode.getUrl())) {
+            boolean requested = WebPlayActivity.requestBrowserEpisodeClick(episode.getBrowserId(),
+                    flag == null ? "" : flag.getFlag(), episode.getName(), new WebPlayActivity.BrowserEpisodeCallback() {
+                        @Override
+                        public void onResolved(String url, Map<String, String> headers) {
+                            hideProgress();
+                            // push v6 Layer 1：与 HTTP 路同一守卫——解析中用户已切走别的集时不回切。
+                            if (isHostFinishing() || !episode.isSelected()) return;
+                            mWebEpHeaders = headers == null ? Collections.emptyMap() : headers;
+                            episode.setUrl(url);
+                            mVod.playResolvedEpisode(episode);
+                        }
+
+                        @Override
+                        public void onFailed() {
+                            hideProgress();
+                            if (isHostFinishing()) return;
+                            Notify.show(getString(R.string.browser_resolve_failed, episode.getName()));
+                        }
+                    });
+            if (requested) {
+                showProgress();
+                Notify.show(getString(R.string.browser_resolving_episode, episode.getName()));
+                return true;
+            }
+            // 后台已无浏览器（用户已关掉）：直接回落现有 toast，不再走 HTTP 解析器
+            // （播放页地址不是流地址、vid 为空，解析器四层全败，只是多等一次网络）。
+            Notify.show(getString(R.string.browser_resolve_failed, episode.getName()));
+            return true;
+        }
+        showProgress();
+        Notify.show(getString(R.string.browser_resolving_episode, episode.getName()));
+        HttpEpisodeResolver.resolve(this, episode.getPageUrl(), getIntent().getStringExtra("browserOrigin"), getIntent().getStringExtra("browserVid"), new HttpEpisodeResolver.Callback() {
+            @Override
+            public void onResolved(String url, Map<String, String> headers) {
+                hideProgress();
+                // push v6 Layer 1：解析中用户已切走别的集时不回切；已选中的集只重跑 playEpisode，不重进 selectEpisode（重进会再写一次历史，旧集位置污染新集槽）。
+                if (isHostFinishing() || !episode.isSelected()) return;
+                mWebEpHeaders = headers == null ? Collections.emptyMap() : headers;
+                episode.setUrl(url);
+                mVod.playResolvedEpisode(episode);
+            }
+
+            @Override
+            public void onFailed() {
+                // push v15 (e1)：HTTP 解析失败兜底——枫叶 parse 回 HTML 播放器页、纯 HTTP
+                // 解不出的确定性失败，改让后台栈里的现有浏览器直接导航到该集播放页，
+                // 站方自己解流、现有嗅探抓回（复用 v14 (c) 的轮询/回交机器，不另造）。
+                // 纠正（2026-11-21）：触发条件与导航地址一律用 getPageUrl()——getUrl()
+                // 是流地址（未解析时为空串），播放页地址在 getPageUrl()；按 getUrl()
+                // 判断兜底永不触发（探针表非当前集是 create(name, "") + setPageUrl）。
+                // 入口守卫已判 pageUrl 非空，此处判空只是防御；单片推送 pageUrl 缺口
+                // 的集根本进不了 resolveWebEpisode，仍走不到兜底（已知未修项，另批）。
+                // 浏览器已关（request 返回 false）直接原 toast，不卡住。
+                if (!TextUtils.isEmpty(episode.getPageUrl())) {
+                    boolean requested = WebPlayActivity.requestBrowserPageResolve(episode.getPageUrl(), episode.getName(), new WebPlayActivity.BrowserEpisodeCallback() {
+                        @Override
+                        public void onResolved(String url, Map<String, String> headers) {
+                            hideProgress();
+                            // push v6 Layer 1：与 HTTP 路同一守卫——解析中用户已切走别的集时不回切。
+                            if (isHostFinishing() || !episode.isSelected()) return;
+                            mWebEpHeaders = headers == null ? Collections.emptyMap() : headers;
+                            episode.setUrl(url);
+                            mVod.playResolvedEpisode(episode);
+                        }
+
+                        @Override
+                        public void onFailed() {
+                            hideProgress();
+                            if (isHostFinishing()) return;
+                            Notify.show(getString(R.string.browser_resolve_failed, episode.getName()));
+                        }
+                    });
+                    if (requested) {
+                        // 兜底进行中：progress 保持可见（本 onFailed 尚未 hideProgress），
+                        // 不弹失败 toast，等兜底回调再决定。
+                        showProgress();
+                        return;
+                    }
+                }
+                hideProgress();
+                Notify.show(getString(R.string.browser_resolve_failed, episode.getName()));
+            }
+        });
+        return true;
+    }
+
+    /** push v5：过期流报错恢复——重取新鲜流（纯 HTTP 解析器），取到后重选该集续播（控制器用报错时捕获的位置续播）；取失败回落正常报错路（mVod.playbackError 再进时守卫已置位，直接 reset + showError + fallback，不再重取）。恢复中用户已切走别的集时不回切（isSelected 守卫）。 */
+    @Override
+    public boolean resolveWebEpisodeForErrorRecovery(Flag flag, Episode episode, String errorMsg) {
+        if (episode == null || TextUtils.isEmpty(episode.getPageUrl())) return false;
+        // push v11 A2：先清本集解析缓存再重取——缓存里是旧签名地址，不清就等于原地重播过期流。
+        HttpEpisodeResolver.invalidateForRetry(episode.getPageUrl(), getIntent().getStringExtra("browserOrigin"), getIntent().getStringExtra("browserVid"));
+        showProgress();
+        Notify.show(getString(R.string.browser_resolving_episode, episode.getName()));
+        HttpEpisodeResolver.resolve(this, episode.getPageUrl(), getIntent().getStringExtra("browserOrigin"), getIntent().getStringExtra("browserVid"), new HttpEpisodeResolver.Callback() {
+            @Override
+            public void onResolved(String url, Map<String, String> headers) {
+                hideProgress();
+                if (isHostFinishing() || !episode.isSelected()) return;
+                mWebEpHeaders = headers == null ? Collections.emptyMap() : headers;
+                episode.setUrl(url);
+                mVod.selectEpisode(episode);
+            }
+
+            @Override
+            public void onFailed() {
+                hideProgress();
+                if (isHostFinishing()) return;
+                Notify.show(getString(R.string.browser_resolve_failed, episode.getName()));
+                mVod.playbackError(errorMsg);
+            }
+        });
+        return true;
+    }
+
+    /** push v2：浏览器转播放落地——网页侧的片名/线路名/集名覆盖推送详情的写死值；普通入口无这些参数、零影响。返回当前集在当前线路里的下标（-1 表示未摆线）。 */
+    /** push v33 M1（电视 v19 补）：推送带来的简介/年份/地区落进 VOD——只在详情对应字段为空时填。 */
+    private void applyBrowserInfo(Vod vod) {
+        if (vod == null) return;
+        String c = getIntent().getStringExtra("browserContent");
+        String y = getIntent().getStringExtra("browserYear");
+        String a = getIntent().getStringExtra("browserArea");
+        if (!TextUtils.isEmpty(c) && vod.getContent().isEmpty()) vod.setContent(c);
+        if (!TextUtils.isEmpty(y) && vod.getYear().isEmpty()) vod.setYear(y);
+        if (!TextUtils.isEmpty(a) && vod.getArea().isEmpty()) vod.setArea(a);
+    }
+
+    private int applyBrowserMeta(Vod vod) {
+        if (vod == null) return -1;
+        // 探针海报落地提到标题早退之前——海报不依赖标题，标题为空时也要落图。
+        String browserPic = getIntent().getStringExtra("browserPic");
+        if (browserPic != null && !browserPic.isEmpty() && (vod.getPic() == null || vod.getPic().isEmpty())) vod.setPic(browserPic);
+        String title = getIntent().getStringExtra("browserTitle");
+        if (title == null || title.isEmpty()) return -1;
+        vod.setName(title);
+        String flag = getIntent().getStringExtra("browserFlag");
+        String episode = getIntent().getStringExtra("browserEpisode");
+        // 带全部线路表时按线摆旗（当前线路置顶、当前集挂直达流、其余集留空 url 记 pageUrl、点开走 HTTP 解析）；摆成功就不再走单线路径。
+        int index = applyBrowserLines(vod, episode);
+        if (index >= 0) return index;
+        // push v13 F4(a)：表已落下、无当前集（-2）时不走单线回落——回落会把各线全改名为
+        // browserFlag；仍向调用方报 -1（不设 episode_index，不预选）。
+        if (index == -2) return -1;
+        if (flag != null && !flag.isEmpty()) vod.setPlayFrom(flag);
+        int firstEpIndex = -1;
+        for (Flag item : vod.getFlags()) {
+            if (flag != null && !flag.isEmpty()) {
+                item.setFlag(flag);
+                item.trans(); // 显示名（getShow）由 trans 从 flag 派生，须刷新
+            }
+            // 有全集表先摆全集（当前集挂已嗅到的流、其余集留空 url 记 pageUrl、点开走 HTTP 解析）；摆成功就不再走单集改名。
+            int epIndex = applyBrowserEpisodes(item);
+            if (firstEpIndex < 0 && epIndex >= 0) firstEpIndex = epIndex;
+            if (epIndex < 0 && episode != null && !episode.isEmpty() && !item.getEpisodes().isEmpty())
+                item.getEpisodes().get(0).setName(episode);
+        }
+        return firstEpIndex;
+    }
+
+    /** push v16：单片推送的当前集记 pageUrl=浏览器页地址（v4 探活与 v5 报错恢复的入口条件，(e1) 兜底进 resolveWebEpisode 的前提；由手机 v15 同款移植）。 */
+    private void markSinglePushEpisode(Vod vod) {
+        String page = getIntent().getStringExtra("browserPage");
+        if (page == null || page.isEmpty() || vod == null || vod.getFlags() == null) return;
+        if (vod.getFlags().size() != 1) return;
+        Flag flag = vod.getFlags().get(0);
+        if (flag == null || flag.getEpisodes() == null || flag.getEpisodes().size() != 1) return;
+        Episode ep = flag.getEpisodes().get(0);
+        if (ep == null || TextUtils.isEmpty(ep.getUrl()) || !ep.getUrl().startsWith("http")) return;
+        if (!TextUtils.isEmpty(ep.getPageUrl())) return;
+        ep.setPageUrl(page);
+    }
+
+    /** push v2：取集名里的第一串阿拉伯数字作集号（如「第01集」→ 1），无数字返回 -1；集名按集号比对，杀掉「第01集」vs「第1集」的补零错位。 */
+    private static int episodeNumber(String name) {
+        if (name == null) return -1;
+        int start = -1;
+        for (int i = 0; i < name.length(); i++) {
+            char c = name.charAt(i);
+            if (c >= '0' && c <= '9') {
+                if (start < 0) start = i;
+            } else if (start >= 0) {
+                try {
+                    return Integer.parseInt(name.substring(start, i));
+                } catch (NumberFormatException e) {
+                    return -1;
+                }
+            }
+        }
+        if (start < 0) return -1;
+        try {
+            return Integer.parseInt(name.substring(start));
+        } catch (NumberFormatException e) {
+            return -1;
+        }
+    }
+
+    /** push v2：全部线路落地——每条线一面旗，当前线路置顶；当前集（探针 cur 标优先、无标时按集号对位兜底）挂已嗅到的直达流，其余集留空 url、记 pageUrl，未解析，点开时走 HTTP 解析。无当前集时表照摆、流挂当前线首集、不预选，返回 -2（见 applyBrowserMeta）；表未摆上才返回 -1 走旧路径。 */
+    private int applyBrowserLines(Vod vod, String episodeName) {
+        String json = getIntent().getStringExtra("browserLines");
+        if (json == null || json.isEmpty() || vod.getFlags().isEmpty()) return -1;
+        try {
+            JSONObject root = new JSONObject(json);
+            JSONArray lines = root.optJSONArray("lines");
+            if (lines == null || lines.length() == 0) return -1;
+            String stream = vod.getFlags().get(0).getEpisodes().isEmpty() ? "" : vod.getFlags().get(0).getEpisodes().get(0).getUrl();
+            if (stream.isEmpty()) return -1;
+            // 先解析成中间结构，并定位当前线（有 cur 标的那条）
+            List<String> names = new ArrayList<>();
+            List<JSONArray> epsPerLine = new ArrayList<>();
+            int currentLine = -1;
+            int lineCur = -1;
+            int totalEpisodes = 0;
+            for (int i = 0; i < lines.length(); i++) {
+                JSONObject line = lines.getJSONObject(i);
+                JSONArray eps = line.optJSONArray("episodes");
+                if (eps == null || eps.length() == 0) continue;
+                names.add(line.optString("name"));
+                epsPerLine.add(eps);
+                totalEpisodes += eps.length();
+                if (line.optInt("cur", 0) == 1) lineCur = names.size() - 1;
+                for (int j = 0; j < eps.length(); j++) if (eps.getJSONObject(j).optInt("cur", 0) == 1) currentLine = names.size() - 1;
+            }
+            // 探针的线路级 cur 标（按页面 sid 锚定）优先于集级对位
+            if (lineCur >= 0) currentLine = lineCur;
+            if (names.isEmpty() || (names.size() == 1 && totalEpisodes <= 1)) return -1;
+            if (currentLine < 0) {
+                // 无 cur 标：按线路名对位（browserFlag），再不行默认第一条
+                String flag = getIntent().getStringExtra("browserFlag");
+                currentLine = 0;
+                if (flag != null) for (int i = 0; i < names.size(); i++) if (flag.equals(names.get(i))) { currentLine = i; break; }
+            }
+            // 当前线置顶，其余保持站点原序
+            List<Integer> order = new ArrayList<>();
+            order.add(currentLine);
+            for (int i = 0; i < names.size(); i++) if (i != currentLine) order.add(i);
+            List<Flag> built = new ArrayList<>();
+            // push v14 (b)：浏览器播放页地址，无 url 的按钮集用它作 pageUrl。
+            String browserPage = getIntent().getStringExtra("browserPage");
+            if (browserPage == null) browserPage = "";
+            boolean streamPlaced = false;
+            int currentIndex = -1;
+            for (int oi = 0; oi < order.size(); oi++) {
+                int li = order.get(oi);
+                JSONArray eps = epsPerLine.get(li);
+                Flag flagObj = oi == 0 ? vod.getFlags().get(0) : new Flag();
+                flagObj.setFlag(names.get(li));
+                List<Episode> list = new ArrayList<>();
+                int lineCurrentIndex = -1;
+                for (int j = 0; j < eps.length(); j++) {
+                    JSONObject ep = eps.getJSONObject(j);
+                    String name = ep.optString("name");
+                    String url = ep.optString("url");
+                    // push v14 (b)：按钮式选集（gaze 式）没有 url、但带站方 id——照样落表，
+                    // pageUrl 记浏览器播放页地址（点集时走浏览器内点集解流，不走 HTTP 解析）。
+                    String browserId = ep.optString("id");
+                    String browserPath = ep.optString("path");
+                    if (name.isEmpty() || (url.isEmpty() && browserId.isEmpty())) continue;
+                    String pageUrl = url.isEmpty() ? browserPage : url;
+                    boolean isCurrent = oi == 0 && !streamPlaced && (ep.optInt("cur", 0) == 1
+                            || (episodeName != null && !episodeName.isEmpty() && episodeNumber(episodeName) >= 0 && episodeNumber(episodeName) == episodeNumber(name)));
+                    if (isCurrent) {
+                        lineCurrentIndex = list.size();
+                        streamPlaced = true;
+                        Episode created = Episode.create(name, stream);
+                        created.setPageUrl(pageUrl);
+                        created.setBrowserId(browserId);
+                        created.setBrowserPath(browserPath);
+                        list.add(created);
+                    } else {
+                        Episode created = Episode.create(name, "");
+                        created.setPageUrl(pageUrl);
+                        created.setBrowserId(browserId);
+                        created.setBrowserPath(browserPath);
+                        list.add(created);
+                    }
+                }
+                if (list.isEmpty()) continue;
+                if (oi == 0 && lineCurrentIndex < 0) {
+                    // push v13 F4(a)：当前线无当前集时不再整表作废——把嗅到的流挂到当前线首集
+                    // （播放器能播嗅到的流），但不标当前集（lineCurrentIndex 保持 -1，currentIndex
+                    // 返回 -1，不预选）；其余集照常摆全集。
+                    if (!streamPlaced) {
+                        list.get(0).setUrl(stream);
+                        streamPlaced = true;
+                    }
+                }
+                flagObj.getEpisodes().clear();
+                flagObj.getEpisodes().addAll(list);
+                if (lineCurrentIndex >= 0) {
+                    flagObj.setPosition(lineCurrentIndex);
+                    // MuseTV 注意：这里不预置 Episode.setSelected(true)——详情流的 seamless
+                    // 见已选集会直接返回不播；当前集序号经返回值 + episode_index 透传，正常流里再选。
+                    if (oi == 0) currentIndex = lineCurrentIndex;
+                }
+                flagObj.trans();
+                built.add(flagObj);
+            }
+            if (!streamPlaced || built.isEmpty()) return -1;
+            vod.getFlags().clear();
+            vod.getFlags().addAll(built);
+            StringBuilder from = new StringBuilder();
+            for (Flag f : built) {
+                if (from.length() > 0) from.append(",");
+                from.append(f.getFlag());
+            }
+            vod.setPlayFrom(from.toString());
+            // push v13 F4(a)：表已落下但无当前集时返回 -2（不是 -1）：applyBrowserMeta 见 -2 即
+            // 跳过单线回落（回落会把各线全改名为 browserFlag），仍向调用方报 -1，不设 episode_index。
+            return currentIndex >= 0 ? currentIndex : -2;
+        } catch (Exception e) {
+            return -1;
+        }
+    }
+
+    /** push v2：浏览器全集表落地：表里与当前播放页同址的那集换成已嗅到的直达流，其余集留空 url、记 pageUrl，未解析，点开时走 HTTP 解析。返回当前集下标，摆不上返回 -1。 */
+    private int applyBrowserEpisodes(Flag item) {
+        String json = getIntent().getStringExtra("browserEpisodes");
+        String page = getIntent().getStringExtra("browserPage");
+        if (json == null || json.isEmpty() || page == null || item.getEpisodes().isEmpty()) return -1;
+        try {
+            JSONArray array = new JSONArray(json);
+            if (array.length() <= 1) return -1;
+            String stream = item.getEpisodes().get(0).getUrl();
+            List<Episode> list = new ArrayList<>();
+            Episode current = null;
+            for (int i = 0; i < array.length(); i++) {
+                JSONObject obj = array.getJSONObject(i);
+                String name = obj.optString("name");
+                String url = obj.optString("url");
+                if (name.isEmpty() || url.isEmpty()) continue;
+                // 探针按（剧号,线路,集号）打的 cur 标优先，全址相等只作兜底
+                if (obj.optInt("cur", 0) == 1 || url.equals(page)) {
+                    current = Episode.create(name, stream);
+                    current.setPageUrl(url);
+                    list.add(current);
+                } else {
+                    Episode ep = Episode.create(name, "");
+                    ep.setPageUrl(url);
+                    list.add(ep);
+                }
+            }
+            if (current == null || list.size() <= 1) return -1;
+            item.getEpisodes().clear();
+            item.getEpisodes().addAll(list);
+            int currentIndex = list.indexOf(current);
+            item.setPosition(currentIndex);
+            // MuseTV 注意：不预置 setSelected(true)，见 applyBrowserLines。
+            return currentIndex;
+        } catch (Exception e) {
+            return -1;
         }
     }
 
@@ -1210,8 +1738,8 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     }
 
     /** 把页面地址里的 -{线路}-{集} 段换成当前集号（如 vodplay/102317-1-1.html → vodplay/102317-1-5.html，第二段才是集号）；没有这段时原样返回。 */
-    /** v24 补：主线电视 v23 的 rewriteEpisode() 调 currentEpisodeNumber()，但 leanback 未定义（手机版 VideoActivity 有此方法）；
-     * v23 提交未构建，此遗漏未被发现。照手机版逐字抄，仅一处等价改写：leanback EpisodeAdapter 无 isEmpty()，改用 getItemCount() > 0。 */
+    /** v18 补：电视 v17 的 rewriteEpisode() 调 currentEpisodeNumber()，但 leanback 未定义（手机版 VideoActivity 有此方法）；
+     * v17 提交未构建，此遗漏未被发现。照手机版逐字抄，仅一处等价改写：leanback EpisodeAdapter 无 isEmpty()，改用 getItemCount() > 0。 */
     /** 当前集的集号（1 起）：先从集名里取数字（第05集→5），没有取列表位置+1。 */
     private int currentEpisodeNumber() {
         if (mEpisodeAdapter != null && mEpisodeAdapter.getItemCount() > 0) {
@@ -2076,6 +2604,16 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
 
     @Override
     protected void onError(String msg) {
+        // push v32（方案 R，回落 b；电视 v19 补）：网页源解析器与 WebView 嗅探都失败 → 提示并用浏览器打开该集播放页
+        //（与主页浏览器入口同一套 openWebPlayer 参数，推送/探针/去广告照旧；电视焦点照现规矩落返回键）。只认嗅探失败（error_play_parse），其他报错走原路。
+        if (mWebSniffPage != null && getSite().isWebSource() && getString(R.string.error_play_parse).equals(msg)) {
+            String page = mWebSniffPage;
+            mWebSniffPage = null;
+            hideProgress();
+            Notify.show("解析失败，已用浏览器打开");
+            openWebPlayer(page, null, "");
+            return;
+        }
         mVod.playbackError(msg);
     }
 

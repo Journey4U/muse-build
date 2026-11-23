@@ -9,7 +9,10 @@ class AbiApkPackaging {
     static void configure(Project project, Object apkArtifact) {
         def android = project.extensions.getByName('android')
         def components = project.extensions.getByName('androidComponents')
-        configureAbis(android)
+        // NOTE: splits.abi is now declared directly in app/build.gradle's
+        // android{} block (standard location). Do NOT re-add configureAbis
+        // here — the programmatic setting outside android{} is what AGP 9.3.1
+        // failed to propagate, producing only the arm64 split (no 32-bit TV).
         components.onVariants(components.selector().withBuildType('release')) { variant ->
             def device = configureOutputFileNames(variant)
             configureFinalizer(project, android, components, variant, apkArtifact)

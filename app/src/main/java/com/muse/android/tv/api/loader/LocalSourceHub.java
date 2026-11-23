@@ -2987,7 +2987,7 @@ public class LocalSourceHub {
     public static final int WEB_WRITE_FAIL = -6;
     /** v67：网页源追加：写盘被系统拒绝（无存储权限，与写盘失败分开）。 */
     public static final int WEB_NO_PERMISSION = -7;
-    /** v67：网页源删除/改名：当前配置里没有这条网页源（可能已被删）。 */
+    /** v67：网页源删除：当前配置里没有这条网页源（可能已被删）。 */
     public static final int WEB_NOT_FOUND = -8;
     /** v66：网页源追加：新建了网页源配置文件（成功，文件为新建）。 */
     public static final int WEB_CREATED = 2;
@@ -3306,8 +3306,8 @@ public class LocalSourceHub {
     }
 
     /**
-     * v33：单次添加网页源清理——去逗号、去空格，缺 http/https 前缀补 https://；
-     * 在 {@link #appendWebSource} 入口统一调，单次添加与批量导入都受益（批量已清理过，重复调幂等）。
+     * v29：单次添加网页源清洗——去逗号、去空格，缺前缀补 https://。
+     * 在 appendWebSource 入口统一调，所有调用方自动受益；批量 URL 已清洗过，重复调是幂等的。
      */
     public static String sanitizeWebSourceUrl(String url) {
         if (url == null) return null;

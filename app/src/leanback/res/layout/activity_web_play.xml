@@ -83,6 +83,20 @@
                 android:text="@string/web_refresh"
                 android:textColor="#FFFFFF"
                 android:textSize="16sp" />
+
+            <!-- TV push v5：推送钮由右下角悬浮移入顶栏（返回/刷新同一排），遥控器 D-pad 可聚焦；初始隐藏，探到流/线路表时才亮起 -->
+            <TextView
+                android:id="@+id/pushPlay"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/selector_chip"
+                android:focusable="true"
+                android:focusableInTouchMode="true"
+                android:padding="8dp"
+                android:text="推送"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:visibility="gone" />
         </LinearLayout>
 
         <ProgressBar
@@ -100,5 +114,6 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center"
         android:visibility="gone" />
+
 </FrameLayout>
 

@@ -27,6 +27,8 @@
     <!-- Push -->
     <string name="push_clip">Push clipboard content</string>
     <string name="push_info">Scan QR Code or enter the URL in browser\n<xliff:g name="name">%s</xliff:g></string>
+    <string name="browser_resolving_episode">Opening the web page to find the stream for \"%1$s\"…</string>
+    <string name="browser_resolve_failed">Could not find a stream for \"%1$s\"; you can watch it on the web page</string>
 
     <string name="detail_episode">Episode</string>
 
