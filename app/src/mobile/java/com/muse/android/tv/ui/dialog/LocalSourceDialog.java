@@ -192,4 +192,3 @@ public class LocalSourceDialog extends BaseAlertDialog {
         VodConfig.load(Config.find(url, 0), callback);
     }
 }
-

@@ -94,6 +94,8 @@
     <string name="play_decode">硬解</string>
     <string name="play_media_info">媒體資訊</string>
     <string name="play_web">網頁播放</string>
+    <string name="web_back">返回</string>
+    <string name="web_refresh">重新整理</string>
     <string name="web_load_fail">播放位址取得失敗</string>
     <string name="play_timer">定時</string>
     <string name="play_edition">標題</string>

@@ -9,6 +9,8 @@
     <string name="nav_live">Live</string>
     <string name="nav_browser">Browser</string>
     <string name="nav_browser_empty">No homepage for this site</string>
+    <string name="browser_resolving_episode">Opening the web page to find the stream for \"%1$s\"…</string>
+    <string name="browser_resolve_failed">Could not find a stream for \"%1$s\"; you can watch it on the web page</string>
     <string name="nav_setting">Setting</string>
 
     <!-- Menu -->

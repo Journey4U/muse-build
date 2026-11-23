@@ -8,6 +8,8 @@
     <string name="nav_vod">点播</string>
     <string name="nav_live">直播</string>
     <string name="nav_setting">设置</string>
+    <string name="browser_resolving_episode">正在打开网页解析「%1$s」的播放地址…</string>
+    <string name="browser_resolve_failed">「%1$s」没能解析出播放地址，可以回网页里看</string>
 
     <!-- Menu -->
     <string name="menu_sync">同步</string>

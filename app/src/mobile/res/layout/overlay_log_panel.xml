@@ -98,46 +98,65 @@
             android:textColor="#757575"
             android:textSize="12sp" />
 
-        <LinearLayout
-            android:id="@+id/logCategories"
+        <HorizontalScrollView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
+            android:overScrollMode="never"
             android:paddingStart="13dp"
             android:paddingEnd="13dp"
-            android:paddingBottom="6dp">
+            android:paddingBottom="6dp"
+            android:clipToPadding="false"
+            android:scrollbars="none">
 
-            <TextView
-                android:id="@+id/logCatAll"
-                style="@style/LogPanelButton"
-                android:text="@string/log_cat_all" />
+            <LinearLayout
+                android:id="@+id/logCategories"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
 
-            <TextView
-                android:id="@+id/logCatRun"
-                style="@style/LogPanelButton"
-                android:text="@string/log_cat_run" />
+                <TextView
+                    android:id="@+id/logCatAll"
+                    style="@style/LogPanelChip"
+                    android:text="@string/log_cat_all" />
 
-            <TextView
-                android:id="@+id/logCatFile"
-                style="@style/LogPanelButton"
-                android:text="@string/log_cat_file" />
+                <TextView
+                    android:id="@+id/logCatMedia"
+                    style="@style/LogPanelChip"
+                    android:text="@string/log_cat_media" />
 
-            <TextView
-                android:id="@+id/logCatMedia"
-                style="@style/LogPanelButton"
-                android:text="@string/log_cat_media" />
+                <TextView
+                    android:id="@+id/logCatPlay"
+                    style="@style/LogPanelChip"
+                    android:text="@string/log_cat_play" />
 
-            <TextView
-                android:id="@+id/logCatPlay"
-                style="@style/LogPanelButton"
-                android:text="@string/log_cat_play" />
+                <TextView
+                    android:id="@+id/logCatAd"
+                    style="@style/LogPanelChip"
+                    android:text="@string/log_cat_ad" />
 
-            <TextView
-                android:id="@+id/logCatSpider"
-                style="@style/LogPanelButton"
-                android:text="@string/log_cat_spider" />
+                <TextView
+                    android:id="@+id/logCatError"
+                    style="@style/LogPanelChip"
+                    android:text="@string/log_cat_error" />
 
-        </LinearLayout>
+                <TextView
+                    android:id="@+id/logCatFile"
+                    style="@style/LogPanelChip"
+                    android:text="@string/log_cat_file" />
+
+                <TextView
+                    android:id="@+id/logCatSpider"
+                    style="@style/LogPanelChip"
+                    android:text="@string/log_cat_spider" />
+
+                <TextView
+                    android:id="@+id/logCatRun"
+                    style="@style/LogPanelChip"
+                    android:text="@string/log_cat_run" />
+
+            </LinearLayout>
+
+        </HorizontalScrollView>
 
         <FrameLayout
             android:id="@+id/logBody"
@@ -163,47 +182,55 @@
 
         </FrameLayout>
 
-        <LinearLayout
-            android:id="@+id/logButtons"
+        <HorizontalScrollView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
+            android:overScrollMode="never"
             android:paddingStart="13dp"
             android:paddingTop="2dp"
             android:paddingEnd="52dp"
-            android:paddingBottom="6dp">
+            android:paddingBottom="6dp"
+            android:scrollbars="none">
 
-            <TextView
-                android:id="@+id/logRefresh"
-                style="@style/LogPanelButton"
-                android:text="@string/log_refresh" />
+            <LinearLayout
+                android:id="@+id/logButtons"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
 
-            <TextView
-                android:id="@+id/logCopy"
-                style="@style/LogPanelButton"
-                android:text="@string/log_copy" />
+                <TextView
+                    android:id="@+id/logRefresh"
+                    style="@style/LogPanelChip"
+                    android:text="@string/log_refresh" />
 
-            <TextView
-                android:id="@+id/logClear"
-                style="@style/LogPanelButton"
-                android:text="@string/log_clear" />
+                <TextView
+                    android:id="@+id/logCopy"
+                    style="@style/LogPanelChip"
+                    android:text="@string/log_copy" />
 
-            <TextView
-                android:id="@+id/logJump"
-                style="@style/LogPanelButton"
-                android:text="@string/log_jump" />
+                <TextView
+                    android:id="@+id/logClear"
+                    style="@style/LogPanelChip"
+                    android:text="@string/log_clear" />
 
-            <TextView
-                android:id="@+id/logExport"
-                style="@style/LogPanelButton"
-                android:text="@string/log_export" />
+                <TextView
+                    android:id="@+id/logJump"
+                    style="@style/LogPanelChip"
+                    android:text="@string/log_jump" />
 
-            <TextView
-                android:id="@+id/logCopyAddress"
-                style="@style/LogPanelButton"
-                android:text="@string/log_copy_address" />
+                <TextView
+                    android:id="@+id/logExport"
+                    style="@style/LogPanelChip"
+                    android:text="@string/log_export" />
 
-        </LinearLayout>
+                <TextView
+                    android:id="@+id/logCopyAddress"
+                    style="@style/LogPanelChip"
+                    android:text="@string/log_copy_address" />
+
+            </LinearLayout>
+
+        </HorizontalScrollView>
 
     </LinearLayout>
 

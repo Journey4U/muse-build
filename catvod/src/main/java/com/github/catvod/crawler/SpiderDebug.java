@@ -134,6 +134,15 @@ public class SpiderDebug {
         Logger.t(safeTag(tag)).d(DiagnosticText.clean(message).text());
     }
 
+    /** Error variant: the entry keeps its tag's category and is also listed under 报错. */
+    public static void error(String tag, String msg, Object... args) {
+        if (TextUtils.isEmpty(msg)) return;
+        if (!DebugLogStore.acceptsTag(tag)) return;
+        String message = format(msg, args);
+        DebugLogStore.addError(LogCategory.forTag(tag), tag, message);
+        Logger.t(safeTag(tag)).e(DiagnosticText.clean(message).text());
+    }
+
     private static String safeTag(String tag) {
         return DiagnosticText.clean(TextUtils.isEmpty(tag) ? TAG : tag).text();
     }

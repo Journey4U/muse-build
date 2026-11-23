@@ -12,7 +12,14 @@ import java.util.Locale;
  * export and the web debug page download all show the same category.
  */
 public enum LogCategory {
-    RUN("运行"), FILE("文件加载"), MEDIA("影片"), PLAY("播放"), SPIDER("蜘蛛");
+    RUN("运行"), FILE("文件加载"), MEDIA("影片"), PLAY("播放"), SPIDER("蜘蛛"), AD("广告拦截");
+
+    /**
+     * Error marker written right after the category label of a text line
+     * ("[影片][报错] ..."). "报错" is a filter, not a category: an error entry
+     * stays in its own category and is additionally shown under 报错.
+     */
+    public static final String ERROR_LABEL = "报错";
 
     public final String label;
 
@@ -29,10 +36,28 @@ public enum LogCategory {
         String t = tag == null ? "" : tag.trim().toLowerCase(Locale.ROOT);
         if (t.equals("spiderdebug") || t.equals("quickjs") || t.equals("python-spider") || t.startsWith("spider")) return SPIDER;
         switch (t) {
+            // Liu 2026-11-23 17:26: details page and play links belong to PLAY.
+            case "detail":
+            case "httpresolver":
+            case "customwebview":
+                return PLAY;
+            // Web-source search results (per-site counts) are film lists.
+            case "web-search":
+                return MEDIA;
+            // Spider creation failures and the web-source fetcher are spider logs;
+            // the web-source engine's own lines get their stage category explicitly.
+            case "jar-spider":
+            case "js-spider":
+            case "webfetch":
+            case "web":
+                return SPIDER;
+            case "localsource":
+                return FILE;
+            case "hlsadsparser":
+                return AD;
             case "home":
             case "homevideo":
             case "category":
-            case "detail":
             case "search":
             case "action":
                 // SiteApi content calls: film lists, details and search data.
@@ -97,6 +122,19 @@ public enum LogCategory {
             }
         }
         return RUN;
+    }
+
+    /** True when a stored line carries the error marker (text) or an error/fatal level (structured). */
+    public static boolean isError(String line) {
+        if (line == null) return false;
+        int json = line.indexOf("\"logCategory\":\"");
+        if (json >= 0) return line.contains("\"level\":\"error\"") || line.contains("\"level\":\"fatal\"");
+        int colon = line.indexOf(": ");
+        if (colon >= 0 && colon + 3 < line.length() && line.charAt(colon + 2) == '[') {
+            int end = line.indexOf(']', colon + 3);
+            return end > colon + 3 && line.startsWith("[" + ERROR_LABEL + "]", end + 1);
+        }
+        return false;
     }
 
     public static LogCategory byLabel(String label) {

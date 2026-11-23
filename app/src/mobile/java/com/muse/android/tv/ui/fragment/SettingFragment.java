@@ -456,4 +456,3 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
     }
 }
 
-

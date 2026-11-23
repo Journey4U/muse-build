@@ -1222,4 +1222,3 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
         setWidth(ResUtil.isLand(requireContext()) ? 0.5f : 0.98f);
     }
 }
-

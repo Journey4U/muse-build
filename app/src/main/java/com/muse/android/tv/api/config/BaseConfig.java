@@ -14,6 +14,7 @@ import com.muse.android.tv.utils.UrlUtil;
 import com.github.catvod.bean.Header;
 import com.github.catvod.bean.Proxy;
 import com.github.catvod.crawler.DebugLogStore;
+import com.github.catvod.crawler.diagnostics.LogCategory;
 import com.github.catvod.net.OkHttp;
 import com.github.catvod.utils.Json;
 import com.google.gson.JsonArray;
@@ -98,7 +99,7 @@ abstract class BaseConfig {
             App.post(callback::success);
         } catch (Throwable e) {
             e.printStackTrace();
-            DebugLogStore.add("config", "load failed tag=" + getTag() + " url=" + config.getUrl() + " error=" + e.getClass().getSimpleName() + ": " + e.getMessage());
+            DebugLogStore.addError(LogCategory.FILE, "config", "load failed tag=" + getTag() + " url=" + config.getUrl() + " error=" + e.getClass().getSimpleName() + ": " + e.getMessage());
             if (isCanceled(e)) return;
             if (taskId.get() != id) return;
             if (TextUtils.isEmpty(config.getUrl())) App.post(() -> callback.error(""));

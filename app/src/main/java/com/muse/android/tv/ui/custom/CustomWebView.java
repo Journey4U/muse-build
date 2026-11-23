@@ -44,7 +44,19 @@ public class CustomWebView extends WebView implements DialogInterface.OnDismissL
 
     private static final Pattern PLAYER = Pattern.compile("player.*https?://");
     private static final String BLANK = "about:blank";
+    private static final String SNIFF = "sniff://";
     private static final int MAX_URLS = 5;
+
+    /** push v32 加固 b：网页源嗅探的额外广告域判定（手机侧注入内置广告名单 AdDomains；未注入则不生效）。 */
+    public interface HostFilter {
+        boolean isAd(String host);
+    }
+
+    private static volatile HostFilter sExtraAd;
+
+    public static void setExtraAdFilter(HostFilter filter) {
+        sExtraAd = filter;
+    }
 
     private final AtomicReference<ParseCallback> callbackRef = new AtomicReference<>();
     private LinkedHashSet<String> urls;
@@ -54,6 +66,9 @@ public class CustomWebView extends WebView implements DialogInterface.OnDismissL
     private boolean stopped;
     private boolean detect;
     private String click;
+    /** push v32：本次嗅探属于网页源（只有主页url 的条目）——只有这时才启用加固 b 与 sniff:// 回传。 */
+    private boolean webSource;
+    private String sniffUa;
     private String from;
     private String key;
     private String url;
@@ -97,7 +112,13 @@ public class CustomWebView extends WebView implements DialogInterface.OnDismissL
         this.from = from;
         this.key = key;
         this.url = url;
+        try {
+            this.webSource = VodConfig.get().getSite(key).isWebSource();
+        } catch (Throwable ignored) {
+            this.webSource = false;
+        }
         start(headers);
+        if (webSource) sniffUa = getSettings().getUserAgentString();
         return this;
     }
 
@@ -120,7 +141,12 @@ public class CustomWebView extends WebView implements DialogInterface.OnDismissL
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
                 String url = request.getUrl().toString();
                 String host = request.getUrl().getHost();
+                if (webSource && url.startsWith(SNIFF)) {
+                    onSniffBack(url);
+                    return empty;
+                }
                 if (TextUtils.isEmpty(host) || isAd(host)) return empty;
+                if (webSource && isExtraAd(host)) return empty;
                 Map<String, String> headers = request.getRequestHeaders();
                 if (url.contains("/cdn-cgi/challenge-platform/")) post(() -> showDialog());
                 if (detect && PLAYER.matcher(url).find() && addUrl(url)) onParseAdd(headers, url);
@@ -143,6 +169,11 @@ public class CustomWebView extends WebView implements DialogInterface.OnDismissL
 
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                String target = request.getUrl().toString();
+                if (webSource && target.startsWith(SNIFF)) {
+                    onSniffBack(target);
+                    return true;
+                }
                 return false;
             }
         };
@@ -190,6 +221,43 @@ public class CustomWebView extends WebView implements DialogInterface.OnDismissL
     private boolean isAd(String host) {
         for (String ad : RuleConfig.get().getAds()) if (Util.containOrMatch(host, ad)) return true;
         return false;
+    }
+
+    /** push v32 加固 b：内置广告名单（仅网页源）。 */
+    private boolean isExtraAd(String host) {
+        HostFilter f = sExtraAd;
+        try {
+            return f != null && f.isAd(host);
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    /**
+     * push v32：接住 WebSpider 自动点播脚本的 sniff:// 回传（new Image().src='sniff://'+encodeURIComponent(u)）。
+     * 解码后是 http(s) 视频地址且不在广告名单才当结果（带本页 Referer 与 WebView UA）；log:/jsonurl:/pageplay 等非视频回传忽略。
+     */
+    private void onSniffBack(String raw) {
+        String payload;
+        try {
+            payload = Uri.decode(raw.substring(SNIFF.length())).trim();
+        } catch (Throwable e) {
+            return;
+        }
+        if (payload.startsWith("log:")) {
+            SpiderDebug.log(TAG, "sniff %s", payload);
+            return;
+        }
+        if (!payload.startsWith("http://") && !payload.startsWith("https://")) return;
+        String host = Uri.parse(payload).getHost();
+        if (TextUtils.isEmpty(host) || isAd(host) || isExtraAd(host)) return;
+        String path = payload.split("[?#]", 2)[0].toLowerCase();
+        if (!Sniffer.isVideoFormat(payload) && !path.endsWith(".m3u8") && !path.endsWith(".mp4")) return;
+        Map<String, String> headers = new java.util.HashMap<>();
+        if (!TextUtils.isEmpty(this.url)) headers.put(HttpHeaders.REFERER, this.url);
+        if (!TextUtils.isEmpty(sniffUa)) headers.put(HttpHeaders.USER_AGENT, sniffUa);
+        SpiderDebug.log(TAG, "sniff 回传 %s", payload);
+        onParseSuccess(headers, payload);
     }
 
     private boolean isVideoFormat(String url) {

@@ -552,4 +552,3 @@ public class LocalSourceSettingsDialog extends BaseAlertDialog {
         else VodConfig.load(config, callback);
     }
 }
-

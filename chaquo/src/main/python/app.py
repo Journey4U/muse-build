@@ -24,6 +24,19 @@ _REQCTX = {'label': ''}
 
 def _reqlog_write(method, url, tail):
     try:
+        label = _REQCTX.get('label') or ''
+        # 内容请求的真实域名（py 源运行时用的站，含竞速后的域名），供主页/网页播放用；与日志开关无关。
+        # 只记内容方法（首页/分类/详情/搜索），不记播放（播放常走解析/CDN，不是站域名）。
+        for _suffix in (' homeContent', ' homeVideoContent', ' categoryContent', ' searchContent', ' detailContent'):
+            if label.endswith(_suffix):
+                try:
+                    from com.github.catvod.crawler import SpiderDebug as _SD
+                    _parts = _urlparse(str(url))
+                    if _parts.hostname:
+                        _SD.recordDetailOrigin(label[: -len(_suffix)], _parts.scheme + '://' + _parts.netloc)
+                except Exception:
+                    pass
+                break
         if _REQLOG['store'] is None:
             from com.github.catvod.crawler import DebugLogStore as _Store
             from com.github.catvod.crawler.diagnostics import LogCategory as _Category
@@ -31,7 +44,6 @@ def _reqlog_write(method, url, tail):
             _REQLOG['category'] = _Category
         if not _REQLOG['store'].isEnabled():
             return
-        label = _REQCTX.get('label') or ''
         head = '[' + label + '] ' if label else ''
         _REQLOG['store'].addPlain(_REQLOG['category'].SPIDER, 'python-spider',
                                   head + str(method).upper() + ' ' + str(url) + tail)

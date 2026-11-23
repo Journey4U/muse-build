@@ -94,6 +94,8 @@
     <string name="play_decode">硬解</string>
     <string name="play_media_info">媒体信息</string>
     <string name="play_web">网页播放</string>
+    <string name="web_back">返回</string>
+    <string name="web_refresh">刷新</string>
     <string name="web_load_fail">播放地址获取失败</string>
     <string name="web_source_batch_empty">请输入网址</string>
     <string name="web_source_batch_hint">每行一个网址，也可用逗号分隔</string>
@@ -342,6 +344,8 @@
     <string name="log_cat_media">影片</string>
     <string name="log_cat_play">播放</string>
     <string name="log_cat_spider">蜘蛛</string>
+    <string name="log_cat_ad">广告拦截</string>
+    <string name="log_cat_error">报错</string>
     <string name="log_copied">已复制到剪贴板</string>
     <string name="log_address_copied">日志地址已复制</string>
     <string name="log_exported">已导出：%1$s</string>

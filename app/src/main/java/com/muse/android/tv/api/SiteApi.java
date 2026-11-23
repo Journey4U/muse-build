@@ -8,6 +8,8 @@ import androidx.collection.ArrayMap;
 import com.muse.android.tv.App;
 import com.muse.android.tv.R;
 import com.muse.android.tv.api.config.VodConfig;
+import com.muse.android.tv.api.loader.WebSearch;
+import com.muse.android.tv.api.loader.WebSpider;
 import com.muse.android.tv.bean.Class;
 import com.muse.android.tv.bean.Result;
 import com.muse.android.tv.bean.Site;
@@ -50,6 +52,14 @@ public class SiteApi {
         return site.getType() == 3;
     }
 
+    /** 站点是否走重定向/域名跳转（api/ext 含 [工具: 模板）：与 VideoActivity.isRedirectSite 同义。 */
+    private static boolean isRedirectSite(@NonNull Site site) {
+        String api = site.getApi();
+        if (api != null && api.contains("[工具:")) return true;
+        String ext = site.getExt();
+        return ext != null && ext.contains("[工具:");
+    }
+
     private static String ac(int type) {
         return type == 0 ? "videolist" : "detail";
     }
@@ -62,6 +72,13 @@ public class SiteApi {
             String home = crash ? "" : spider.homeContent(true);
             String video = crash ? "" : spider.homeVideoContent();
             Prefers.put("crash", false);
+            // 只给重定向型站记真实域名（v89：py 源蜘蛛最后一次请求常是配置/CDN——51 的 GitLab、每日的 qpic，
+            // 记下来会把 webview 主页带偏，v88 上 3 个 py 站全被带到错站/403；py 站主页走静态推导即可）。
+            // 重定向站（xbpq [工具:重定向]）的蜘蛛会跟随跳转链到真实站，最后一次请求就是真实域名，记它才对。
+            if (!crash && isRedirectSite(site)) {
+                String origin = SpiderDebug.lastSpiderOrigin();
+                if (origin != null && !origin.isEmpty()) SpiderDebug.recordDetailOrigin(site.getKey(), origin);
+            }
             SpiderDebug.log("home", home);
             SpiderDebug.log("homeVideo", video);
             Result result = Result.fromJson(home);
@@ -132,6 +149,15 @@ public class SiteApi {
             Source.get().parse(vod.setFlags());
             PlayInfoLog.remember(key, site.getName(), vod);
             return Result.vod(vod);
+        } else if (site.isWebSource() && WebSearch.detailSpider(site) != null) {
+            // push v32（Liu 2026-11-23 方案 R）：网页源（只有主页url）照参考实现当普通蜘蛛 —— 详情交内置 WebSpider，
+            // 后处理与下面 type 3 蜘蛛分支相同。非网页源走不到这里，下面原路一字不动。
+            String detailContent = WebSearch.detailSpider(site).detailContent(Arrays.asList(id));
+            SpiderDebug.log("detail", detailContent);
+            Result result = Result.fromJson(detailContent);
+            Source.get().parse(result.getVod().setFlags());
+            PlayInfoLog.remember(key, site.getName(), result.getVod());
+            return result;
         } else if (isSpider(site)) {
             if (LiveSiteFallback.isLiveId(id)) {
                 Result live = LiveSiteFallback.detail(site, id);
@@ -162,12 +188,33 @@ public class SiteApi {
 
     @NonNull
     public static Result playerContent(@NonNull String key, @NonNull String flag, @NonNull String id) throws Exception {
-        SpiderDebug.log(LogCategory.MEDIA, "player", "key=%s,flag=%s,id=%s", key, flag, id);
+        SpiderDebug.log(LogCategory.PLAY, "player", "key=%s,flag=%s,id=%s", key, flag, id);
         Site site = VodConfig.get().getSite(key);
         Source.get().stop();
-        if (site.getType() == 3) {
+        WebSpider web = site.isWebSource() ? WebSearch.detailSpider(site) : null;
+        if (web != null) {
+            // push v32（方案 R）：网页源播放交内置 WebSpider —— 纯 HTTP 取到直链返回 parse=0 + 浏览器 UA/Referer 头直接播；
+            // 取不到返回 parse=1 + 播放页 + 自动点播脚本（click），由 VideoActivity 先走推送线 HttpEpisodeResolver、
+            // 再走壳子标准 WebView 嗅探（加固 a/b 在 VideoActivity/CustomWebView）。后处理同 type 3 分支，
+            // 唯一不同：结果地址为空时按播放页 parse=1 交嗅探（type 3 那条「空地址→原 id 直播」对网页源是把网页当视频播）。
+            String playerContent = web.playerContent(flag, id, VodConfig.get().getFlags());
+            SpiderDebug.log(LogCategory.PLAY, "player", playerContent);
+            Result result = Result.fromJson(playerContent);
+            if (result.getUrl().isEmpty()) {
+                String page = WebSearch.absolute(id, web.rootUrl());
+                if (!page.isEmpty()) {
+                    result.setUrl(page);
+                    result.setParse(1);
+                }
+            }
+            if (result.getFlag().isEmpty()) result.setFlag(flag);
+            result.setUrl(Source.get().fetch(result));
+            result.setHeader(site.getHeader());
+            result.setKey(key);
+            return result;
+        } else if (site.getType() == 3) {
             String playerContent = site.recent().spider().playerContent(flag, id, VodConfig.get().getFlags());
-            SpiderDebug.log(LogCategory.MEDIA, "player", playerContent);
+            SpiderDebug.log(LogCategory.PLAY, "player", playerContent);
             Result result = Result.fromJson(playerContent);
             if (result.getUrl().isEmpty() && (id.startsWith("http://") || id.startsWith("https://"))) {
                 result.setUrl(id);
@@ -183,7 +230,7 @@ public class SiteApi {
             params.put("play", id);
             params.put("flag", flag);
             String playerContent = call(site, params);
-            SpiderDebug.log(LogCategory.MEDIA, "player", playerContent);
+            SpiderDebug.log(LogCategory.PLAY, "player", playerContent);
             Result result = Result.fromJson(playerContent);
             if (result.getFlag().isEmpty()) result.setFlag(flag);
             result.setUrl(Source.get().fetch(result));
@@ -197,7 +244,7 @@ public class SiteApi {
             result.setParse(0);
             result.setFlag(flag);
             result.setUrl(Source.get().fetch(result));
-            SpiderDebug.log(LogCategory.MEDIA, "player", result.toString());
+            SpiderDebug.log(LogCategory.PLAY, "player", result.toString());
             return result;
         } else {
             Result result = new Result();
@@ -208,7 +255,7 @@ public class SiteApi {
             result.setPlayUrl(site.getPlayUrl());
             result.setParse(Sniffer.isVideoFormat(id) && result.getPlayUrl().isEmpty() ? 0 : 1);
             result.setUrl(Source.get().fetch(result));
-            SpiderDebug.log(LogCategory.MEDIA, "player", result.toString());
+            SpiderDebug.log(LogCategory.PLAY, "player", result.toString());
             return result;
         }
     }
@@ -217,6 +264,18 @@ public class SiteApi {
     public static Result searchContent(@NonNull Site site, @NonNull String keyword, boolean quick, @NonNull String page) throws Exception {
         SpiderDebug.log("search", "site=%s,keyword=%s,quick=%s,page=%s", site.getName(), keyword, quick, page);
         boolean hasPage = !page.equals("1");
+        if (site.isWebSource()) {
+            // push v31（Liu 2026-11-23 方案 A）：网页源（只有主页url）用内置 WebSpider 搜，单站 15 秒超时、
+            // 遇验证跳过、失败返回空；结果 vod_id 已补成绝对地址。其他源下面原路不变。
+            // push v32：点开结果与其他源一样进 VideoActivity（详情/播放见 detailContent/playerContent 的网页源分支）。
+            // 快搜（详情页换源 quick=true）仍不接网页源，保持 v30/v31 的空结果（v32 不改换源行为）。
+            if (quick) return Result.empty();
+            String searchContent = WebSearch.search(site, keyword, false, page);
+            SpiderDebug.log("search", searchContent);
+            Result result = searchContent.isEmpty() ? Result.empty() : Result.fromJson(searchContent);
+            for (Vod vod : result.getList()) vod.setSite(site);
+            return result;
+        }
         if (isSpider(site)) {
             String searchContent = hasPage ? site.spider().searchContent(keyword, quick, page) : site.spider().searchContent(keyword, quick);
             SpiderDebug.log("search", searchContent);

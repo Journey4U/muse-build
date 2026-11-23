@@ -504,4 +504,3 @@ public class Site implements Parcelable {
 }
 
 
-

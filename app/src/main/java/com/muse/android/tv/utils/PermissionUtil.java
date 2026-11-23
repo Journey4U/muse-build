@@ -148,3 +148,4 @@ public class PermissionUtil {
         return !activity.isFinishing() && !activity.isDestroyed() && (fragment == null || fragment.isAdded());
     }
 }
+
