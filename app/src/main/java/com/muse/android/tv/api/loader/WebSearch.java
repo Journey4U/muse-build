@@ -105,12 +105,12 @@ public final class WebSearch {
         } catch (TimeoutException e) {
             sp.aborted = true;
             f.cancel(true);
-            SpiderDebug.log("web-search", "%s 超时 %sms，跳过", site.getName(), TIMEOUT_MS);
+            SpiderDebug.error("web-search", "%s 超时 %sms，跳过", site.getName(), TIMEOUT_MS);
             return "";
         } catch (Throwable e) {
             sp.aborted = true;
             f.cancel(true);
-            SpiderDebug.log("web-search", "%s 异常 %s，跳过", site.getName(), e.toString());
+            SpiderDebug.error("web-search", "%s 异常 %s，跳过", site.getName(), e.toString());
             return "";
         }
         if (sp.isChallenged()) {

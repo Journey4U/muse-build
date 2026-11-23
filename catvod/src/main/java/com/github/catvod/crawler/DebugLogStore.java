@@ -23,7 +23,19 @@ public class DebugLogStore {
     private static final String PREF_CATEGORIES = "debug_log_categories";
     private static volatile int categories = DiagnosticCategories.ALL;
     private static boolean crashHandlerInstalled;
+    // Liu 2026-11-23 17:32: the TV release build records no runtime log at all
+    // (only the crash dialog stays). The app sets this from a build constant
+    // before restoreEnabled(); a diagnostic TV build flips that constant.
+    private static volatile boolean available = true;
 
+    public static synchronized void setAvailable(boolean value) {
+        available = value;
+        if (!value) {
+            enabled = false;
+            if (buffer != null) buffer.disable();
+        }
+    }
+    public static boolean isAvailable() { return available; }
     public static boolean isEnabled() { return enabled; }
     public static int categories() { return categories; }
     public static boolean categoryEnabled(DiagnosticCategories.Category category) {
@@ -86,6 +98,7 @@ public class DebugLogStore {
     }
 
     public static synchronized void setEnabled(boolean value) {
+        if (!available) value = false;
         categories = Prefers.getInt(PREF_CATEGORIES, DiagnosticCategories.ALL) & DiagnosticCategories.ALL;
         if (!value) com.github.catvod.crawler.diagnostics.DiagnosticCapture.stop("diagnostics-disabled");
         if (value) create().start(false);
@@ -97,7 +110,7 @@ public class DebugLogStore {
 
     public static synchronized void restoreEnabled() {
         categories = Prefers.getInt(PREF_CATEGORIES, DiagnosticCategories.ALL) & DiagnosticCategories.ALL;
-        enabled = Prefers.getBoolean(PREF_ENABLED);
+        enabled = available && Prefers.getBoolean(PREF_ENABLED);
         if (!enabled) return;
         create().start(true);
         beginCollection("restore");
@@ -117,6 +130,9 @@ public class DebugLogStore {
     }
 
     public static void add(String tag, String message) { add(tag, message, false); }
+
+    /** Error entry: kept in its own category and also shown under the 报错 filter. */
+    public static void addError(LogCategory category, String tag, String message) { add(category, tag, message, true); }
 
     static void add(String tag, String message, boolean critical) {
         add(LogCategory.forTag(tag), tag, message, critical);

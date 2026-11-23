@@ -43,7 +43,7 @@ public class JsLoader {
         } catch (Throwable e) {
             // 失败不缓存：瞬时失败（脚本加载、init 异常）不得让站点在本进程内永久失效，
             // 下次打开自动重试；失败原因写进应用内蜘蛛日志，不再只 printStackTrace 静默。
-            SpiderDebug.log("js-spider", "create failed key=" + key + " api=" + api);
+            SpiderDebug.error("js-spider", "create failed key=" + key + " api=" + api);
             SpiderDebug.log("js-spider", e);
             return new SpiderNull();
         }

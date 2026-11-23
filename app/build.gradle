@@ -35,9 +35,12 @@ android {
     productFlavors {
         leanback {
             dimension "device"
+            // 电视正式版不记运行日志（只留崩溃弹窗）；出电视诊断版时把这一行改成 "true"。
+            buildConfigField "boolean", "DEBUG_LOG_AVAILABLE", "false"
         }
         mobile {
             dimension "device"
+            buildConfigField "boolean", "DEBUG_LOG_AVAILABLE", "true"
         }
     }
 
