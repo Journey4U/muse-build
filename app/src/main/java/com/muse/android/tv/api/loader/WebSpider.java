@@ -4584,6 +4584,15 @@ public class WebSpider extends Spider {
                     vod.put("vod_content", "");
                     log("detail 页面不可用（验证/源站错误页）→ 用列表缓存兜底");
                 }
+                // push v33：片名回落到 <title> 截短（如麦田「家业电视剧免费」）时，优先用搜索/列表带来的片名。
+                if (!bad && !TextUtils.isEmpty(name) && Boolean.TRUE.equals(V33_TITLE_FROM_TAG.get())) {
+                    String[] tm = LIST_META.get(normKey(abs(url)));
+                    if (tm != null && !TextUtils.isEmpty(tm[0]) && !tm[0].equals(name) && !adLikeText(tm[0]) && tm[0].trim().length() >= 1) {
+                        log("v33 片名 <title> 回落 → 用列表片名 " + name + " → " + tm[0]);
+                        vod.put("vod_name", tm[0]);
+                        name = tm[0];
+                    }
+                }
                 if (bad || TextUtils.isEmpty(name) || name.contains("访问验证") || name.length() < 2) {
                     String[] meta = LIST_META.get(normKey(abs(url)));
                     if (meta != null) {
@@ -5038,22 +5047,110 @@ public class WebSpider extends Spider {
                 }
             }
         }
-        Matcher e = Pattern.compile("<a[^>]+href=\"(/vodplay/(\\d+)-(\\d+)-(\\d+)\\.html)\"[^>]*>(.{0,40}?)</a>", Pattern.DOTALL).matcher(html);
+        // push v33：链接内容放宽到首个 </a> 为止（≤300 字）——麦田播放页「正在播放」那一集写成
+        //   <span>HD</span><em class="play-on"><i></i>…</em>，超 40 字被旧正则整条漏掉（单集片整条线路消失）；
+        //   同一线路同一地址只收一次（播放页「下一集」按钮会重复收第 2 集）。
+        Matcher e = Pattern.compile("<a[^>]+href=\"(/vodplay/(\\d+)-(\\d+)-(\\d+)\\.html)\"[^>]*>((?:(?!</a>).){0,300}?)</a>", Pattern.DOTALL).matcher(html);
+        Map<String, String[]> v33Seen = new HashMap<>();
+        // 放宽只对本片（地址里的剧号 = 本页剧号）生效；别的片（推荐卡片）仍按旧的 40 字限制，行为不变。
+        String v33Vid = firstMatch(id == null ? "" : id, "/(?:voddetail|vodplay)/(\\d+)");
         while (e.find()) {
+            if (e.group(5).length() > 40 && (TextUtils.isEmpty(v33Vid) || !v33Vid.equals(e.group(2)))) continue;
             String line = e.group(3);
             String epName = clean(e.group(5));
             if (TextUtils.isEmpty(epName)) epName = e.group(4);
+            String[] dup = v33Seen.get(e.group(1));
+            if (dup != null) {
+                dup[1] = epName;   // 后出现的（选集面板里的）名字为准，替掉「下一集」按钮的名字
+                continue;
+            }
             List<String[]> eps = grouped.get(line);
             if (eps == null) {
                 eps = new ArrayList<>();
                 grouped.put(line, eps);
             }
-            eps.add(new String[]{e.group(4), epName, e.group(1)});
+            String[] ent = new String[]{e.group(4), epName, e.group(1)};
+            v33Seen.put(e.group(1), ent);
+            eps.add(ent);
         }
+        // push v33 L1（Liu 2026-11-23）：线路名只认 #playlistN 锚点，ds6 等模板（麦田）tab 无 href → 全落「线路N」。
+        //   按页面 tab 与其后选集面板的下标配对补名，并按面板顺序（= 网页 tab 顺序）排线路；校验不过什么都不改。
+        tabPanelLineNames(html, grouped, lineName);
         // r362：无真实选集时用 JSON-LD 直链补一集（wangfei.tv：0 个 /vodplay/，29 个 artdetail）
         jsonLdFallback(vod, html, grouped, lineName);
         joinPlay(vod, grouped, lineName, null);
         return vod;
+    }
+
+    private static final Pattern V33_TAB = Pattern.compile("<(?:div|ul)[^>]+class=\"[^\"]*(?:anthology-tab|play_from|from_list|playfrom)[^\"]*\"", Pattern.CASE_INSENSITIVE);
+    private static final Pattern V33_PANEL = Pattern.compile("<(?:div|ul)[^>]+(?:class=[\"'](?:[^\"']*\\s)?(?:anthology-list-box|tab-pane|playlist-box)(?:\\s[^\"']*)?[\"']|id=[\"'](?:playlist|down)\\d*[\"'])", Pattern.CASE_INSENSITIVE);
+    private static final Pattern V33_SID = Pattern.compile("/vodplay/\\d+-(\\d+)-\\d+\\.html");
+
+    /**
+     * push v33 L1：tab ↔ 选集面板按下标配对取线路真名（同推送探针 tab/面板锚定的认法，结构认，不看尺寸/时长）。
+     * 只在有分组线路缺名字时跑；tab 数 = 面板数、每个面板都有线路号、线路号互不重复且都在已分组里才采用；
+     * 只补缺名（#playlist 已有名不覆盖）；线路顺序改为面板顺序，面板外的线路原样排后。
+     */
+    private void tabPanelLineNames(String html, LinkedHashMap<String, List<String[]>> grouped, LinkedHashMap<String, String> lineName) {
+        try {
+            if (TextUtils.isEmpty(html) || grouped == null || grouped.isEmpty()) return;
+            List<String> miss = new ArrayList<>();
+            for (String k : grouped.keySet()) if (TextUtils.isEmpty(lineName.get(k))) miss.add(k);
+            if (miss.isEmpty()) return;
+            Matcher t = V33_TAB.matcher(html);
+            if (!t.find()) return;
+            int ts = t.start();
+            int end = html.indexOf("anthology-list", t.end());
+            String seg = html.substring(ts, end > 0 ? end : Math.min(html.length(), ts + 8000));
+            if (seg.length() > 8000) seg = seg.substring(0, 8000);
+            List<String> tabs = new ArrayList<>();
+            Matcher a = Pattern.compile("<a\\b[^>]*>(.*?)</a>", Pattern.DOTALL).matcher(seg);
+            while (a.find()) tabs.add(v33TabText(a.group(1)));
+            if (tabs.isEmpty()) {
+                Matcher li = Pattern.compile("<li\\b[^>]*>(.*?)</li>", Pattern.DOTALL).matcher(seg);
+                while (li.find()) tabs.add(v33TabText(li.group(1)));
+            }
+            List<Integer> starts = new ArrayList<>();
+            Matcher p = V33_PANEL.matcher(html);
+            while (p.find()) if (p.start() > ts) starts.add(p.start());
+            List<String> sids = new ArrayList<>();
+            for (int i = 0; i < starts.size(); i++) {
+                int s = starts.get(i);
+                int e = i + 1 < starts.size() ? starts.get(i + 1) : html.length();
+                Matcher sm = V33_SID.matcher(html);
+                sm.region(s, e);
+                sids.add(sm.find() ? sm.group(1) : "");
+            }
+            boolean ok = tabs.size() == sids.size() && !sids.contains("") && new java.util.HashSet<>(sids).size() == sids.size();
+            if (ok) for (String sd : sids) if (!grouped.containsKey(sd)) ok = false;
+            if (!ok) {
+                log("v33 线路名配对不成立 tabs=" + tabs.size() + " panels=" + sids.size() + " → 照旧");
+                return;
+            }
+            for (int i = 0; i < tabs.size(); i++) {
+                String tn = tabs.get(i);
+                String sd = sids.get(i);
+                if (miss.contains(sd) && !TextUtils.isEmpty(tn) && tn.length() <= 24 && !tn.matches("\\d+")) lineName.put(sd, tn);
+            }
+            LinkedHashMap<String, List<String[]>> re = new LinkedHashMap<>();
+            for (String sd : sids) re.put(sd, grouped.get(sd));
+            for (Map.Entry<String, List<String[]>> en : grouped.entrySet()) if (!re.containsKey(en.getKey())) re.put(en.getKey(), en.getValue());
+            grouped.clear();
+            grouped.putAll(re);
+            log("v33 线路名 tab-面板配对 " + sids + " → " + lineName);
+        } catch (Throwable ignored) {
+        }
+    }
+
+    /** push v33 L1：tab 文字——去 <i> 图标、去 badge/num/count/gm 角标、去标签、反转义、去私用区图标字、压空白。 */
+    private static String v33TabText(String s) {
+        if (s == null) return "";
+        String t = s.replaceAll("(?is)<i\\b[^>]*>.*?</i>", "");
+        t = t.replaceAll("(?is)<(span|em|sup|small|b)\\b[^>]*class=\"[^\"]*\\b(badge|num|count|gm)\\b[^\"]*\"[^>]*>.*?</\\1>", "");
+        t = t.replaceAll("<[^>]+>", "");
+        t = unescapeHtml(t);
+        t = t.replaceAll("[\\uE000-\\uF8FF]", "");
+        return t.replaceAll("[\\s\\u00A0\\u3000]+", " ").trim();
     }
 
     private JSONObject genericDetail(String html, String id) throws Exception {
@@ -5263,7 +5360,11 @@ public class WebSpider extends Spider {
      *   旧实现 h1 取不到就直取 <title> → 片名变成公告（真机日志 vod_name 与弹幕剧名都是这句广告）。
      * 策略：h1 → og:title → <title>（保持旧截断；命中广告则丢弃）→ meta keywords 首段（去「第N集免费在线观看」尾）。
      */
+    /** push v33：本线程最近一次 detailTitle 是否回落到 <title>（无合格 h1 / og:title）。 */
+    private static final ThreadLocal<Boolean> V33_TITLE_FROM_TAG = new ThreadLocal<>();
+
     private String detailTitle(String html) {
+        V33_TITLE_FROM_TAG.set(Boolean.FALSE);
         if (isErrorPage(html)) return "";
         // r468：**h1 可能有多个，且第一个常是站点名/logo** —— fp.xiezhen8 浏览器实测：
         //   h1 = ["写真吧", "XiuRen秀人网 No.11319 Yang Chen Chen (73P)"]，旧写法 firstMatch 取第一个 →
@@ -5280,7 +5381,10 @@ public class WebSpider extends Spider {
             break;
         }
         if (TextUtils.isEmpty(t)) t = clean(firstMatch(html, "<meta[^>]+property=\"og:title\"[^>]+content=\"([^\"]{1,80})\""));
-        if (TextUtils.isEmpty(t)) t = clean(firstMatch(html, "<title[^>]*>([^<|_\\-]{1,60})"));
+        if (TextUtils.isEmpty(t)) {
+            t = clean(firstMatch(html, "<title[^>]*>([^<|_\\-]{1,60})"));
+            V33_TITLE_FROM_TAG.set(Boolean.TRUE);
+        }
         if (adLikeText(t)) {
             // r461：<title> 是推广语 → 改从 meta keywords 首段取（keywords 常写「片名第N集免费在线观看,片名剧情介绍」）。
             String kw = firstMatch(html, "<meta[^>]+name=\"keywords\"[^>]*content=\"([^\"]{1,200})\"");
@@ -5449,6 +5553,8 @@ public class WebSpider extends Spider {
                     v.put("vod_id", root + "/voddetail/" + id + ".html");
                     v.put("vod_name", name);
                     v.put("vod_pic", it.optString("pic"));
+                    // push v33：suggest 结果也写列表缓存（详情片名回落时用）。
+                    LIST_META.put(normKey(root + "/voddetail/" + id + ".html"), new String[]{name, it.optString("pic")});
                     v.put("vod_remarks", "");
                     arr.put(v);
                 }

@@ -1577,6 +1577,13 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     private volatile String mPushProbePageUrl = "";
     private volatile boolean mPushPlayPending = false;
     private volatile String mPushPagePic = "";
+    // push v33 M1：推送带简介/年份/地区——页完时从当前页 DOM 只读取一次（零网络请求），切页即清。
+    private volatile String mPushPageContent = "";
+    private volatile String mPushPageYear = "";
+    private volatile String mPushPageArea = "";
+    private volatile String mPushPageOgPic = "";
+    private volatile String mPushMetaPageUrl = "";
+    private static final String PUSH_META_JS = "(function(){try{function cl(s){return (s||'').replace(/[\\s\\u00a0\\u3000]+/g,' ').trim();}function codey(s){return /window\\.|function\\s*\\(|=\\s*\\[|[{}]|=>|\\bvar\\s/.test(s);}var c='';var m=document.querySelector('meta[property=\"og:description\"]');if(m&&cl(m.content).length>=20)c=cl(m.content);if(!c){m=document.querySelector('meta[name=\"description\"]');if(m&&cl(m.content).length>=20)c=cl(m.content);}if(!c){var ds=document.querySelectorAll('div[class*=\"desc\"],div[class*=\"content\"],div[class*=\"intro\"]');for(var i=0;i<ds.length&&i<40;i++){var cn=ds[i].getAttribute('class')||'';if(/^list/i.test(cn))continue;var t=cl(ds[i].innerText||'');if(t.length>=20&&t.length<=3000&&!codey(t)){c=t;break;}}}if(codey(c))c='';var y='',a='';var es=document.querySelectorAll('li,dd,p,span,div');for(var k=0;k<es.length&&k<4000&&(!y||!a);k++){var tx=cl(es[k].textContent||'');if(tx.length>40)continue;var lb=tx.match(/^(年份|年代|地区)[：:]$/);if(lb&&es[k].parentElement){var pt=cl(es[k].parentElement.textContent||'');var ix=pt.indexOf(tx);tx=ix>=0?(tx+pt.slice(ix+tx.length).slice(0,40)):tx;}var ym=tx.match(/^(?:年份|年代)[：:]\\s*([0-9]{4})(?![0-9])/);if(ym&&!y)y=ym[1];var am=tx.match(/^地区[：:]\\s*([^\\s：:]{1,12})(?:\\s|$)/);if(am&&!a&&!/[：:]/.test(tx.slice(am[0].length).split(' ')[0]||''))a=am[1];}var p='';var og=document.querySelector('meta[property=\"og:image\"]');if(og&&og.content){try{p=new URL(og.content,location.href).href}catch(e){p=og.content}}return JSON.stringify({c:c.slice(0,1500),y:y,a:a,p:p});}catch(e){return '';}})()";
     private volatile String mPushPageUrl = "";
     // push v18 (c)：后台浏览器内点集解流——播放器点无 href 按钮式选集（带 data-id，如 gaze）
     // 时，不新建隐藏 WebView，用留在后台栈里的本实例点按钮、站方自己解流、嗅探抓回播放器。
@@ -2108,6 +2115,11 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 // push v1：导航开始，清多线探针状态（海报 mPushPagePic 不清，活过详情→播放页一跳）；记当前页地址。
                 mPushPageUrl = url;
                 mPushProbeLines = "";
+                mPushPageContent = "";
+                mPushPageYear = "";
+                mPushPageArea = "";
+                mPushPageOgPic = "";
+                mPushMetaPageUrl = "";
                 mPushMainStream = "";
                 mPushAdSrcs = java.util.Collections.emptySet();
                 mPushAdPlaying = false;
@@ -2987,8 +2999,32 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     }
 
     /** push v20：跑 PROBE_JS 收表（v19 原 probePageInfo 的收表回调，原样移入；预加载走完或无需预加载时调）。 */
+    /** push v33 M1：读当前页简介/年份/地区/og:image（只读脚本，按页锚定，迟到的旧页回调丢弃）。 */
+    private void collectPushPageMeta() {
+        if (mBinding == null || mBinding.web == null) return;
+        final String page = mPushPageUrl;
+        try {
+            mBinding.web.evaluateJavascript(PUSH_META_JS, value -> {
+                if (!page.equals(mPushPageUrl) || value == null) return;
+                try {
+                    Object o = new JSONTokener(value).nextValue();
+                    if (!(o instanceof String) || ((String) o).isEmpty()) return;
+                    JSONObject m = new JSONObject((String) o);
+                    mPushPageContent = m.optString("c");
+                    mPushPageYear = m.optString("y");
+                    mPushPageArea = m.optString("a");
+                    mPushPageOgPic = m.optString("p");
+                    mPushMetaPageUrl = page;
+                } catch (Throwable ignored) {
+                }
+            });
+        } catch (Throwable ignored) {
+        }
+    }
+
     private void probePageInfoCollect() {
         if (mBinding == null || mBinding.web == null) return;
+        collectPushPageMeta();
         mBinding.web.evaluateJavascript(PROBE_JS, value -> {
             // push v14：迟到的旧页探针回调直接丢弃——不许把旧页的表/主片流写回已切走的新页。
             if (!mPushProbePageUrl.equals(mPushPageUrl)) {
@@ -3709,7 +3745,21 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         }
         String logStream = stream.length() > 90 ? stream.substring(0, 90) : stream;
         DebugLogStore.add("WebPlay", "push 多线转播放 流=" + logStream + " 线路名=" + flag + " 集=" + episode + " 页=" + mPushPageUrl);
-        VideoActivity.startWithHeaders(this, stream, headers, title, flag, episode, null, mPushPageUrl, mPushProbeLines, mPushPagePic, origin, vid, sid, nid);
+        // push v33 M1：简介/年份/地区随推送带过去（本页读到的才带）；简介去掉片名后不足 10 字（只是标题+站名）就不带。
+        String metaContent = "";
+        String metaYear = "";
+        String metaArea = "";
+        String pushPic = mPushPagePic;
+        if (mPushMetaPageUrl.equals(mPushPageUrl)) {
+            metaContent = mPushPageContent;
+            String rest = metaContent;
+            if (!TextUtils.isEmpty(title)) rest = rest.replace(title, "");
+            if (rest.replaceAll("[\\s\\p{Punct}，。、：；！？…\\-|_]+", "").length() < 10) metaContent = "";
+            metaYear = mPushPageYear;
+            metaArea = mPushPageArea;
+            if (TextUtils.isEmpty(pushPic)) pushPic = mPushPageOgPic;
+        }
+        VideoActivity.startWithHeaders(this, stream, headers, title, flag, episode, null, mPushPageUrl, mPushProbeLines, pushPic, origin, vid, sid, nid, metaContent, metaYear, metaArea);
     }
 
     /**

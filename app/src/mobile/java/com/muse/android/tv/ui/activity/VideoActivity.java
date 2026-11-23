@@ -271,7 +271,15 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     /** push v2：再带浏览器探针的来源站（origin）、剧号（vid）、线路号（sid）与集号（nid），供 HTTP 解析器走 Provide API；只在非空时写进 intent。 */
     public static void startWithHeaders(Activity activity, String url, Map<String, String> headers, String title, String flag, String episode, String episodesJson, String pageUrl, String linesJson, String pic, String origin, String vid, String sid, String nid) {
+        startWithHeaders(activity, url, headers, title, flag, episode, episodesJson, pageUrl, linesJson, pic, origin, vid, sid, nid, null, null, null);
+    }
+
+    /** push v33 M1：再带当前页读到的简介/年份/地区（browserContent/browserYear/browserArea），只在非空时写进 intent。 */
+    public static void startWithHeaders(Activity activity, String url, Map<String, String> headers, String title, String flag, String episode, String episodesJson, String pageUrl, String linesJson, String pic, String origin, String vid, String sid, String nid, String content, String year, String area) {
         Intent intent = new Intent(activity, VideoActivity.class);
+        if (content != null && !content.isEmpty()) intent.putExtra("browserContent", content);
+        if (year != null && !year.isEmpty()) intent.putExtra("browserYear", year);
+        if (area != null && !area.isEmpty()) intent.putExtra("browserArea", area);
         intent.putExtra("collect", false);
         intent.putExtra("name", url);
         intent.putExtra("key", SiteApi.PUSH);
@@ -610,6 +618,8 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         // push v2：浏览器转播放——详情落下后先把网页侧的片名/线路/集名摆进 VOD，再走正常详情流；
         // 当前集序号经 episode_index 透传给选集（不用集名匹配），用完立即清掉，免得后续切线误用。
         int browserIndex = -1;
+        // push v33 M1：推送带来的简介/年份/地区，详情对应字段为空时填（不覆盖蜘蛛已有的）。
+        if (result != null && result.result() != null) applyBrowserInfo(result.result().getVod());
         if (result != null && result.result() != null && (getIntent().hasExtra("browserTitle") || getIntent().hasExtra("browserLines"))) {
             browserIndex = applyBrowserMeta(result.result().getVod());
         }
@@ -1785,6 +1795,16 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     /** push v2：浏览器转播放落地——网页侧的片名/线路名/集名覆盖推送详情的写死值；普通入口无这些参数、零影响。返回当前集在当前线路里的下标（-1 表示未摆线）。 */
+    private void applyBrowserInfo(Vod vod) {
+        if (vod == null) return;
+        String c = getIntent().getStringExtra("browserContent");
+        String y = getIntent().getStringExtra("browserYear");
+        String a = getIntent().getStringExtra("browserArea");
+        if (!TextUtils.isEmpty(c) && vod.getContent().isEmpty()) vod.setContent(c);
+        if (!TextUtils.isEmpty(y) && vod.getYear().isEmpty()) vod.setYear(y);
+        if (!TextUtils.isEmpty(a) && vod.getArea().isEmpty()) vod.setArea(a);
+    }
+
     private int applyBrowserMeta(Vod vod) {
         if (vod == null) return -1;
         // 探针海报落地提到标题早退之前——海报不依赖标题，标题为空时也要落图。
