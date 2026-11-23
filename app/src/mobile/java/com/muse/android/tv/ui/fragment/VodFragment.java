@@ -36,8 +36,11 @@ import com.muse.android.tv.impl.SiteListener;
 import com.muse.android.tv.setting.PlayerSetting;
 import com.muse.android.tv.model.SiteViewModel;
 import com.muse.android.tv.ui.activity.HistoryActivity;
+import com.muse.android.tv.ui.activity.HomeActivity;
 import com.muse.android.tv.ui.activity.KeepActivity;
 import com.muse.android.tv.ui.activity.SearchActivity;
+import com.muse.android.tv.ui.activity.VideoActivity;
+import com.muse.android.tv.ui.activity.WebPlayActivity;
 import com.muse.android.tv.ui.adapter.TypeAdapter;
 import com.muse.android.tv.ui.base.BaseFragment;
 import com.muse.android.tv.ui.dialog.FilterDialog;
@@ -117,6 +120,8 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         mBinding.viewSwitch.setOnClickListener(v -> onViewSwitch());
         mBinding.toolbar.setOnMenuItemClickListener(this::onMenuItemClick);
         mBinding.toolbar.post(this::bindSearchLongClick);
+        mBinding.webHome.setOnClickListener(v -> openWebHome());
+        mBinding.webHomeEnter.setOnClickListener(v -> openWebHome());
         mBinding.appBar.addOnOffsetChangedListener((appBarLayout, verticalOffset) -> {
             float factor = Math.abs(verticalOffset * 1f / appBarLayout.getTotalScrollRange());
             int padding = (int) (ResUtil.dp2px(12) * factor);
@@ -146,6 +151,8 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
     }
 
     private void setAdapter(Result result) {
+        // 纯网页源进站主页：切到纯网页源前还在途的旧首页结果不再铺上来（主页只留卡片）。
+        if (VideoActivity.isPureWebSource(getHome())) return;
         mAdapter.addAll(mResult = result);
         mBinding.pager.getAdapter().notifyDataSetChanged();
         setFabVisible(0);
@@ -281,6 +288,14 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
     }
 
     private void homeContent() {
+        // 纯网页源进站主页（Liu 2026-11-23 方案 A）：不拉首页（纯网页源没有接口，原来会报主页为空），
+        // 主页只放「进站主页」卡片；这个源这次还没自动进过站就直接全屏进站（同一次启动/同一次选中只进一次）。
+        if (VideoActivity.isPureWebSource(getHome())) {
+            showWebHome();
+            if (HomeActivity.takeWebAutoOpen(getHome().getKey())) openWebHome();
+            return;
+        }
+        mBinding.webHome.setVisibility(View.GONE);
         showProgress();
         mBinding.emptyTip.setVisibility(View.GONE);
         setFabVisible(0);
@@ -328,6 +343,36 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
             ArrayList<FolderFragment.FolderLayer> path = folder.capturePath();
             if (path != null && path.size() > 1) mFolderPaths.put(i, path);
         }
+    }
+
+    /** 纯网页源主页：清掉上一个源的分类与片单，只显示站名 + 「进站主页」卡片。 */
+    private void showWebHome() {
+        hideProgress();
+        mBinding.emptyTip.setVisibility(View.GONE);
+        mAdapter.clear();
+        mFolderPaths.clear();
+        mResult = new Result();
+        mBinding.pager.setAdapter(new PageAdapter(getChildFragmentManager()));
+        setFabVisible(0);
+        mBinding.webHomeName.setText(getHome().getName());
+        mBinding.webHome.setVisibility(View.VISIBLE);
+    }
+
+    /** 全屏打开现有浏览器进当前纯网页源的主页（与底部导航「浏览器」同一套主页推导与入口）。 */
+    private void openWebHome() {
+        Site site = getHome();
+        String url = VideoActivity.siteHomePageUrl(site);
+        if (TextUtils.isEmpty(url)) {
+            Notify.show(R.string.nav_browser_empty);
+            return;
+        }
+        WebPlayActivity.startHome(requireActivity(), site.getName(), url, site.getKey(), site.getClick());
+    }
+
+    /** 浏览器顶栏「切源」回来后由 HomeActivity 调：打开切源对话框（与点标题同一个）。 */
+    public void openSiteDialog() {
+        if (mBinding == null || !isAdded()) return;
+        onSite(mBinding.title);
     }
 
     public Result getResult() {
@@ -416,6 +461,8 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
 
     @Override
     public void setSite(Site item) {
+        // 纯网页源进站主页：用户在切源列表里点选 = 一次新的选中，点纯网页源照样自动进站。
+        HomeActivity.resetWebAutoOpen();
         VodConfig.get().setHome(item);
     }
 

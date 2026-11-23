@@ -1684,8 +1684,25 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     }
 
 
+    /**
+     * 纯网页源进站主页（Liu 2026-11-23 方案 A）：主页入口专用——与上面 11 参 start 同路（jumpHost 按入口 host），
+     * 只多带 homeEntry，顶栏才显示「切源」。蜘蛛源 VideoActivity 的网页播放入口不走这里，不显示切源。
+     */
+    public static void startHome(Activity activity, String title, String url, String key, String click) {
+        String host = "";
+        try {
+            if (!TextUtils.isEmpty(url)) host = Uri.parse(url).getHost();
+        } catch (Exception ignored) {
+        }
+        start(activity, title, url, null, null, null, 0, key, "", click, null, host == null ? "" : host, true);
+    }
+
     /** v61：带跳转页 host 的重载——主页是发布站/跳转页时，把其 host 传进来放行该页上的人工点按跳转。 */
     public static void start(Activity activity, String title, String url, Map<String, String> header, ArrayList<String> names, ArrayList<String> ids, int position, String key, String flag, String click, ArrayList<String> flags, String jumpHost) {
+        start(activity, title, url, header, names, ids, position, key, flag, click, flags, jumpHost, false);
+    }
+
+    private static void start(Activity activity, String title, String url, Map<String, String> header, ArrayList<String> names, ArrayList<String> ids, int position, String key, String flag, String click, ArrayList<String> flags, String jumpHost, boolean homeEntry) {
         Intent intent = new Intent(activity, WebPlayActivity.class);
         // v91：切源进新浏览器时，先关掉已在栈里的旧浏览器页（只留一个 webview 在跑；否则换 20 条站源就攒 20 个 webview，内存先爆）。
         // standard 模式 + CLEAR_TOP = 旧实例 finish（onDestroy 里 web.destroy()）再建新实例；正常流程（已按返回关掉旧页）下是空操作。
@@ -1701,6 +1718,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         intent.putExtra("click", click == null ? "" : click);
         intent.putStringArrayListExtra("flags", flags == null ? new ArrayList<>() : flags);
         intent.putExtra("jumpHost", jumpHost == null ? "" : jumpHost);
+        intent.putExtra("homeEntry", homeEntry);
         activity.startActivity(intent);
     }
 
@@ -1787,6 +1805,8 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
             if (!TextUtils.isEmpty(openHost)) Setting.putLastWebHost(openHost);
         }
         updateNav();
+        // 纯网页源进站主页：主页入口打开的浏览器顶栏显示「切源」（回主页并打开源列表）；其他入口不显示。
+        mBinding.switchSite.setVisibility(intent.getBooleanExtra("homeEntry", false) ? View.VISIBLE : View.GONE);
         mBinding.getRoot().post(this::applyBarOffset);
         String url = intent.getStringExtra("url");
         if (!TextUtils.isEmpty(url)) {
@@ -1812,6 +1832,11 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         });
         mBinding.flag.setOnClickListener(view -> showFlags());
         mBinding.episodes.setOnClickListener(view -> showEpisodes());
+        // 纯网页源进站主页：顶栏「切源」= 关浏览器回主页并打开切源对话框（Cookie 落盘照走 onPause）。
+        mBinding.switchSite.setOnClickListener(view -> {
+            HomeActivity.requestSiteDialog();
+            finish();
+        });
         // push v1：悬浮「播放视频」钮——MacCMS 播放页探到可用线路表时才亮起，点后转原生播放器。
         mBinding.pushPlay.setOnClickListener(view -> playNative());
         // 点页面只用来唤回/续住上下栏，手势原样透传给页面（不消费）

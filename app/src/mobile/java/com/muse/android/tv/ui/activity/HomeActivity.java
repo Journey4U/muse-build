@@ -36,6 +36,7 @@ import com.muse.android.tv.receiver.ShortcutReceiver;
 import com.muse.android.tv.server.Server;
 import com.muse.android.tv.service.PlaybackService;
 import com.muse.android.tv.ui.base.BaseActivity;
+import com.muse.android.tv.ui.base.BaseFragment;
 import com.muse.android.tv.ui.custom.FragmentStateManager;
 import com.muse.android.tv.ui.fragment.SettingDanmakuFragment;
 import com.muse.android.tv.ui.fragment.SettingDecodeFragment;
@@ -61,6 +62,28 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
     private int orientation;
     private long mExitTime;
 
+    /** 纯网页源进站主页（Liu 2026-11-23 方案 A）：已自动进过站的源 key——同一次启动/同一次选中只自动进一次，返回后不再弹。 */
+    private static String sWebAutoKey;
+    /** 浏览器顶栏「切源」：回主页后打开切源对话框的待办标记（onResume 里消费）。 */
+    private static boolean sPendingSiteDialog;
+
+    /** 这个源这次还没自动进过站就记下并返回 true；已进过返回 false（防返回后又被弹进去）。 */
+    public static boolean takeWebAutoOpen(String key) {
+        if (key == null || key.equals(sWebAutoKey)) return false;
+        sWebAutoKey = key;
+        return true;
+    }
+
+    /** 用户在切源列表里重新选了源：清掉记号，选中纯网页源时照样自动进站。 */
+    public static void resetWebAutoOpen() {
+        sWebAutoKey = null;
+    }
+
+    /** 浏览器顶栏「切源」点击：回到主页后打开切源对话框。 */
+    public static void requestSiteDialog() {
+        sPendingSiteDialog = true;
+    }
+
     @Override
     protected ViewBinding getBinding() {
         return mBinding = ActivityHomeBinding.inflate(getLayoutInflater());
@@ -81,6 +104,11 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
     @Override
     protected void initView(Bundle savedInstanceState) {
         orientation = getResources().getConfiguration().orientation;
+        // 纯网页源进站主页：新启动（非重建）才重置「已自动进站」记号——App 启动时当前源是纯网页源会自动进站一次。
+        if (savedInstanceState == null) {
+            sWebAutoKey = null;
+            sPendingSiteDialog = false;
+        }
         mBinding.navigation.setOnItemSelectedListener(this);
         PermissionUtil.requestNotify(this);
         initFragment(savedInstanceState);
@@ -180,8 +208,22 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
             Notify.show(R.string.nav_browser_empty);
             return false;
         }
-        WebPlayActivity.start(this, site.getName(), url, null, null, null, 0, site.getKey(), "", site.getClick(), null);
+        WebPlayActivity.startHome(this, site.getName(), url, site.getKey(), site.getClick());
         return false;
+    }
+
+    /** 浏览器顶栏「切源」回来：切回点播页，由 VodFragment 打开切源对话框（与点标题切源同一个对话框）。 */
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (!sPendingSiteDialog) return;
+        sPendingSiteDialog = false;
+        change(0);
+        App.post(() -> {
+            if (isFinishing() || isDestroyed()) return;
+            BaseFragment fragment = mManager.getFragment(0);
+            if (fragment instanceof VodFragment) ((VodFragment) fragment).openSiteDialog();
+        }, 100);
     }
 
     private boolean openBookshelf() {

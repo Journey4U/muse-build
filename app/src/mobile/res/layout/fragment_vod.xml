@@ -108,6 +108,49 @@
         app:layout_anchor="@id/pager"
         app:layout_anchorGravity="center" />
 
+    <!-- 纯网页源进站主页（Liu 2026-11-23 方案 A）：从浏览器返回后主页放一张大卡片：站名 + 「进站主页」，点了再进站 -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/webHome"
+        android:layout_width="280dp"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="4dp"
+        app:layout_anchor="@id/pager"
+        app:layout_anchorGravity="center">
+
+        <androidx.appcompat.widget.LinearLayoutCompat
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="24dp">
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/webHomeName"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:gravity="center"
+                android:maxLines="2"
+                android:textSize="22sp"
+                android:textStyle="bold" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/webHomeEnter"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="@string/web_home_enter"
+                android:textSize="16sp" />
+
+        </androidx.appcompat.widget.LinearLayoutCompat>
+
+    </com.google.android.material.card.MaterialCardView>
+
     <include
         android:id="@+id/progress"
         layout="@layout/view_progress"
