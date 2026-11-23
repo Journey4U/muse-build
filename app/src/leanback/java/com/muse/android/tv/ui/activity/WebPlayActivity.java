@@ -2967,9 +2967,13 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 if (lines != null && lines.length() > 0) {
                     boolean renamed = dedupePushLineNames(lines);
                     mPushProbeLines = renamed ? obj.toString() : json;
+                    DebugLogStore.add("WebPlay", "push 多线探针 线路=" + lines.length());
+                    String diag = obj.optString("diag");
+                    if (!diag.isEmpty()) DebugLogStore.add("WebPlay", "push 探针诊断 " + diag);
                 } else if (hasSub) {
                     // push v9：无分集表但有子帖表时也存下来，供点推时走子页解析层。
                     mPushProbeLines = json;
+                    DebugLogStore.add("WebPlay", "push 子页探针 子帖=" + subEps.length());
                 } else if (obj.optInt("tabsPending", 0) == 1) {
                     // push v12：tab 已现形、选集尚未渲染（如 gaze /play_source_group 待回）时也存下来，
                     // 补跑据 tabsPending 续跑 5 秒档；无表无流，亮钮/放行门都不认它。
@@ -3365,6 +3369,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                     if (probeLines != null && probeLines.length() > 0) {
                         dedupePushLineNames(probeLines);
                         mPushProbeLines = pobj.toString();
+                        DebugLogStore.add("WebPlay", "push 点推重探 线路=" + probeLines.length());
                     }
                 }
                 // push v16：gaze 懒加载面板预加载——探针发现 tab+按钮式线路有未加载面板时
