@@ -756,6 +756,7 @@
     <string name="site_share_fail">Share failed: no app available to handle it</string>
     <string name="site_target_title">Act on selection</string>
     <string name="site_web_source_add">Add web source</string>
+    <string name="site_web_source_created">Web source added: %1$s, saved to local config Muse网页源.json</string>
     <string name="site_web_source_done">Web source added: %1$s</string>
     <string name="site_web_source_exists">That name already exists</string>
     <string name="site_web_source_fail">Failed to add web source</string>

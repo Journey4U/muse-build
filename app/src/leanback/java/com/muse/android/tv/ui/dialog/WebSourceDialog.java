@@ -95,6 +95,11 @@ public class WebSourceDialog extends BaseAlertDialog {
             else onPositive();
         });
         binding.negative.setOnClickListener(v -> dismiss());
+        // 同步主线电视：名称框按遥控器/输入法「完成」键直接确认（批量模式名称框隐藏，不触发）
+        binding.name.setOnEditorActionListener((textView, actionId, event) -> {
+            if (actionId == EditorInfo.IME_ACTION_DONE) binding.positive.performClick();
+            return true;
+        });
         binding.url.setOnEditorActionListener((textView, actionId, event) -> {
             if (isBatch() && actionId == EditorInfo.IME_ACTION_DONE) {
                 binding.positive.performClick();
@@ -193,21 +198,23 @@ public class WebSourceDialog extends BaseAlertDialog {
             return;
         }
         String done = getString(R.string.site_web_source_done, webName);
+        // 同步主线电视：首次新建「Muse网页源.json」时提示新建（先取好文案，后台回调时弹窗可能已关）
+        String created = getString(R.string.site_web_source_created, webName);
         // v25：先走权限门；已授予直接加，未授予弹系统申请，通过后自动重试本次添加
         PermissionUtil.ensureStoragePermission(this,
                 () -> {
                     dismiss();
-                    addWebSource(webName, webUrl, done);
+                    addWebSource(webName, webUrl, done, created);
                 },
                 this::showPermissionDenied);
     }
 
-    private void addWebSource(String name, String url, String done) {
+    private void addWebSource(String name, String url, String done, String created) {
         new Thread(() -> {
             final int result = LocalSourceHub.appendWebSource(name, url);
             App.post(() -> {
-                if (result == LocalSourceHub.WEB_OK) {
-                    Notify.show(done);
+                if (result == LocalSourceHub.WEB_OK || result == LocalSourceHub.WEB_CREATED) {
+                    Notify.show(result == LocalSourceHub.WEB_CREATED ? created : done);
                     // 写完重载配置：新站立刻进切站列表，不用手动刷新
                     VodConfig.get().init().load(new Callback() {
                         @Override
@@ -243,5 +250,12 @@ public class WebSourceDialog extends BaseAlertDialog {
 
     private static boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
+    }
+
+    /** 同步主线电视：弹窗宽度固定为屏幕 55%。 */
+    @Override
+    public void onStart() {
+        super.onStart();
+        setWidth(0.55f);
     }
 }
