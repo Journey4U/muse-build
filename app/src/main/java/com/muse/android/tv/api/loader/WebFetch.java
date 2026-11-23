@@ -226,16 +226,6 @@ public class WebFetch {
         } catch (InterruptedException ignored) {
         }
         String html = out.get();
-        if (!TextUtils.isEmpty(html)) {
-            SpiderDebug.log(TAG, "抓取完成 %s 字 %s", html.length(), url.length() > 80 ? url.substring(0, 80) : url);
-            if (waitDetail && reqSink != null && !reqSink.isEmpty()) {
-                StringBuilder sb = new StringBuilder();
-                synchronized (reqSink) {
-                    for (int i = 0; i < reqSink.size(); i++) sb.append("\n  ").append(reqSink.get(i));
-                }
-                SpiderDebug.log(TAG, "搜索页请求 %s 条%s", reqSink.size(), sb.toString());
-            }
-        }
         return html == null ? "" : html;
     }
 

@@ -1886,12 +1886,6 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
                 String host = request.getUrl().getHost();
                 String reqUrl = request.getUrl().toString();
-                // v92 金牌诊断：验证挑战——站点的 /api 被 307 到 /GE/CC/VALIDATOR 时，跟过去的请求会在这里出现；
-                // 记下来才知道接口是不是被验证拦了（只记前 20 次，接口重试循环时不刷屏）。
-                if (reqUrl.toLowerCase(Locale.US).contains("/ge/cc/validator") && mValidatorLogs < 20) {
-                    mValidatorLogs++;
-                    DebugLogStore.add("WebPlay", "validator hit url=" + reqUrl);
-                }
                 // 奇优根除（v115）：gdw.js / xs2.js 是奇优的纯广告加载器（gdw.js 写 #noiddiv + WebSocket 远程代码注底部横幅；
                 // xs2.js 往列表插「小说」推荐卡），只在奇优站内按文件名子串拦，别的站不碰（文件名可能撞）。不带 query 串，站方改版也不怕。
                 // v116 补漏：兄弟插卡器 xs.js（与 xs2.js 同模板）此前未拦——"xs2.js" 子串不含 "xs.js"；
@@ -1985,7 +1979,6 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 String[] clickMark = mClickMark;
                 if (isClickHijack(clickMark, view.getUrl(), request.getUrl().toString(), request.isRedirect())) {
                     mClickMark = null;
-                    DebugLogStore.add("WebPlay", "push v23 点按劫持拦截(主框) 点=" + clickMark[0] + " 去=" + request.getUrl());
                     restoreClickTarget(view, clickMark[0]);
                     return true;
                 }
@@ -2207,15 +2200,6 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
             @Override
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
                 super.onReceivedError(view, request, error);
-                // v92 金牌诊断：主框错误记下来，看页面是不是加载失败变黑。
-                // v95：子资源错误也记（去重 + 上限 20 条）——JS 分块加载失败会让页面水合卡住变黑，之前只记主框看不到。
-                if (request == null) return;
-                String errUrl = String.valueOf(request.getUrl());
-                if (request.isForMainFrame()) {
-                    DebugLogStore.add("WebPlay", "page error url=" + errUrl + " code=" + error.getErrorCode() + " desc=" + error.getDescription());
-                } else if (mResErrUrls.size() < 20 && mResErrUrls.add(errUrl)) {
-                    DebugLogStore.add("WebPlay", "res error url=" + errUrl + " code=" + error.getErrorCode());
-                }
             }
 
             @Override
@@ -2252,7 +2236,6 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                         if (isClickHijack(clickSnap, clickPage, url, redirect)) {
                             // push v23 P2'：点的是本站链接、弹出的却是外站 → 劫持：丢弃该窗，不装进主页面；
                             // 还原用户本意（打开所点的本站链接，主框已在去的路上则不重复）。
-                            DebugLogStore.add("WebPlay", "push v23 点按劫持拦截(弹窗) 点=" + clickSnap[0] + " 去=" + url);
                             restoreClickTarget(view, clickSnap[0]);
                         } else if (isTapHijack(clickSnap, clickPage, url, redirect, isUserGesture)
                                 || isTapHijack(pressSnap, clickPage, url, redirect, isUserGesture)) {
@@ -2263,7 +2246,6 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                             //（只为避开广告脚本写死的 500ms 事件锁，不拿时长判广告；按下后已收到真实点击则不补）。
                             String restoreHref = sameSiteMarkHref(clickSnap, clickPage);
                             if (TextUtils.isEmpty(restoreHref)) restoreHref = sameSiteMarkHref(pressSnap, clickPage);
-                            DebugLogStore.add("WebPlay", "push v28 点按劫持拦截(弹窗·元素) 去=" + url + " 手势=" + isUserGesture);
                             if (!TextUtils.isEmpty(restoreHref)) {
                                 restoreClickTarget(view, restoreHref);
                             } else {
@@ -2311,14 +2293,6 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
 
             @Override
             public boolean onConsoleMessage(ConsoleMessage consoleMessage) {
-                // v92 金牌诊断：只记页面报错，看 JS 是不是报错导致页面黑掉。
-                // v95：按文案去重（上限 20 条不同报错）——之前按条数截前 10 条，AudioContext 刷 10 次就把真正的报错盖住了。
-                if (consoleMessage != null && consoleMessage.messageLevel() == ConsoleMessage.MessageLevel.ERROR) {
-                    String msg = consoleMessage.message();
-                    if (msg != null && mConsoleErrSeen.size() < 20 && mConsoleErrSeen.add(msg)) {
-                        DebugLogStore.add("WebPlay", "console error " + msg + " @" + consoleMessage.sourceId() + ":" + consoleMessage.lineNumber());
-                    }
-                }
                 return super.onConsoleMessage(consoleMessage);
             }
 
@@ -3055,14 +3029,10 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
             if (lines != null && lines.length() > 0) {
                 boolean renamed = dedupePushLineNames(lines);
                 mPushProbeLines = renamed ? obj.toString() : json;
-                DebugLogStore.add("WebPlay", "push 多线探针 线路=" + lines.length());
-                String diag = obj.optString("diag");
-                if (!diag.isEmpty()) DebugLogStore.add("WebPlay", "push 探针诊断 " + diag);
                 return true;
             } else if (hasSub) {
                 // push v12：无分集表但有子帖表时也存下来，供点推时走子页解析层。
                 mPushProbeLines = json;
-                DebugLogStore.add("WebPlay", "push 子页探针 子帖=" + subEps.length());
                 return true;
             }
         } catch (Throwable ignored) {
@@ -3649,7 +3619,6 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 if (pobj != null) storePushStreamFields(pobj);
                 String main = mPushMainStream;
                 if (!TextUtils.isEmpty(main) && isPushStreamUrl(main) && !mPushAdSrcs.contains(main)) {
-                    DebugLogStore.add("WebPlay", "push v25 兜底交主片 " + main);
                     Map<String, String> h = pushPlayHeaders();
                     clearBrowserResolveState();
                     cb.onStream(main, h);
@@ -3657,7 +3626,6 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 }
                 String sniff = mBrowserResolveSniff;
                 if (!TextUtils.isEmpty(sniff) && !mPushAdSrcs.contains(sniff) && (mBrowserResolvePageDone || force)) {
-                    DebugLogStore.add("WebPlay", "push v25 兜底无主片交嗅流 " + sniff);
                     Map<String, String> h = pushPlayHeaders();
                     clearBrowserResolveState();
                     cb.onStream(sniff, h);
@@ -3730,8 +3698,6 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 }
             }
         }
-        String logStream = stream.length() > 90 ? stream.substring(0, 90) : stream;
-        DebugLogStore.add("WebPlay", "push 多线转播放 流=" + logStream + " 线路名=" + flag + " 集=" + episode + " 页=" + mPushPageUrl);
         // push v33 M1：简介/年份/地区随推送带过去（本页读到的才带）；简介去掉片名后不足 10 字（只是标题+站名）就不带。
         String metaContent = "";
         String metaYear = "";
@@ -3760,7 +3726,6 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         if (sniffed != null) {
             String referer = pushHeaderValue(sniffed, "Referer");
             if (TextUtils.isEmpty(referer) || pushSameHost(referer, mPushPageUrl)) return sniffed;
-            DebugLogStore.add("WebPlay", "push v15 嗅头 Referer 跨域丢弃 ref=" + referer + " page=" + mPushPageUrl);
         }
         Map<String, String> headers = new LinkedHashMap<>();
         if (!mPushPageUrl.isEmpty()) headers.put("Referer", mPushPageUrl);

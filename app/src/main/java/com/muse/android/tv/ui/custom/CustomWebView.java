@@ -256,7 +256,6 @@ public class CustomWebView extends WebView implements DialogInterface.OnDismissL
         Map<String, String> headers = new java.util.HashMap<>();
         if (!TextUtils.isEmpty(this.url)) headers.put(HttpHeaders.REFERER, this.url);
         if (!TextUtils.isEmpty(sniffUa)) headers.put(HttpHeaders.USER_AGENT, sniffUa);
-        SpiderDebug.log(TAG, "sniff 回传 %s", payload);
         onParseSuccess(headers, payload);
     }
 

@@ -1979,7 +1979,6 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
                 from.append(f.getFlag());
             }
             vod.setPlayFrom(from.toString());
-            SpiderDebug.log("video-flow", "browser lines applied lines=%d current=%s", built.size(), built.get(0).getFlag());
             return currentIndex;
         } catch (Exception e) {
             return -1;
