@@ -25,7 +25,6 @@ import com.muse.android.tv.databinding.FragmentCollectBinding;
 import com.muse.android.tv.model.SiteViewModel;
 import com.muse.android.tv.ui.activity.FolderActivity;
 import com.muse.android.tv.ui.activity.VideoActivity;
-import com.muse.android.tv.ui.activity.WebPlayActivity;
 import com.muse.android.tv.ui.adapter.CollectAdapter;
 import com.muse.android.tv.ui.adapter.SearchAdapter;
 import com.muse.android.tv.ui.base.BaseFragment;
@@ -186,13 +185,6 @@ public class CollectFragment extends BaseFragment implements MenuProvider, Colle
 
     @Override
     public void onItemClick(Vod item) {
-        // push v31：网页源的搜索结果（vod_id 是详情/播放页绝对地址）用浏览器打开，与主页浏览器入口同一套参数，
-        // 推送/探针/去广告/跳转规则照旧。其他源下面原路不变。
-        Site site = VodConfig.get().getSite(item.getSiteKey());
-        if (site.isWebSource() && item.getId().startsWith("http")) {
-            WebPlayActivity.start(requireActivity(), site.getName(), item.getId(), null, null, null, 0, site.getKey(), "", site.getClick(), null);
-            return;
-        }
         if (item.isFolder()) FolderActivity.start(requireActivity(), item.getSiteKey(), Result.folder(item));
         else VideoActivity.collect(requireActivity(), item.getSiteKey(), item.getId(), item.getName(), item.getPic());
     }

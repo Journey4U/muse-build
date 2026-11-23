@@ -18,8 +18,9 @@ import java.util.concurrent.TimeoutException;
 
 /**
  * push v31（Liu 2026-11-23 定方案 A）：网页源（只有 key/name/主页url 的条目）接进全局搜索。
- * <p>只管「搜」：用内置 {@link WebSpider}（夫子 WebSpider r542 移植）纯 HTTP 发现站点搜索端点、抽结果；
- * 点开结果仍由浏览器（WebPlayActivity）打开，首页/分类/详情/播放都不走这里，「网页源 = 完整浏览器」不变。</p>
+ * <p>搜：用内置 {@link WebSpider}（夫子 WebSpider r542 移植）纯 HTTP 发现站点搜索端点、抽结果。
+ * push v32（方案 R）：点开结果与其他源一样进 VideoActivity，详情/播放由 {@link #detailSpider(Site)} 的 WebSpider 承担；
+ * 首页/主页浏览器入口不走这里，「网页源主页 = 完整浏览器」不变。</p>
  * <ul>
  *   <li>单站 15 秒超时，超时/异常一律返回空，不影响其他源；</li>
  *   <li>搜索路径不拉起隐形 WebView 渲染；WebSpider 现成纯 HTTP 能自动过的验证（Cap 求解/缓存 cookie、JS 写 cookie、
@@ -33,6 +34,9 @@ public final class WebSearch {
     public static final long TIMEOUT_MS = 15000;
 
     private static final Map<String, WebSpider> CACHE = new ConcurrentHashMap<>();
+    /** push v32：详情/播放实例（按站 key）及其建实例时的主页地址。 */
+    private static final Map<String, WebSpider> DETAIL = new ConcurrentHashMap<>();
+    private static final Map<String, String> DETAIL_HOME = new ConcurrentHashMap<>();
     private static final ExecutorService POOL = Executors.newCachedThreadPool(r -> {
         Thread t = new Thread(r, "web-search");
         t.setDaemon(true);
@@ -52,9 +56,31 @@ public final class WebSearch {
         return home;
     }
 
-    /** 已为该站建过的搜索实例（图片解密代理按 siteKey 分发时用）；没有返回 null。 */
+    /** 已为该站建过的实例（图片解密代理按 siteKey 分发时用）：详情/播放实例优先，其次搜索实例；没有返回 null。 */
     public static WebSpider cached(String key) {
-        return key == null ? null : CACHE.get(key);
+        if (key == null) return null;
+        WebSpider d = DETAIL.get(key);
+        return d != null ? d : CACHE.get(key);
+    }
+
+    /**
+     * push v32（Liu 2026-11-23 方案 R）：网页源的详情/播放蜘蛛 —— 照参考实现（夫子壳：网页源=普通蜘蛛，
+     * 点搜索结果进 VideoActivity，详情走 WebSpider.detailContent、播放走 playerContent）。
+     * 按站 key 缓存一个实例（同站详情→播放共用模板识别、cookie、根地址等状态，与参考壳 spider() 复用同义）；
+     * 主页地址同搜索（条目「主页url」原样）；主页地址变了就重建。详情/播放路径不设 noRender，即照参考开渲染兜底
+     * （WebFetch 隐形 WebView，只对加密壳站触发）。搜索路径仍是上面 search() 的新实例 + noRender + 15 秒，不受影响。
+     * 推不出主页地址返回 null。
+     */
+    public static WebSpider detailSpider(Site site) {
+        String home = homeOf(site);
+        if (home.isEmpty()) return null;
+        String key = site.getKey();
+        WebSpider sp = DETAIL.get(key);
+        if (sp != null && home.equals(DETAIL_HOME.get(key))) return sp;
+        sp = new WebSpider(key, "web", home);
+        DETAIL.put(key, sp);
+        DETAIL_HOME.put(key, home);
+        return sp;
     }
 
     /** 每次搜索新建实例（端点/首页按 host 有静态缓存，新建很便宜；避免超时后台未结束的上一次搜索与本次共用状态）。 */
@@ -129,7 +155,7 @@ public final class WebSearch {
         }
     }
 
-    static String absolute(String id, String base) {
+    public static String absolute(String id, String base) {
         if (TextUtils.isEmpty(id)) return "";
         String u = id.trim();
         if (u.startsWith("{")) {

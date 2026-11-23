@@ -107,6 +107,7 @@ import com.muse.android.tv.utils.FileChooser;
 import com.muse.android.tv.utils.FileUtil;
 import com.muse.android.tv.utils.ImgUtil;
 import com.muse.android.tv.utils.Notify;
+import com.muse.android.tv.ui.custom.CustomWebView;
 import com.muse.android.tv.utils.PiP;
 import com.muse.android.tv.utils.ResUtil;
 import com.muse.android.tv.utils.Sniffer;
@@ -163,6 +164,10 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private boolean mBrowserLinesApplied;
     /** push v18 (c)：浏览器内点集解流进行中的回调（销毁时取消该单）。 */
     private WebPlayActivity.BrowserResolveCallback mBrowserResolveCallback;
+    /** push v32（方案 R）：网页源本集正交 WebView 嗅探时的播放页地址；嗅探失败（error_play_parse）按 Liu 选的回落 b 用浏览器打开它。 */
+    private String mWebSniffPage;
+    /** push v32：网页源 parse=1 先走 HttpEpisodeResolver 的轮次号；换集/重播后旧回调作废。 */
+    private int mWebResolveSeq;
     private long mInfoTxBytes;
     private long mInfoRxBytes;
     private long mInfoTime;
@@ -1623,6 +1628,37 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
             else result.getHeader().putAll(extraHeaders);
         }
         mWebEpHeaders = Collections.emptyMap();
+        mWebSniffPage = null;
+        final int seq = ++mWebResolveSeq;
+        String page = url == null ? "" : url;
+        if (getSite().isWebSource() && result.getParse() == 1 && (page.startsWith("http://") || page.startsWith("https://"))) {
+            // push v32（Liu 2026-11-23 方案 R，加固 a）：网页源要嗅探时，先用推送线现成的纯 HTTP 解析器
+            // （player_aaaa、候选探活、ArtPlayer、art.php 链，浏览器同款 UA）解播放页；解出直接播，
+            // 解不出再走参考实现的 WebView 嗅探（WebSpider 自动点播脚本 + 加固 b）。只对网页源生效，其他源走下面原路。
+            CustomWebView.setExtraAdFilter(AdDomains::isAdDomain);
+            showProgress();
+            HttpEpisodeResolver.resolveFresh(this, page, null, null, new HttpEpisodeResolver.Callback() {
+                @Override
+                public void onResolved(String stream, Map<String, String> headers) {
+                    if (isHostFinishing() || seq != mWebResolveSeq) return;
+                    result.setUrl(stream);
+                    result.setParse(0);
+                    if (headers != null && !headers.isEmpty()) {
+                        if (result.getHeader().isEmpty()) result.setHeader(new LinkedHashMap<>(headers));
+                        else result.getHeader().putAll(headers);
+                    }
+                    startPlayer(getHistoryKey(), result, false, getSite().getTimeout(), startPositionMs, metadata);
+                }
+
+                @Override
+                public void onFailed() {
+                    if (isHostFinishing() || seq != mWebResolveSeq) return;
+                    mWebSniffPage = page;
+                    startPlayer(getHistoryKey(), result, useParse, getSite().getTimeout(), startPositionMs, metadata);
+                }
+            });
+            return;
+        }
         startPlayer(getHistoryKey(), result, useParse, getSite().getTimeout(), startPositionMs, metadata);
     }
 
@@ -2898,6 +2934,16 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     @Override
     protected void onError(String msg) {
+        // push v32（方案 R，Liu 选回落 b）：网页源解析器与 WebView 嗅探都失败 → 提示并用浏览器打开该集播放页
+        //（与主页浏览器入口同一套 openWebPlayer 参数，推送/探针/去广告照旧）。只认嗅探失败（error_play_parse），其他报错走原路。
+        if (mWebSniffPage != null && getSite().isWebSource() && getString(R.string.error_play_parse).equals(msg)) {
+            String page = mWebSniffPage;
+            mWebSniffPage = null;
+            hideProgress();
+            Notify.show("解析失败，已用浏览器打开");
+            openWebPlayer(page, null, "");
+            return;
+        }
         mVod.playbackError(msg);
     }
 
