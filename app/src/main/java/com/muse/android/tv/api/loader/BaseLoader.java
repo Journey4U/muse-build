@@ -77,7 +77,12 @@ public class BaseLoader {
     }
 
     public Object[] proxy(Map<String, String> params) throws Exception {
-        if (params.containsKey("siteKey")) return getSpider(params.get("siteKey")).proxy(params);
+        if (params.containsKey("siteKey")) {
+            // push v31：网页源搜索结果的封面解密代理（proxy?do=img&siteKey=…）交给该站的搜索实例。
+            WebSpider web = WebSearch.cached(params.get("siteKey"));
+            if (web != null) return web.proxy(params);
+            return getSpider(params.get("siteKey")).proxy(params);
+        }
         if ("js".equals(params.get("do"))) return jsLoader.proxy(params);
         if ("py".equals(params.get("do"))) return pyLoader.proxy(params);
         return jarLoader.proxy(params);

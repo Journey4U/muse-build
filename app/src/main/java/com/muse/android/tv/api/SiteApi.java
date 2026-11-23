@@ -8,6 +8,8 @@ import androidx.collection.ArrayMap;
 import com.muse.android.tv.App;
 import com.muse.android.tv.R;
 import com.muse.android.tv.api.config.VodConfig;
+import com.muse.android.tv.api.loader.WebSearch;
+import com.muse.android.tv.api.loader.WebSpider;
 import com.muse.android.tv.bean.Class;
 import com.muse.android.tv.bean.Result;
 import com.muse.android.tv.bean.Site;
@@ -132,6 +134,15 @@ public class SiteApi {
             Source.get().parse(vod.setFlags());
             PlayInfoLog.remember(key, site.getName(), vod);
             return Result.vod(vod);
+        } else if (site.isWebSource() && WebSearch.detailSpider(site) != null) {
+            // push v32（Liu 2026-11-23 方案 R）：网页源（只有主页url）照参考实现当普通蜘蛛 —— 详情交内置 WebSpider，
+            // 后处理与下面 type 3 蜘蛛分支相同。非网页源走不到这里，下面原路一字不动。
+            String detailContent = WebSearch.detailSpider(site).detailContent(Arrays.asList(id));
+            SpiderDebug.log("detail", detailContent);
+            Result result = Result.fromJson(detailContent);
+            Source.get().parse(result.getVod().setFlags());
+            PlayInfoLog.remember(key, site.getName(), result.getVod());
+            return result;
         } else if (isSpider(site)) {
             if (LiveSiteFallback.isLiveId(id)) {
                 Result live = LiveSiteFallback.detail(site, id);
@@ -165,7 +176,28 @@ public class SiteApi {
         SpiderDebug.log(LogCategory.MEDIA, "player", "key=%s,flag=%s,id=%s", key, flag, id);
         Site site = VodConfig.get().getSite(key);
         Source.get().stop();
-        if (site.getType() == 3) {
+        WebSpider web = site.isWebSource() ? WebSearch.detailSpider(site) : null;
+        if (web != null) {
+            // push v32（方案 R）：网页源播放交内置 WebSpider —— 纯 HTTP 取到直链返回 parse=0 + 浏览器 UA/Referer 头直接播；
+            // 取不到返回 parse=1 + 播放页 + 自动点播脚本（click），由 VideoActivity 先走推送线 HttpEpisodeResolver、
+            // 再走壳子标准 WebView 嗅探（加固 a/b 在 VideoActivity/CustomWebView）。后处理同 type 3 分支，
+            // 唯一不同：结果地址为空时按播放页 parse=1 交嗅探（type 3 那条「空地址→原 id 直播」对网页源是把网页当视频播）。
+            String playerContent = web.playerContent(flag, id, VodConfig.get().getFlags());
+            SpiderDebug.log(LogCategory.MEDIA, "player", playerContent);
+            Result result = Result.fromJson(playerContent);
+            if (result.getUrl().isEmpty()) {
+                String page = WebSearch.absolute(id, web.rootUrl());
+                if (!page.isEmpty()) {
+                    result.setUrl(page);
+                    result.setParse(1);
+                }
+            }
+            if (result.getFlag().isEmpty()) result.setFlag(flag);
+            result.setUrl(Source.get().fetch(result));
+            result.setHeader(site.getHeader());
+            result.setKey(key);
+            return result;
+        } else if (site.getType() == 3) {
             String playerContent = site.recent().spider().playerContent(flag, id, VodConfig.get().getFlags());
             SpiderDebug.log(LogCategory.MEDIA, "player", playerContent);
             Result result = Result.fromJson(playerContent);
@@ -217,6 +249,18 @@ public class SiteApi {
     public static Result searchContent(@NonNull Site site, @NonNull String keyword, boolean quick, @NonNull String page) throws Exception {
         SpiderDebug.log("search", "site=%s,keyword=%s,quick=%s,page=%s", site.getName(), keyword, quick, page);
         boolean hasPage = !page.equals("1");
+        if (site.isWebSource()) {
+            // push v31（Liu 2026-11-23 方案 A）：网页源（只有主页url）用内置 WebSpider 搜，单站 15 秒超时、
+            // 遇验证跳过、失败返回空；结果 vod_id 已补成绝对地址。其他源下面原路不变。
+            // push v32：点开结果与其他源一样进 VideoActivity（详情/播放见 detailContent/playerContent 的网页源分支）。
+            // 快搜（详情页换源 quick=true）仍不接网页源，保持 v30/v31 的空结果（v32 不改换源行为）。
+            if (quick) return Result.empty();
+            String searchContent = WebSearch.search(site, keyword, false, page);
+            SpiderDebug.log("search", searchContent);
+            Result result = searchContent.isEmpty() ? Result.empty() : Result.fromJson(searchContent);
+            for (Vod vod : result.getList()) vod.setSite(site);
+            return result;
+        }
         if (isSpider(site)) {
             String searchContent = hasPage ? site.spider().searchContent(keyword, quick, page) : site.spider().searchContent(keyword, quick);
             SpiderDebug.log("search", searchContent);

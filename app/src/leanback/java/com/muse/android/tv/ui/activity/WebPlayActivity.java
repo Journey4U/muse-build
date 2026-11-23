@@ -1002,7 +1002,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         "xyyql.cc,api2.jpfviwgkz.cc,xxycw341.com,vnhgr465.com,caow.us,583.cc,9521.com,2726.com,8319.com,9212.app,322.cc",
         ",384.tv,4477.tv,177.gg,5651.com,275.cc,391.cc,837.tv,1x4g6f2.com,aizhantj.com,0cy5aps.com,ax8rylb.com,7xkpxuw.",
         "com,4gl3g.z.com,mehqk5u.com,smun7ro.com,67x8epk.com,kvkluj8.com,lw1su4n.com,hcxftcl.com,nf65hwr.com,3dzmgtc.co",
-        "m,dkepyys.com,hv7hpkk.com,tq.qwehkg.top,ta.dqgjla.top,tz.erghsasq.top\".split(','));function isAdDomain(h){if(!",
+        "m,dkepyys.com,hv7hpkk.com,tq.qwehkg.top,ta.dqgjla.top,tz.erghsasq.top,magsrv.com,forkedspare.com\".split(','));function isAdDomain(h){if(!",
         "h)return false;h=h.toLowerCase();if(__museAdSet.has(h))return true;var i=h.indexOf('.');while(i>=0){h=h.slice(",
         "i+1);if(__museAdSet.has(h))return true;i=h.indexOf('.');}return false;}function isAdUrl(u){try{var x=new URL(u",
         ",location.href);return !!x.hostname&&isAdDomain(x.hostname);}catch(e){return false;}}function isContent(el){if",
@@ -1047,9 +1047,9 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         "Attribute('href')||'';if(!href)continue;if(foreign(href))a.style.display='none';}}\nfunction noteHide(rule,el){",
         "try{if(!window.__museHideLog)window.__museHideLog=[];if(window.__museHideLog.length<20){var cn=(el.className&&",
         "el.className.baseVal!==undefined)?el.className.baseVal:(el.className||'');window.__museHideLog.push(rule+':'+(",
-        "el.tagName||'')+'.'+String(cn).slice(0,30));}}catch(e){}}\nfunction sweep(){killLoaderPadding();killPreRoll();p",
+        "el.tagName||'')+'.'+String(cn).slice(0,30));}}catch(e){}}\n/*push v30 R32-1*/function lfReg(h){h=String(h||'').toLowerCase().replace(/^www\\./,'');var p=h.split('.');return p.length>2?p.slice(-2).join('.'):h;}function killLinkFarms(){var hr=lfReg(location.hostname);function same(u){try{var x=new URL(u,location.href);return lfReg(x.hostname)===hr;}catch(e){return true;}}function real(a){var h=(a.getAttribute('href')||'').trim().toLowerCase();return !!h&&h.charAt(0)!=='#'&&h.indexOf('javascript:')!==0;}var al=document.querySelectorAll('a[href]');var tot=0,ss=0;for(var i=0;i<al.length;i++){if(!real(al[i]))continue;tot++;if(same(al[i].href))ss++;}if(ss<2||ss<tot*0.1)return;var cs=document.querySelectorAll('p,div,ul,ol,footer,nav,section,td,li,dl');var hit=[];for(var j=0;j<cs.length;j++){var e=cs[j];if(e.getAttribute('data-muse-lf'))continue;if(e.querySelector('[data-muse-lf]'))continue;var as=e.querySelectorAll('a[href]');var n=0,sameN=0,hs={},hn=0;for(var k=0;k<as.length;k++){var a=as[k];if(!real(a))continue;n++;if(same(a.href)){sameN++;break;}var rh='';try{rh=lfReg(new URL(a.href,location.href).hostname);}catch(x){rh='';}if(rh&&!hs[rh]){hs[rh]=1;hn++;}}if(sameN>0||n<8||hn<8)continue;if(e.querySelector('img,picture,video,audio,iframe,canvas,form,input,button,select,textarea,svg'))continue;var c=e.cloneNode(true);var rm=c.querySelectorAll('a,script,style');for(var q=0;q<rm.length;q++)if(rm[q].parentNode)rm[q].parentNode.removeChild(rm[q]);var rest=(c.textContent||'').replace(/[\\s|｜/、，,·•:：\\-–—]+/g,'');if(rest.length>12)continue;hit.push(e);}for(var m=0;m<hit.length;m++){var h0=hit[m];var deeper=false;for(var o=0;o<hit.length;o++){if(o!==m&&h0!==hit[o]&&h0.contains(hit[o])){deeper=true;break;}}if(deeper)continue;h0.setAttribute('data-muse-lf','1');try{h0.style.setProperty('display','none','important');}catch(x){}try{noteHide('lf',h0);}catch(x){}}}/*push v30 R32-2*/function brandOf(h){var l=lfReg(h).split('.')[0]||'';return l.replace(/[0-9]+/g,'');}function sameBrand(u){try{var x=new URL(u,location.href);var a=brandOf(x.hostname),b=brandOf(location.hostname);return a.length>=3&&a===b;}catch(e){return false;}}/*push v28 F1*/function adFrameDoc(d){try{if(!d||!d.body)return false;var loc='';try{loc=String(d.location&&d.location.href||'');}catch(e){}if(/cdn-cgi\\/challenge|captcha|turnstile|challenges\\.cloudflare/i.test(loc))return false;if(d.querySelector('[class*=captcha],[id*=captcha],.cf-turnstile,[class*=turnstile],[id*=challenge]'))return false;var site='';try{site=String(d.location.hostname||'').toLowerCase().replace(/^www\\./,'');}catch(e){}var ad=0,els=d.querySelectorAll('script[src],iframe[src]');for(var i=0;i<els.length;i++){var s=els[i].getAttribute('src')||'';if(/^\\s*\\/\\//.test(s))s='https:'+s.trim();var m=/^\\s*https?:\\/\\/([^\\/?#:]+)/i.exec(s);if(m&&isAdDomain(m[1].toLowerCase()))ad++;}if(!ad)return false;var as=d.querySelectorAll('a[href]');for(var j=0;j<as.length;j++){var h=(as[j].getAttribute('href')||'').trim();if(!h||h.charAt(0)==='#'||/^javascript:/i.test(h))continue;var hm=/^\\s*(?:https?:)?\\/\\/([^\\/?#:]+)/i.exec(h);if(!hm)return false;var hh=hm[1].toLowerCase().replace(/^www\\./,'');if(site&&(hh===site||hh.slice(-site.length-1)==='.'+site||site.slice(-hh.length-1)==='.'+hh))return false;}if(d.querySelector('video,audio,form,input,button,textarea,select'))return false;var c=d.body.cloneNode(true);var rm=c.querySelectorAll('script,style,noscript,template');for(var k=0;k<rm.length;k++)if(rm[k].parentNode)rm[k].parentNode.removeChild(rm[k]);if((c.textContent||'').replace(/\\s+/g,'').length>0)return false;return true;}catch(e){return false;}}/*push v29 R31-2*/function f1Judge(f){if(f.__museF1)return;var d=null;try{d=f.contentDocument;}catch(e){d=null;}if(!d){f.__museF1=1;return;}var lh='';try{lh=String(d.location.href||'');}catch(e){}if(!lh||lh==='about:blank')return;var rs=d.readyState;if(rs!=='interactive'&&rs!=='complete')return;if(rs==='interactive'){if(f.__museF1I===lh)return;f.__museF1I=lh;}if(adFrameDoc(d)){f.__museF1=1;try{f.style.setProperty('display','none','important');}catch(e){}try{f.src='about:blank';}catch(e){}return;}if(rs==='complete')f.__museF1=1;}function f1Hook(f){if(f.__museF1H)return;f.__museF1H=1;try{f.addEventListener('load',function(){try{f1Judge(f);}catch(e){}});}catch(e){}var raf=window.requestAnimationFrame?function(cb){window.requestAnimationFrame(cb);}:function(cb){setTimeout(cb,16);};var n=0;(function poll(){if(f.__museF1||!f.isConnected||n++>1800)return;var d=null;try{d=f.contentDocument;}catch(e){d=null;}if(!d){f.__museF1=1;return;}var lh='';try{lh=String(d.location.href||'');}catch(e){}if(lh&&lh!=='about:blank'&&d.readyState!=='loading'){try{f1Judge(f);}catch(e){}if(f.__museF1||f.__museF1I)return;}raf(poll);})();}function killAdFrames(){var fs=document.querySelectorAll('iframe');for(var i=0;i<fs.length;i++){var f=fs[i];if(f.__museF1)continue;f1Hook(f);f1Judge(f);}}/*push v29 R31-3*/function f3Style(){try{var st=document.getElementById('__museF3Style');if(st&&st.isConnected)return;st=document.createElement('style');st.id='__museF3Style';st.textContent='[data-cl-spot],[data-muse-f3]{display:none!important}';(document.head||document.documentElement).appendChild(st);}catch(e){}}function pureAdWrap(p){var c=p.cloneNode(true);var rm=c.querySelectorAll('[data-cl-spot],script,style,noscript,template,[data-muse-f3]');for(var k=0;k<rm.length;k++)if(rm[k].parentNode)rm[k].parentNode.removeChild(rm[k]);if((c.textContent||'').replace(/\\s+/g,'').length>0)return false;if(c.querySelector('a[href],img,picture,svg,video,audio,iframe,canvas,embed,object,form,input,button,textarea,select'))return false;return true;}function killClSpots(){f3Style();var ss=document.querySelectorAll('[data-cl-spot]');for(var i=0;i<ss.length;i++){var s=ss[i];if(s.getAttribute('data-muse-f3'))continue;s.setAttribute('data-muse-f3','1');var p=s.parentElement;while(p&&p!==document.body&&p!==document.documentElement){if(!pureAdWrap(p))break;p.setAttribute('data-muse-f3','1');p=p.parentElement;}}}function sweep(){try{killAdFrames();}catch(e){}try{killClSpots();}catch(e){}try{killLinkFarms();}catch(e){}killLoaderPadding();killPreRoll();p",
         "runeExtraVideos();",
-        "/*v77*/if(window.__museJumpDone||isRealSite()){var __museFAs=document.querySelectorAll('a[href]');for(var __museFI=0;__museFI<__museFAs.length;__museFI++){var __museFA=__museFAs[__museFI];if(!__museFA.isConnected)continue;if(inAgeGate(__museFA))continue;if(isContent(__museFA))continue;if(!foreign(__museFA.href))continue;var __museFP=__museFA.parentElement;kill(__museFA);collapseCard(__museFP);}var __museVAs=document.querySelectorAll('a[href^=\"javascript:void(0)\"]');for(var __museVI=0;__museVI<__museVAs.length;__museVI++){var __museVA=__museVAs[__museVI];if(!__museVA.isConnected)continue;if(inAgeGate(__museVA))continue;if(!__museVA.querySelector('img'))continue;var __museVP=__museVA.parentElement;kill(__museVA);collapseCard(__museVP);}}",
+        "/*v77*/if(window.__museJumpDone||isRealSite()){var __museFAs=document.querySelectorAll('a[href]');for(var __museFI=0;__museFI<__museFAs.length;__museFI++){var __museFA=__museFAs[__museFI];if(!__museFA.isConnected)continue;if(inAgeGate(__museFA))continue;if(isContent(__museFA))continue;if(!foreign(__museFA.href))continue;/*push v30 R32-2*/if(sameBrand(__museFA.href))continue;var __museFP=__museFA.parentElement;kill(__museFA);collapseCard(__museFP);}var __museVAs=document.querySelectorAll('a[href^=\"javascript:void(0)\"]');for(var __museVI=0;__museVI<__museVAs.length;__museVI++){var __museVA=__museVAs[__museVI];if(!__museVA.isConnected)continue;if(inAgeGate(__museVA))continue;if(!__museVA.querySelector('img'))continue;var __museVP=__museVA.parentElement;kill(__museVA);collapseCard(__museVP);}}",
         "var as=document.querySelectorAll('a[href]');for(var i=0;i<as.length;i++){var a=as[i];if(!a.i",
         "sConnected)continue;if(inAgeGate(a))continue;if(!isAdUrl(a.href))continue;var rel=(a.getAttribute('rel')||'').",
         "toLowerCase();var spon=rel.indexOf('sponsored')>=0;var hasImg=!!a.querySelector('img');var hasBg=false;if(!spo",
@@ -1395,7 +1395,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         "i].addedNodes;for(var j=0;j<ns.length;j++){var n=ns[j];if(!n||n.nodeType!==1)continue;var cd=null;if(n.classLi",
         "st&&n.classList.contains('dplayer-pre-countdown'))cd=n;else if(n.querySelector)cd=n.querySelector('.dplayer-pr",
         "e-countdown');if(cd){killPreRollOne(cd);return;}}}});if(document.documentElement)preOb.observe(document.docume",
-        "ntElement,{childList:true,subtree:true});setTimeout(function(){try{preOb.disconnect();}catch(e){}},600000);})(",
+        "ntElement,{childList:true,subtree:true});setTimeout(function(){try{preOb.disconnect();}catch(e){}},600000);/*push v29 R31-2*/var f1Ob=new MutationObserver(function(muts){for(var i=0;i<muts.length;i++){var ns=muts[i].addedNodes;for(var j=0;j<ns.length;j++){var n=ns[j];if(!n||n.nodeType!==1)continue;if(n.hasAttribute&&n.hasAttribute('data-cl-spot')){try{killClSpots();}catch(e){}}var l=n.tagName==='IFRAME'?[n]:(n.querySelectorAll?n.querySelectorAll('iframe'):[]);for(var k=0;k<l.length;k++){try{f1Hook(l[k]);f1Judge(l[k]);}catch(e){}}}}});if(document.documentElement)f1Ob.observe(document.documentElement,{childList:true,subtree:true});setTimeout(function(){try{f1Ob.disconnect();}catch(e){}},600000);})(",
         ");"
     };
     // 1080 视口：电视浏览器按固定 1920px 布局，桌面站导航不再裹成多行（吃瓜/黑料/大赛上框占比大）。
@@ -1522,7 +1522,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         + "'';var p1=parseQuoted(t,call);if(!p1)return '';var rest=t.slice(p1[1]);var m=/^\\s*,\\s*(\\d+)\\s*,\\s*(\\d+)\\s*,\\s*/.exec(rest);if(!m)return '';var a=parseInt(m[1],10),c=parseInt(m[2],10);var k1=parseQuoted(t,p1[1]+m[0].length);if(!k1)return "
         + "'';var p=p1[0],k=k1[0].split('|');for(var j2=c-1;j2>=0;j2--){var tok=tokOf(j2,a);var rep=(k[j2]!==undefined&&k[j2]!=='')?k[j2]:tok;if(rep===tok)continue;p=p.replace(new RegExp('\\\\b'+tok+'\\\\b','g'),rep);}return "
         + "p;}function packedSource(){try{var ss=document.querySelectorAll('script');for(var i=0;i<ss.length;i++){var t=ss[i].textContent||'';if(t.indexOf('eval(function(p,a,c,k,e,d)')<0)continue;var dec=decodePacker(t);if(!dec)continue;var "
-        + "m=/source\\s*[:=]\\s*[^;]{0,400}?(https?:\\/\\/[^'\"\\s;]+\\.(?:m3u8|mp4)[^'\"\\s;]*)/.exec(dec);if(m&&isStreamUrl(m[1]))return m[1];}}catch(e){}return '';}function perfM3u8(){try{if(!window.performance||!performance.getEntriesByType)return "
+        + "m=/source\\s*[:=]\\s*[^;]{0,400}?(https?:\\/\\/[^'\"\\s;]+\\.(?:m3u8|mp4)[^'\"\\s;]*)/.exec(dec);if(m&&isStreamUrl(m[1])){var rw=pageRw(m[1]);return (rw&&isStreamUrl(rw))?rw:m[1];}}}catch(e){}return '';}function pageRw(raw){try{var RW=/\\b([A-Za-z_$][\\w$]*)\\s*=\\s*\\1\\.replace\\(\\s*\\/((?:\\\\.|[^\\/\\\\\\n])+)\\/([gimsuy]*)\\s*,\\s*(['\"])([^'\"\\n]*)\\4\\s*\\)/g;var ss=document.querySelectorAll('script');for(var i=0;i<ss.length;i++){var t=ss[i].textContent||'';if(t.indexOf('.replace(')<0)continue;var m;RW.lastIndex=0;while((m=RW.exec(t))){if(m[1]!=='source')continue;var re;try{re=new RegExp(m[2],m[3]);}catch(e){continue;}var out=raw.replace(re,m[5]);if(out===raw)continue;try{if(new URL(out).origin===location.origin)return out;}catch(e){}}}}catch(e){}return '';}function perfM3u8(){try{if(!window.performance||!performance.getEntriesByType)return "
         + "'';var es=performance.getEntriesByType('resource');var found=[];for(var i=0;i<es.length;i++){var u=es[i].name||'';if(/\\.m3u8($|[?&#])/i.test(u)&&found.indexOf(u)<0)found.push(u);}if(found.length===1)return "
         + "found[0];return '';}catch(e){return '';}}function frameStream(){try{var AD=/(^|[\\s_\\-])(ad|ads|advert|advertisement|banner|sponsor|sponsored|promotion)([\\s_\\-]|$)/i;var PL=/(^|[\\s_\\-])(player|playbox|dplayer)([\\s_\\-]|$)/i;var RC=/(^|[\\s_\\-])(recommend|recommended|related|thumbnail|thumbnails|preview|previews|more-videos|sidebar|also-watch)([\\s_\\-]|$)/i;function cx(el){return ((el.getAttribute&&el.getAttribute('class'))||'')+' '+((el.getAttribute&&el.getAttribute('id'))||'');}function up(el,re){var d=el.ownerDocument,n=el;while(n&&n!==d.body&&n!==d.documentElement){if(re.test(cx(n)))return true;n=n.parentElement;}return false;}var fr=document.querySelectorAll('iframe');for(var k=0;k<fr.length;k++){var f=fr[k];if(up(f,AD)||!up(f,PL))continue;var d=null,w=null;try{d=f.contentDocument;w=f.contentWindow;}catch(e){}if(!d||!d.body)continue;var vs=d.querySelectorAll('video'),best=null,bs=-1;for(var i=0;i<vs.length;i++){var v=vs[i];if(up(v,AD)||up(v,RC)||(v.loop&&v.muted))continue;var r=v.getBoundingClientRect(),a=r.width*r.height;if(a>bs){bs=a;best=v;}}if(best){var s='';try{s=best.currentSrc||best.getAttribute('src')||'';}catch(e){}if(/^https?:/i.test(s)&&isStreamUrl(s))return s;}try{var es=w.performance.getEntriesByType('resource'),fl=[];for(var j=0;j<es.length;j++){var u=es[j].name||'';if(/\\.m3u8($|[?&#])/i.test(u)&&fl.indexOf(u)<0)fl.push(u);}if(fl.length===1)return fl[0];}catch(e){}}return '';}catch(e){return '';}}function mainStream(){try{var mv=mainVideo();if(mv&&!adPlaying()){var s=vidSrc(mv);if(s&&/^https?:/i.test(s)&&isStreamUrl(s))return s;}try{var c=window.player_aaaa||window.player_data||window.player_config||window.MacPlayer;if(c&&c.url&&isStreamUrl(c.url))return "
         + "absUrl(c.url);}catch(e){}var md=mediaDefDefault();if(md)return md;var pk=packedSource();if(pk)return pk;var pf=perfM3u8();if(pf)return pf;var fsr=frameStream();if(fsr)return fsr;return '';}catch(e){return '';}}function hasMainPlayer(){try{var "
@@ -1580,6 +1580,13 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     private volatile String mPushProbePageUrl = "";
     private volatile boolean mPushPlayPending = false;
     private volatile String mPushPagePic = "";
+    // push v33 M1：推送带简介/年份/地区——页完时从当前页 DOM 只读取一次（零网络请求），切页即清。
+    private volatile String mPushPageContent = "";
+    private volatile String mPushPageYear = "";
+    private volatile String mPushPageArea = "";
+    private volatile String mPushPageOgPic = "";
+    private volatile String mPushMetaPageUrl = "";
+    private static final String PUSH_META_JS = "(function(){try{function cl(s){return (s||'').replace(/[\\s\\u00a0\\u3000]+/g,' ').trim();}function codey(s){return /window\\.|function\\s*\\(|=\\s*\\[|[{}]|=>|\\bvar\\s/.test(s);}var c='';var m=document.querySelector('meta[property=\"og:description\"]');if(m&&cl(m.content).length>=20)c=cl(m.content);if(!c){m=document.querySelector('meta[name=\"description\"]');if(m&&cl(m.content).length>=20)c=cl(m.content);}if(!c){var ds=document.querySelectorAll('div[class*=\"desc\"],div[class*=\"content\"],div[class*=\"intro\"]');for(var i=0;i<ds.length&&i<40;i++){var cn=ds[i].getAttribute('class')||'';if(/^list/i.test(cn))continue;var t=cl(ds[i].innerText||'');if(t.length>=20&&t.length<=3000&&!codey(t)){c=t;break;}}}if(codey(c))c='';var y='',a='';var es=document.querySelectorAll('li,dd,p,span,div');for(var k=0;k<es.length&&k<4000&&(!y||!a);k++){var tx=cl(es[k].textContent||'');if(tx.length>40)continue;var lb=tx.match(/^(年份|年代|地区)[：:]$/);if(lb&&es[k].parentElement){var pt=cl(es[k].parentElement.textContent||'');var ix=pt.indexOf(tx);tx=ix>=0?(tx+pt.slice(ix+tx.length).slice(0,40)):tx;}var ym=tx.match(/^(?:年份|年代)[：:]\\s*([0-9]{4})(?![0-9])/);if(ym&&!y)y=ym[1];var am=tx.match(/^地区[：:]\\s*([^\\s：:]{1,12})(?:\\s|$)/);if(am&&!a&&!/[：:]/.test(tx.slice(am[0].length).split(' ')[0]||''))a=am[1];}var p='';var og=document.querySelector('meta[property=\"og:image\"]');if(og&&og.content){try{p=new URL(og.content,location.href).href}catch(e){p=og.content}}return JSON.stringify({c:c.slice(0,1500),y:y,a:a,p:p});}catch(e){return '';}})()";
     private volatile String mPushPageUrl = "";
     // push v3：探针补跑状态（选集表可能是 JS 后渲染的，页完那一刻还没进 DOM）。
     private Runnable mPushProbeRetry;
@@ -1614,6 +1621,14 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     /** v76：跳转已用——v61/v74/v92 放行一次跨站跳转后记下起跳 host；真实站落地时清 mJumpHost，之后真实站上的跨站点击不再放行（假分类/假视频）。 */
     private boolean mJumpUsed = false;
     private String mJumpOriginHost = null;
+    /** push v23 P2'：点按意图记录——{所点本站 <a> 的地址, 点按所在页地址}；页面 window 捕获阶段 click 监听经 JS 桥写入
+     * （只记录，永不放行）。非链接点按写 {"", 页}；新页开始导航即清。字段跟本浏览器实例走，不是全局状态。 */
+    private volatile String[] mClickMark = null;
+    /** push v28 F2a：按下记录（mousedown/pointerdown 捕获阶段，格式同 mClickMark）——广告脚本可能在按下那一刻就开窗，
+     * 早于 click 记录；只用于新窗口路径判定，主框路径不用（主框照 v23 只认 click）。新页开始导航即清。 */
+    private volatile String[] mPressMark = null;
+    /** push v23 P2'：主框最近一次开始导航的地址——拦下劫持后还原用户本意前，判断主框是否已在去那个链接的路上。 */
+    private volatile String mClickLastStarted = "";
     // v93 跳转链路(v73 起放 Activity 层:onCreateWindow 放行中转跳转后也要记,供 302 跟进认)。
     private String mJumpAnchorHost = null;
     private String mJumpRelayHost = null;
@@ -1842,6 +1857,8 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         mBinding.web.setWebViewClient(webViewClient());
         // 电视卡顿优化（2026-11-16）：WebView 用硬件层，合成走 GPU，减轻 32 位电视 CPU 负担。
         mBinding.web.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+        // push v23 P2'：点按意图记录桥（只有一个 mark 方法，只写 mClickMark，不能放行任何东西）。
+        mBinding.web.addJavascriptInterface(new ClickMarkBridge(), "museClickGuard");
         mChromeClient = webChromeClient();
         mBinding.web.setWebChromeClient(mChromeClient);
     }
@@ -1853,12 +1870,6 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
                 String host = request.getUrl().getHost();
                 String reqUrl = request.getUrl().toString();
-                // v92 金牌诊断：验证挑战——站点的 /api 被 307 到 /GE/CC/VALIDATOR 时，跟过去的请求会在这里出现；
-                // 记下来才知道接口是不是被验证拦了（只记前 20 次，接口重试循环时不刷屏）。
-                if (reqUrl.toLowerCase(Locale.US).contains("/ge/cc/validator") && mValidatorLogs < 20) {
-                    mValidatorLogs++;
-                    DebugLogStore.add("WebPlay", "validator hit url=" + reqUrl);
-                }
                 // 广告加载器（混淆 js 拉的远程广告脚本，域名按日期轮换）：按子串拦，通用、不只麦田。
                 if (isAdLoaderUrl(request.getUrl().toString())) {
                     if (mBlockedHosts.add(host)) DebugLogStore.add("WebPlay", "blocked ad-loader url=" + request.getUrl());
@@ -1941,6 +1952,31 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 if (isPopunderPath(request.getUrl().getPath())) {
                     return true;
                 }
+                // push v23 P2'：点按劫持守卫（放在 v61/v74 之前，只会多拦）——用户点的是本站 <a>，去向却是外站
+                // （广告脚本在同一次点击里改走 location.href）→ 拦；服务器 301/302（isRedirect）与 v92 中转豁免；
+                // 点外站链接/按钮/没点按一律不介入（发布页、防丢页自动跳不受影响）。拦下后打开用户实际点的本站链接。
+                String[] clickMark = mClickMark;
+                if (isClickHijack(clickMark, view.getUrl(), request.getUrl().toString(), request.isRedirect())) {
+                    mClickMark = null;
+                    restoreClickTarget(view, clickMark[0]);
+                    return true;
+                }
+                // push v30 R32-3：外站链接被改道——用户点（或按下）的是外站 <a>，带手势的主框导航去的却是第三个站
+                //（既不是所点链接的站、也不是本站；非 301/302、非 v92 中转、去向地址里不带所点域名）→ 广告脚本把这一下
+                // 送进了广告链：拦下，打开用户实际点的那个外站链接。只认带链接地址的点/按记录（javascript: 按钮如
+                // PLMM「无需等待」记录为空、不介入）；无手势的自动跳转（发布页、防丢页）不介入。
+                if (request.isForMainFrame() && request.hasGesture()) {
+                    String reqUrl3 = request.getUrl().toString();
+                    String[] fm = mClickMark;
+                    if (!isForeignClickDetour(fm, view.getUrl(), reqUrl3, request.isRedirect())) fm = null;
+                    if (fm == null && isForeignClickDetour(mPressMark, view.getUrl(), reqUrl3, request.isRedirect())) fm = mPressMark;
+                    if (fm != null) {
+                        mClickMark = null;
+                        mPressMark = null;
+                        restoreClickTarget(view, fm[0]);
+                        return true;
+                    }
+                }
                 if (!TextUtils.isEmpty(targetHost) && !TextUtils.isEmpty(currentHost)
                         && !sameSite(targetHost, currentHost)) {
                     // v92：页面自发的中转跳转放行（Liu 2026-11-14 定）——无手势（页面加载时程序自己点的，
@@ -2013,6 +2049,10 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 // mUserGestured 一旦置 true 永不复位,点按到达发布页后 mJumpHost 卡在旧 host,v61 永远对不上)。
                 boolean followJumpHost = !mUserGestured || mFollowJumpHost;
                 mFollowJumpHost = false;
+                // push v23 P2'：新页开始导航——清点按记录（新页的点按重新记），记下主框去向供还原判断。
+                mClickMark = null;
+                mPressMark = null;
+                mClickLastStarted = url;
                 if (followJumpHost && !TextUtils.isEmpty(mJumpHost)) {
                     try {
                         String newHost = Uri.parse(url).getHost();
@@ -2046,6 +2086,11 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 // push v1：导航开始，清多线探针状态（海报 mPushPagePic 不清，活过详情→播放页一跳）；记当前页地址。
                 mPushPageUrl = url;
                 mPushProbeLines = "";
+                mPushPageContent = "";
+                mPushPageYear = "";
+                mPushPageArea = "";
+                mPushPageOgPic = "";
+                mPushMetaPageUrl = "";
                 // push v16：切页即清预加载单次标记（新页重探后可再预加载）并撤掉未跑完的预加载轮询。
                 mPushPreloadAttempted = false;
                 if (mPushPreloadPoll != null) {
@@ -2089,6 +2134,8 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 mJumpAnchorHost = null;
                 mJumpRelayHost = null;
                 mJumpChainUntil = 0;
+                // push v25 (B)（电视 v19 适配）：兜底导航的目标页加载完成——之后才允许在无主片时交嗅流。
+                if (mBrowserClickPageResolve && mBrowserClickCallback != null && url.equals(mBrowserClickPage)) mBrowserClickPageDone = true;
                 evaluate(getScript(url), 0);
                 // v97：不再立即显示——等 CLEAN_JS 回调再显示，否则分类页加载快会抢在首扫前闪出横幅墙（同 onPageCommitVisible）。
                 evalCleanJs(view);
@@ -2128,15 +2175,6 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
             @Override
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
                 super.onReceivedError(view, request, error);
-                // v92 金牌诊断：主框错误记下来，看页面是不是加载失败变黑。
-                // v95：子资源错误也记（去重 + 上限 20 条）——JS 分块加载失败会让页面水合卡住变黑，之前只记主框看不到。
-                if (request == null) return;
-                String errUrl = String.valueOf(request.getUrl());
-                if (request.isForMainFrame()) {
-                    DebugLogStore.add("WebPlay", "page error url=" + errUrl + " code=" + error.getErrorCode() + " desc=" + error.getDescription());
-                } else if (mResErrUrls.size() < 20 && mResErrUrls.add(errUrl)) {
-                    DebugLogStore.add("WebPlay", "res error url=" + errUrl + " code=" + error.getErrorCode());
-                }
             }
 
             @Override
@@ -2155,16 +2193,47 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 // 用 isAllowedNewWindowUrl 判断(与 shouldOverrideUrlLoading 同一套规则)。
                 // 注意:这里只处理新窗口请求;同标签的自动跨域跳转走 shouldOverrideUrlLoading
                 // (v74:跳转页到非广告域名放行,其余照旧拦截)。
+                // push v23 P2'：新窗口创建这一刻（站方 window.open 同步触发，必早于异步拿到的广告地址）快照点按记录
+                // 与所在页；真实地址到来时按快照判，不受主框之后跳走的影响（无竞态、不计时）。
+                final String[] clickSnap = mClickMark;
+                final String[] pressSnap = mPressMark;
+                final String clickPage = view.getUrl();
                 WebView tempWebView = new WebView(view.getContext());
                 tempWebView.setWebViewClient(new WebViewClient() {
                     private boolean mHandled = false;
 
-                    private void handleNewWindowUrl(String url) {
+                    private void handleNewWindowUrl(String url, boolean redirect) {
                         if (mHandled) return;
                         // v74：空白页不占标记、不销毁——新窗口先报 about:blank 时，等真正的 URL 再判断。
                         if (TextUtils.isEmpty(url) || url.equals("about:blank")) return;
                         mHandled = true;
-                        if (isAllowedNewWindowUrl(url, isUserGesture)) {
+                        if (isClickHijack(clickSnap, clickPage, url, redirect)) {
+                            // push v23 P2'：点的是本站链接、弹出的却是外站 → 劫持：丢弃该窗，不装进主页面；
+                            // 还原用户本意（打开所点的本站链接，主框已在去的路上则不重复）。
+                            restoreClickTarget(view, clickSnap[0]);
+                        } else if (isTapHijack(clickSnap, clickPage, url, redirect, isUserGesture)
+                                || isTapHijack(pressSnap, clickPage, url, redirect, isUserGesture)) {
+                            // push v28 F2a：点/按的是本站任意元素（按钮、菜单等），弹出的却是外站，且外站地址不在
+                            // 被点元素及其祖先的 href/onclick/data-* 属性里 → 劫持：丢弃该窗（只在新窗口路径，主框不动）。
+                            // push v29 R31-1：判定不变，拦下后还原用户本意——广告脚本在 touchend 吞了 click（点=-），
+                            // 按下记录里若是本站链接就由壳子打开它；不是链接（按钮/菜单）则约 0.6 秒后对被按元素补一次点击
+                            //（只为避开广告脚本写死的 500ms 事件锁，不拿时长判广告；按下后已收到真实点击则不补）。
+                            String restoreHref = sameSiteMarkHref(clickSnap, clickPage);
+                            if (TextUtils.isEmpty(restoreHref)) restoreHref = sameSiteMarkHref(pressSnap, clickPage);
+                            if (!TextUtils.isEmpty(restoreHref)) {
+                                restoreClickTarget(view, restoreHref);
+                            } else {
+                                view.postDelayed(() -> {
+                                    if (!clickNoHash(clickPage).equals(clickNoHash(view.getUrl()))) return;
+                                    view.evaluateJavascript("window.__museReplayPress?window.__museReplayPress():'nofn'", null);
+                                }, 600);
+                            }
+                        } else if (isUserGesture && (isForeignClickDetour(clickSnap, clickPage, url, redirect)
+                                || isForeignClickDetour(pressSnap, clickPage, url, redirect))) {
+                            // push v30 R32-3：点/按的是外站 <a>，弹出的却是第三个站 → 丢弃该窗，打开用户点的那个外站链接。
+                            String[] fm = isForeignClickDetour(clickSnap, clickPage, url, redirect) ? clickSnap : pressSnap;
+                            restoreClickTarget(view, fm[0]);
+                        } else if (isAllowedNewWindowUrl(url, isUserGesture)) {
                             // 放行:在当前 WebView 打开;让 mJumpHost 跟到新页(修 v72 mUserGestured 缺陷)。
                             mFollowJumpHost = true;
                             view.loadUrl(url);
@@ -2175,14 +2244,14 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
 
                     @Override
                     public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest request) {
-                        handleNewWindowUrl(request.getUrl().toString());
+                        handleNewWindowUrl(request.getUrl().toString(), request.isRedirect());
                         return true;
                     }
 
                     @Override
                     public void onPageStarted(WebView v, String url, Bitmap favicon) {
                         // 兜底:若 shouldOverrideUrlLoading 未被调用,在这里拦截。
-                        handleNewWindowUrl(url);
+                        handleNewWindowUrl(url, false);
                     }
                 });
                 WebView.WebViewTransport transport = (WebView.WebViewTransport) resultMsg.obj;
@@ -2199,14 +2268,6 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
 
             @Override
             public boolean onConsoleMessage(ConsoleMessage consoleMessage) {
-                // v92 金牌诊断：只记页面报错，看 JS 是不是报错导致页面黑掉。
-                // v95：按文案去重（上限 20 条不同报错）——之前按条数截前 10 条，AudioContext 刷 10 次就把真正的报错盖住了。
-                if (consoleMessage != null && consoleMessage.messageLevel() == ConsoleMessage.MessageLevel.ERROR) {
-                    String msg = consoleMessage.message();
-                    if (msg != null && mConsoleErrSeen.size() < 20 && mConsoleErrSeen.add(msg)) {
-                        DebugLogStore.add("WebPlay", "console error " + msg + " @" + consoleMessage.sourceId() + ":" + consoleMessage.lineNumber());
-                    }
-                }
                 return super.onConsoleMessage(consoleMessage);
             }
 
@@ -2385,7 +2446,130 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     /** v76：跑 CLEAN_JS 前先把跳转状态（真实站落地与否）告诉页面，供假链接/广告墙规则用。 */
     private void evalCleanJs(WebView view) {
         String flag = "window.__museJumpDone=" + (TextUtils.isEmpty(mJumpHost) ? "true" : "false") + ";";
-        view.evaluateJavascript(flag + CLEAN_JS, value -> view.setVisibility(View.VISIBLE));
+        view.evaluateJavascript(flag + CLICK_MARK_JS + CLEAN_JS, value -> view.setVisibility(View.VISIBLE));
+    }
+
+    /** push v23 P2'：点按意图记录脚本——window 捕获阶段（早于站方在 document 上的捕获监听、早于广告脚本的 window.open）
+     * 记下真实点按（isTrusted）所点的本站 <a> 地址交给 Java；href 为空/# 锚点/javascript:/指向本页的，按「非链接点按」记空。
+     * 只读 DOM、不改页面、不阻止事件；每页只装一次。 */
+    private static final String CLICK_MARK_JS = "(function(){try{if(window.__museClickMark)return;window.__museClickMark=1;function at(t0){var o='';var t=t0;while(t&&t.nodeType===1&&o.length<4000){var as=t.attributes;if(as){for(var i=0;i<as.length;i++){var n=String(as[i].name||'').toLowerCase();if(n==='href'||n==='onclick'||n==='action'||n==='formaction'||n.indexOf('data-')===0)o+=String(as[i].value||'')+' ';}}t=t.parentNode;}return o.slice(0,4000).toLowerCase();}function rec(e,kind){try{if(!e.isTrusted)return;var b=window.museClickGuard;if(!b||!b.mark)return;var t=e.target,a=null;while(t&&t!==document){if(t.tagName&&String(t.tagName).toUpperCase()==='A'&&t.getAttribute&&t.getAttribute('href')!==null){a=t;break;}t=t.parentNode;}var h='';if(a){var raw=(a.getAttribute('href')||'').trim();if(raw&&raw.charAt(0)!=='#'&&!/^javascript:/i.test(raw)){var abs=a.href;if(typeof abs==='string'&&/^https?:/i.test(abs)&&abs.split('#')[0]!==location.href.split('#')[0])h=abs;}}b.mark(h,location.href,at(e.target),kind);}catch(x){}}function pel(e){try{if(!e.isTrusted)return;window.__musePressEl=e.target;window.__musePressClicked=false;}catch(x){}}window.__museReplayPress=function(){try{var el=window.__musePressEl;if(!el)return 'none';if(window.__musePressClicked)return 'clicked';if(!el.isConnected||el.ownerDocument!==document)return 'gone';window.__musePressClicked=true;el.click();return 'ok:'+String(el.tagName||'').toLowerCase();}catch(x){return 'err';}};window.addEventListener('click',function(e){try{if(e.isTrusted)window.__musePressClicked=true;}catch(x){}rec(e,'click');},true);window.addEventListener('mousedown',function(e){pel(e);rec(e,'press');},true);window.addEventListener('pointerdown',function(e){pel(e);rec(e,'press');},true);}catch(e){}})();";
+
+    /** push v23 P2'：JS 桥——只写点按记录，永不放行（即便广告 iframe 伪造调用，最多让壳子多拦它自己的跳转）。 */
+    private final class ClickMarkBridge {
+        @android.webkit.JavascriptInterface
+        public void mark(String href, String docUrl, String attrs, String kind) {
+            String[] m = new String[]{href == null ? "" : href, docUrl == null ? "" : docUrl, attrs == null ? "" : attrs};
+            // push v28 F2a：按下（mousedown/pointerdown）另存一份，只给新窗口路径用；点按（click）照 v23 写 mClickMark。
+            if ("press".equals(kind)) mPressMark = m;
+            else mClickMark = m;
+        }
+    }
+
+    private static String clickNoHash(String url) {
+        if (url == null) return "";
+        int i = url.indexOf('#');
+        return i >= 0 ? url.substring(0, i) : url;
+    }
+
+    private static String clickHostOf(String url) {
+        try {
+            String h = Uri.parse(url).getHost();
+            return h == null ? "" : h.toLowerCase(Locale.US);
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    /** push v23 P2'：点按劫持判定（全满足才算）——①有点按记录且点的是 <a>；②记录属于当前页；③所点链接与该页同站；
+     * ④去向与所点链接不同站；⑤不是服务器重定向；⑥不是 v92 中转链接。不看页面是不是发布站、不数链接、不认尺寸/时长。 */
+    private boolean isClickHijack(String[] mark, String pageUrl, String target, boolean redirect) {
+        if (mark == null || mark.length < 2 || redirect) return false;
+        String href = mark[0];
+        String doc = mark[1];
+        if (TextUtils.isEmpty(href) || TextUtils.isEmpty(doc) || TextUtils.isEmpty(pageUrl) || TextUtils.isEmpty(target)) return false;
+        if (!clickNoHash(doc).equals(clickNoHash(pageUrl))) return false;
+        String docHost = clickHostOf(doc);
+        String hrefHost = clickHostOf(href);
+        String targetHost = clickHostOf(target);
+        if (docHost.isEmpty() || hrefHost.isEmpty() || targetHost.isEmpty()) return false;
+        if (!sameSite(hrefHost, docHost)) return false;
+        if (sameSite(targetHost, hrefHost)) return false;
+        if (isJumpServiceUrl(target, docHost)) return false;
+        return true;
+    }
+
+    /** push v28 F2a：新窗口路径的元素点按劫持判定（全满足才算）——①有手势；②有点/按记录且属于当前页；
+     * ③记录是本站链接时按 v23 原判；记录不是链接（按钮/菜单/div 等）时：去向与该页不同站，且去向域名
+     * 不出现在被点元素及其祖先的 href/onclick/action/data-* 属性里；④不是服务器重定向；⑤不是 v92 中转链接。
+     * 只在新窗口（onCreateWindow）路径调用，主框导航不走这里（PLMM 防丢页「无需等待」是主框 JS 跳转，不受影响）。 */
+    private boolean isTapHijack(String[] mark, String pageUrl, String target, boolean redirect, boolean gesture) {
+        if (!gesture || mark == null || mark.length < 3 || redirect) return false;
+        if (!TextUtils.isEmpty(mark[0])) return isClickHijack(mark, pageUrl, target, false);
+        String doc = mark[1];
+        if (TextUtils.isEmpty(doc) || TextUtils.isEmpty(pageUrl) || TextUtils.isEmpty(target)) return false;
+        if (!clickNoHash(doc).equals(clickNoHash(pageUrl))) return false;
+        String docHost = clickHostOf(doc);
+        String targetHost = clickHostOf(target);
+        if (docHost.isEmpty() || targetHost.isEmpty()) return false;
+        if (sameSite(targetHost, docHost)) return false;
+        if (isJumpServiceUrl(target, docHost)) return false;
+        String attrs = mark[2] == null ? "" : mark[2];
+        if (!attrs.isEmpty()) {
+            if (attrs.contains(targetHost)) return false;
+            String root = registrableDomain(targetHost);
+            if (root != null && attrs.contains(root)) return false;
+            try {
+                String uni = java.net.IDN.toUnicode(targetHost).toLowerCase(Locale.US);
+                if (!uni.equals(targetHost) && attrs.contains(uni)) return false;
+                String uroot = registrableDomain(uni);
+                if (uroot != null && !uni.equals(targetHost) && attrs.contains(uroot)) return false;
+            } catch (Exception ignored) {
+            }
+        }
+        return true;
+    }
+
+    /** push v30 R32-3：外站链接被改道判定（全满足才算）——①点/按记录带链接地址且属于当前页；②所点链接是外站
+     * （本站链接归 P2'）；③去向既不是所点链接的站、也不是本站；④不是服务器重定向；⑤去向不是 v92 中转（地址里
+     * 不带本站域名），也不带所点链接的域名（中转到所点站的不拦）。不看尺寸/时长、不数链接、不加全局状态。 */
+    private boolean isForeignClickDetour(String[] mark, String pageUrl, String target, boolean redirect) {
+        if (mark == null || mark.length < 2 || redirect) return false;
+        String href = mark[0];
+        String doc = mark[1];
+        if (TextUtils.isEmpty(href) || TextUtils.isEmpty(doc) || TextUtils.isEmpty(pageUrl) || TextUtils.isEmpty(target)) return false;
+        if (!clickNoHash(doc).equals(clickNoHash(pageUrl))) return false;
+        String docHost = clickHostOf(doc);
+        String hrefHost = clickHostOf(href);
+        String targetHost = clickHostOf(target);
+        if (docHost.isEmpty() || hrefHost.isEmpty() || targetHost.isEmpty()) return false;
+        if (sameSite(hrefHost, docHost)) return false;
+        if (sameSite(targetHost, hrefHost)) return false;
+        if (sameSite(targetHost, docHost)) return false;
+        if (isJumpServiceUrl(target, docHost) || isJumpServiceUrl(target, hrefHost)) return false;
+        String hrefRoot = registrableDomain(hrefHost);
+        if (hrefRoot != null && target.toLowerCase(Locale.US).contains(hrefRoot)) return false;
+        // 所点链接本身就带着去向域名（跟踪/统计链 ?url=去向）→ 是链接自己的去处，不拦。
+        String targetRoot = registrableDomain(targetHost);
+        if (targetRoot != null && href.toLowerCase(Locale.US).contains(targetRoot)) return false;
+        return true;
+    }
+
+    /** push v29 R31-1：点/按记录里的本站链接（记录属于该页、链接与该页同站）；否则空。 */
+    private String sameSiteMarkHref(String[] mark, String pageUrl) {
+        if (mark == null || mark.length < 2 || TextUtils.isEmpty(mark[0]) || TextUtils.isEmpty(mark[1]) || TextUtils.isEmpty(pageUrl)) return "";
+        if (!clickNoHash(mark[1]).equals(clickNoHash(pageUrl))) return "";
+        String dh = clickHostOf(mark[1]);
+        String hh = clickHostOf(mark[0]);
+        if (dh.isEmpty() || hh.isEmpty() || !sameSite(hh, dh)) return "";
+        return mark[0];
+    }
+
+    /** push v23 P2'：拦下劫持后还原用户本意——主框打开所点的本站链接；主框已在该页或正去该页则不重复加载。 */
+    private void restoreClickTarget(WebView view, String href) {
+        if (view == null || TextUtils.isEmpty(href)) return;
+        String want = clickNoHash(href);
+        if (want.equals(clickNoHash(view.getUrl())) || want.equals(clickNoHash(mClickLastStarted))) return;
+        view.post(() -> view.loadUrl(href));
     }
 
     /** v73:新窗口请求(target="_blank" / window.open)放行判断,与 shouldOverrideUrlLoading 同一套规则。
@@ -2672,6 +2856,30 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     }
 
     /** push v1：多线探针——探当前播放页全部线路与选集表，存 mPushProbeLines；够格才亮播放按钮。后台线程进来时先 post 到主线程（evaluateJavascript 必须在主线程调）。 */
+    /** push v33 M1：读当前页简介/年份/地区/og:image（只读脚本，按页锚定，迟到的旧页回调丢弃）。 */
+    private void collectPushPageMeta() {
+        if (mBinding == null || mBinding.web == null) return;
+        final String page = mPushPageUrl;
+        try {
+            mBinding.web.evaluateJavascript(PUSH_META_JS, value -> {
+                if (!page.equals(mPushPageUrl) || value == null) return;
+                try {
+                    Object o = new JSONTokener(value).nextValue();
+                    if (!(o instanceof String) || ((String) o).isEmpty()) return;
+                    JSONObject m = new JSONObject((String) o);
+                    mPushPageContent = m.optString("c");
+                    mPushPageYear = m.optString("y");
+                    mPushPageArea = m.optString("a");
+                    mPushPageOgPic = m.optString("p");
+                    mPushMetaPageUrl = page;
+                } catch (Throwable ignored) {
+                }
+            });
+        } catch (Throwable ignored) {
+        }
+    }
+
+
     private void probePageInfo() {
         if (mBinding.web == null) return;
         if (android.os.Looper.myLooper() != android.os.Looper.getMainLooper()) {
@@ -2680,6 +2888,8 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         }
         // push v2：记下本次探针跑在哪一页——回调时页面可能已切走，回调里再记就锚错页。
         mPushProbePageUrl = mPushPageUrl;
+        // push v33 M1：顺带读一次本页简介/年份/地区/og:image（只读，按页锚定）。
+        collectPushPageMeta();
         mBinding.web.evaluateJavascript(PROBE_JS, value -> {
             // push v10：迟到回调（起飞后已切页）直接丢弃——旧页探针结果不许写回新页；pending 属于旧页，一并清掉。
             if (!mPushProbePageUrl.equals(mPushPageUrl)) {
@@ -2734,13 +2944,9 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 if (lines != null && lines.length() > 0) {
                     boolean renamed = dedupePushLineNames(lines);
                     mPushProbeLines = renamed ? obj.toString() : json;
-                    DebugLogStore.add("WebPlay", "push 多线探针 线路=" + lines.length());
-                    String diag = obj.optString("diag");
-                    if (!diag.isEmpty()) DebugLogStore.add("WebPlay", "push 探针诊断 " + diag);
                 } else if (hasSub) {
                     // push v9：无分集表但有子帖表时也存下来，供点推时走子页解析层。
                     mPushProbeLines = json;
-                    DebugLogStore.add("WebPlay", "push 子页探针 子帖=" + subEps.length());
                 } else if (obj.optInt("tabsPending", 0) == 1) {
                     // push v12：tab 已现形、选集尚未渲染（如 gaze /play_source_group 待回）时也存下来，
                     // 补跑据 tabsPending 续跑 5 秒档；无表无流，亮钮/放行门都不认它。
@@ -3136,7 +3342,6 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                     if (probeLines != null && probeLines.length() > 0) {
                         dedupePushLineNames(probeLines);
                         mPushProbeLines = pobj.toString();
-                        DebugLogStore.add("WebPlay", "push 点推重探 线路=" + probeLines.length());
                     }
                 }
                 // push v16：gaze 懒加载面板预加载——探针发现 tab+按钮式线路有未加载面板时
@@ -3288,6 +3493,11 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     // “点按钮”；mBrowserClickLanded 表示导航已落到目标页（mPushPageUrl == mBrowserClickPage）。
     private boolean mBrowserClickPageResolve;
     private boolean mBrowserClickLanded;
+    // push v25 (B)（电视 v19 适配）：兜底导航的目标页已 onPageFinished——落页后探针主片优先，
+    // 嗅流只在无主片时用：须目标页已完成加载，或嗅流候选已等满 BROWSER_CLICK_SNIFF_WAIT_MS 仍无主片。
+    private boolean mBrowserClickPageDone;
+    private long mBrowserClickSniffSince;
+    private static final long BROWSER_CLICK_SNIFF_WAIT_MS = 3000;
     // push v16：gaze 懒加载面板预加载——只在点推那一刻跑（后台探针不跑，不扰用户浏览）：
     // 探针报 preloadTabs（tab+按钮式线路里面板未加载的 tab 下标，见 PROBE_JS 的
     // __musePreloadTabs）时逐个点开 tab 等面板出选集按钮，收完点回原 tab 再重探；
@@ -3339,6 +3549,8 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         mBrowserClickLine = "";
         mBrowserClickPageResolve = true;
         mBrowserClickLanded = false;
+        mBrowserClickPageDone = false;
+        mBrowserClickSniffSince = 0;
         mBrowserClickBaselineSniff = mPushLastSniff == null ? "" : mPushLastSniff;
         mBrowserClickBaselineAt = mPushSniffAt;
         mBrowserClickBaselineMain = mPushMainStream == null ? "" : mPushMainStream;
@@ -3462,8 +3674,19 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         boolean freshMain = !main.isEmpty() && !main.equals(mBrowserClickBaselineMain) && isPushStreamUrl(main);
         // push v15 (e1)：导航落到目标页之前不认任何候选——旧页残留的流（导航前刚嗅到的
         // 新分段）不是目标集的流，认了会播错集；落页后再走与 (c) 同款的首见多等一轮。
-        if ((!mBrowserClickPageResolve || mBrowserClickLanded) && (freshSniff || freshMain)) {
-            String cand = freshSniff ? sniff : main;
+        // push v25 (B)（电视 v19 适配）：兜底导航模式（mBrowserClickPageResolve）落页后主片优先——探针主片
+        //（主播放器声明地址，按结构认、不按时长）可用且不在广告黑名单就交主片；没有主片时，嗅流须等目标页
+        // 加载完成（onPageFinished）或嗅流已等满 3 秒才交（同站广告帧的流可能抢在主片前嗅到）。
+        // (c) 点按钮模式照旧嗅流优先（点集瞬间探针可能还读到旧集主片，会播错集）。
+        boolean pageMainOk = mBrowserClickPageResolve && freshMain && !mPushAdSrcs.contains(main);
+        if (mBrowserClickPageResolve && mBrowserClickLanded && !pageMainOk && freshSniff) {
+            if (mBrowserClickSniffSince == 0) mBrowserClickSniffSince = SystemClock.uptimeMillis();
+        }
+        boolean pageSniffOk = freshSniff && (mBrowserClickPageDone
+                || (mBrowserClickSniffSince > 0 && SystemClock.uptimeMillis() - mBrowserClickSniffSince >= BROWSER_CLICK_SNIFF_WAIT_MS));
+        boolean haveCand = mBrowserClickPageResolve ? (mBrowserClickLanded && (pageMainOk || pageSniffOk)) : (freshSniff || freshMain);
+        if (haveCand) {
+            String cand = mBrowserClickPageResolve ? (pageMainOk ? main : sniff) : (freshSniff ? sniff : main);
             // 首见先记下候选、再等一轮（500ms）：嗅到流会触发 probePageInfo 刷新广告
             // 黑名单/片头广告标志，拿刷新后的状态再判，免得把片头广告流交回去。
             if (!cand.equals(mBrowserClickCandidate)) {
@@ -3479,6 +3702,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 mBrowserClickBaselineSniff = sniff;
                 mBrowserClickBaselineMain = main;
                 mBrowserClickCandidate = "";
+                mBrowserClickSniffSince = 0;
             }
         }
         if (SystemClock.uptimeMillis() > mBrowserClickDeadline) {
@@ -3507,6 +3731,8 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         // push v15 (e1)：清掉兜底模式标记，下一单 (c)/(e1) 各自重设，不带旧模式。
         mBrowserClickPageResolve = false;
         mBrowserClickLanded = false;
+        mBrowserClickPageDone = false;
+        mBrowserClickSniffSince = 0;
     }
 
     // push v16：电视站名回落（线路名）——与 BrowserMeta.siteName 同款逻辑，但 '-' 后跟数字时
@@ -3590,9 +3816,21 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 }
             }
         }
-        String logStream = stream.length() > 90 ? stream.substring(0, 90) : stream;
-        DebugLogStore.add("WebPlay", "push 多线转播放 流=" + logStream + " 线路名=" + flag + " 集=" + episode + " 页=" + mPushPageUrl);
-        VideoActivity.startWithHeaders(this, stream, headers, title, flag, episode, null, mPushPageUrl, mPushProbeLines, mPushPagePic, origin, vid, sid, nid);
+        // push v33 M1：简介/年份/地区随推送带过去（本页读到的才带）；简介去掉片名后不足 10 字（只是标题+站名）就不带。
+        String metaContent = "";
+        String metaYear = "";
+        String metaArea = "";
+        String pushPic = mPushPagePic;
+        if (mPushMetaPageUrl.equals(mPushPageUrl)) {
+            metaContent = mPushPageContent;
+            String rest = metaContent;
+            if (!TextUtils.isEmpty(title)) rest = rest.replace(title, "");
+            if (rest.replaceAll("[\\s\\p{Punct}，。、：；！？…\\-|_]+", "").length() < 10) metaContent = "";
+            metaYear = mPushPageYear;
+            metaArea = mPushPageArea;
+            if (TextUtils.isEmpty(pushPic)) pushPic = mPushPageOgPic;
+        }
+        VideoActivity.startWithHeaders(this, stream, headers, title, flag, episode, null, mPushPageUrl, mPushProbeLines, pushPic, origin, vid, sid, nid, metaContent, metaYear, metaArea);
     }
 
     /** push v11 A1：嗅头里的 Referer 若是别的域（正片没点播过时最后嗅到的只能是预告/广告窗的流，

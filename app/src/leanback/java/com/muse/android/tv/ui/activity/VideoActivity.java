@@ -74,6 +74,7 @@ import com.muse.android.tv.ui.adapter.PartAdapter;
 import com.muse.android.tv.ui.adapter.QualityAdapter;
 import com.muse.android.tv.ui.adapter.QuickAdapter;
 import com.muse.android.tv.ui.custom.CustomKeyDownVod;
+import com.muse.android.tv.ui.custom.CustomWebView;
 import com.muse.android.tv.ui.custom.CustomMovement;
 import com.muse.android.tv.ui.dialog.ChapterDialog;
 import com.muse.android.tv.ui.dialog.ContentDialog;
@@ -127,6 +128,10 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     private VodPlaybackController mVod;
     /** push v2：浏览器全集待解析集的请求头（HTTP 解析完即用；startPlayback 合并后清空——fuzi 在 getPlayer 里先清后读的 bug 不带过来）。 */
     private Map<String, String> mWebEpHeaders = Collections.emptyMap();
+    /** push v32（方案 R，电视 v19 补）：网页源本集正交 WebView 嗅探时的播放页地址；嗅探失败（error_play_parse）按回落 b 用浏览器打开它。 */
+    private String mWebSniffPage;
+    /** push v32：网页源 parse=1 先走 HttpEpisodeResolver 的轮次号；换集/重播后旧回调作废。 */
+    private int mWebResolveSeq;
     private FlagAdapter mFlagAdapter;
     private EpisodeAdapter mEpisodeAdapter;
     private QualityAdapter mQualityAdapter;
@@ -253,7 +258,15 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
 
     /** push v2：再带浏览器探针的来源站（origin）、剧号（vid）、线路号（sid）与集号（nid），供 HTTP 解析器走 Provide API；只在非空时写进 intent。 */
     public static void startWithHeaders(Activity activity, String url, Map<String, String> headers, String title, String flag, String episode, String episodesJson, String pageUrl, String linesJson, String pic, String origin, String vid, String sid, String nid) {
+        startWithHeaders(activity, url, headers, title, flag, episode, episodesJson, pageUrl, linesJson, pic, origin, vid, sid, nid, null, null, null);
+    }
+
+    /** push v33 M1（电视 v19 补）：再带当前页读到的简介/年份/地区（browserContent/browserYear/browserArea），只在非空时写进 intent。 */
+    public static void startWithHeaders(Activity activity, String url, Map<String, String> headers, String title, String flag, String episode, String episodesJson, String pageUrl, String linesJson, String pic, String origin, String vid, String sid, String nid, String content, String year, String area) {
         Intent intent = new Intent(activity, VideoActivity.class);
+        if (content != null && !content.isEmpty()) intent.putExtra("browserContent", content);
+        if (year != null && !year.isEmpty()) intent.putExtra("browserYear", year);
+        if (area != null && !area.isEmpty()) intent.putExtra("browserArea", area);
         intent.putExtra("collect", false);
         intent.putExtra("name", url);
         intent.putExtra("key", SiteApi.PUSH);
@@ -521,6 +534,8 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         // push v2：浏览器转播放——详情落下后先把网页侧的片名/线路/集名摆进 VOD，再走正常详情流；
         // 当前集序号经 episode_index 透传给选集（不用集名匹配），用完立即清掉，免得后续切线误用。
         int browserIndex = -1;
+        // push v33 M1：推送带来的简介/年份/地区，详情对应字段为空时填（不覆盖蜘蛛已有的）。
+        if (result != null && result.result() != null) applyBrowserInfo(result.result().getVod());
         if (result != null && result.result() != null && (getIntent().hasExtra("browserTitle") || getIntent().hasExtra("browserLines"))) {
             browserIndex = applyBrowserMeta(result.result().getVod());
         }
@@ -714,6 +729,37 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
                 else result.getHeader().putAll(extraHeaders);
             }
             mWebEpHeaders = Collections.emptyMap();
+            mWebSniffPage = null;
+            final int seq = ++mWebResolveSeq;
+            String page = url == null ? "" : url;
+            if (getSite().isWebSource() && result.getParse() == 1 && (page.startsWith("http://") || page.startsWith("https://"))) {
+                // push v32（方案 R，加固 a；电视 v19 补）：网页源要嗅探时，先用推送线现成的纯 HTTP 解析器
+                // （player_aaaa、候选探活、ArtPlayer、art.php 链，浏览器同款 UA）现解播放页；解出直接播，
+                // 解不出再走参考实现的 WebView 嗅探（WebSpider 自动点播脚本 + 加固 b）。只对网页源生效，其他源走下面原路。
+                CustomWebView.setExtraAdFilter(AdDomains::isAdDomain);
+                showProgress();
+                HttpEpisodeResolver.resolveFresh(this, page, null, null, new HttpEpisodeResolver.Callback() {
+                    @Override
+                    public void onResolved(String stream, Map<String, String> headers) {
+                        if (isHostFinishing() || seq != mWebResolveSeq) return;
+                        result.setUrl(stream);
+                        result.setParse(0);
+                        if (headers != null && !headers.isEmpty()) {
+                            if (result.getHeader().isEmpty()) result.setHeader(new LinkedHashMap<>(headers));
+                            else result.getHeader().putAll(headers);
+                        }
+                        startPlayer(getHistoryKey(), result, false, getSite().getTimeout(), startPositionMs, metadata);
+                    }
+
+                    @Override
+                    public void onFailed() {
+                        if (isHostFinishing() || seq != mWebResolveSeq) return;
+                        mWebSniffPage = page;
+                        startPlayer(getHistoryKey(), result, useParse, getSite().getTimeout(), startPositionMs, metadata);
+                    }
+                });
+                return;
+            }
             startPlayer(getHistoryKey(), result, useParse, getSite().getTimeout(), startPositionMs, metadata);
         }
     }
@@ -844,6 +890,17 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     }
 
     /** push v2：浏览器转播放落地——网页侧的片名/线路名/集名覆盖推送详情的写死值；普通入口无这些参数、零影响。返回当前集在当前线路里的下标（-1 表示未摆线）。 */
+    /** push v33 M1（电视 v19 补）：推送带来的简介/年份/地区落进 VOD——只在详情对应字段为空时填。 */
+    private void applyBrowserInfo(Vod vod) {
+        if (vod == null) return;
+        String c = getIntent().getStringExtra("browserContent");
+        String y = getIntent().getStringExtra("browserYear");
+        String a = getIntent().getStringExtra("browserArea");
+        if (!TextUtils.isEmpty(c) && vod.getContent().isEmpty()) vod.setContent(c);
+        if (!TextUtils.isEmpty(y) && vod.getYear().isEmpty()) vod.setYear(y);
+        if (!TextUtils.isEmpty(a) && vod.getArea().isEmpty()) vod.setArea(a);
+    }
+
     private int applyBrowserMeta(Vod vod) {
         if (vod == null) return -1;
         // 探针海报落地提到标题早退之前——海报不依赖标题，标题为空时也要落图。
@@ -1023,7 +1080,6 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
                 from.append(f.getFlag());
             }
             vod.setPlayFrom(from.toString());
-            SpiderDebug.log("video-flow", "browser lines applied lines=%d current=%s", built.size(), built.get(0).getFlag());
             // push v13 F4(a)：表已落下但无当前集时返回 -2（不是 -1）：applyBrowserMeta 见 -2 即
             // 跳过单线回落（回落会把各线全改名为 browserFlag），仍向调用方报 -1，不设 episode_index。
             return currentIndex >= 0 ? currentIndex : -2;
@@ -2548,6 +2604,16 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
 
     @Override
     protected void onError(String msg) {
+        // push v32（方案 R，回落 b；电视 v19 补）：网页源解析器与 WebView 嗅探都失败 → 提示并用浏览器打开该集播放页
+        //（与主页浏览器入口同一套 openWebPlayer 参数，推送/探针/去广告照旧；电视焦点照现规矩落返回键）。只认嗅探失败（error_play_parse），其他报错走原路。
+        if (mWebSniffPage != null && getSite().isWebSource() && getString(R.string.error_play_parse).equals(msg)) {
+            String page = mWebSniffPage;
+            mWebSniffPage = null;
+            hideProgress();
+            Notify.show("解析失败，已用浏览器打开");
+            openWebPlayer(page, null, "");
+            return;
+        }
         mVod.playbackError(msg);
     }
 

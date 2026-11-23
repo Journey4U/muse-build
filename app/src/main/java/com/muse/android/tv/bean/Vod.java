@@ -163,6 +163,15 @@ public class Vod implements Parcelable, Diffable<Vod> {
         return TextUtils.isEmpty(vodArea) ? "" : vodArea.trim();
     }
 
+    /** push v33 M1：浏览器推送带来的年份/地区落地用。 */
+    public void setYear(String vodYear) {
+        this.vodYear = vodYear;
+    }
+
+    public void setArea(String vodArea) {
+        this.vodArea = vodArea;
+    }
+
     public String getDirector() {
         return TextUtils.isEmpty(vodDirector) ? "" : vodDirector.trim();
     }

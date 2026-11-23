@@ -699,11 +699,12 @@ public class VodPlaybackController {
         }
     }
 
-    // 与解析器取头法相同：Referer=播放页、UA=Setting、Cookie 同源。
+    // 与解析器取头法相同：Referer=播放页、UA=HttpEpisodeResolver.nativeUa()（push v25 A：
+    // 用户没设 UA 时用 WebView 的 UA，不再落成 okhttp/x 默认 UA 被 missav2 回 500 判死）、Cookie 同源。
     private Map<String, String> probeHeaders(String streamUrl, String pageUrl) {
         Map<String, String> headers = new LinkedHashMap<>();
         headers.put("Referer", pageUrl);
-        headers.put("User-Agent", Setting.getUa());
+        headers.put("User-Agent", com.muse.android.tv.api.loader.HttpEpisodeResolver.nativeUa());
         String cookie = probeCookie(streamUrl);
         if (TextUtils.isEmpty(cookie)) cookie = probeCookie(pageUrl);
         if (!TextUtils.isEmpty(cookie)) headers.put("Cookie", cookie);
