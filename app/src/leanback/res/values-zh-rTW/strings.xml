@@ -17,6 +17,8 @@
     <!-- Nav -->
     <string name="nav_browser">瀏覽器</string>
     <string name="nav_browser_empty">該站點沒有主頁</string>
+    <string name="web_home_enter">進站主頁</string>
+    <string name="web_switch_site">切源</string>
     <string name="config_refreshed">介面已刷新</string>
     <string name="setting_reset_app">重置App</string>
     <string name="reset_app_confirm">將清除全部資料（介面配置、歷史、收藏與所有設定）並重啟應用，確定繼續嗎？</string>

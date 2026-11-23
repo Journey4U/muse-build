@@ -17,6 +17,8 @@
     <!-- Nav -->
     <string name="nav_browser">浏览器</string>
     <string name="nav_browser_empty">该站点没有主页</string>
+    <string name="web_home_enter">进站主页</string>
+    <string name="web_switch_site">切源</string>
     <string name="config_refreshed">接口已刷新</string>
     <string name="setting_reset_app">重置App</string>
     <string name="reset_app_confirm">将清除全部数据（接口配置、历史、收藏与所有设置）并重启应用，确定继续吗？</string>

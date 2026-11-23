@@ -1179,6 +1179,16 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         return url;
     }
 
+    /**
+     * 纯网页源进站主页（Liu 2026-11-23 方案 A）：纯网页源 = 条目没有 api、没有 ext（v67 isWebSource，含条目「主页url」非空）、
+     * type 0，且按现行主页解析规则推得出主页地址。这类源选中/启动时直接全屏进站主页，首页页只放「进站主页」卡片。
+     */
+    public static boolean isPureWebSource(Site site) {
+        if (site == null || !site.isWebSource()) return false;
+        if (site.getType() != 0) return false;
+        return !TextUtils.isEmpty(siteHomePageUrl(site));
+    }
+
     private static String resolveHomePageUrl(Site site) {
         // v60（Liu 2026-11-16 定）：主页取法重排——条目「主页url」> webPage 模板 > 规则里「发布站」/「防丢url」
         // > 规则里「域名-c」/「域名*」> 详情真实域名 > siteBaseUrl 兜底（所有源）。

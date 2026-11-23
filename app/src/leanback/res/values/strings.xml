@@ -17,6 +17,8 @@
     <!-- Nav -->
     <string name="nav_browser">Browser</string>
     <string name="nav_browser_empty">No homepage for this site</string>
+    <string name="web_home_enter">Open site homepage</string>
+    <string name="web_switch_site">Switch source</string>
     <string name="config_refreshed">Config refreshed</string>
     <string name="setting_reset_app">Reset app</string>
     <string name="reset_app_confirm">All data (configs, history, favorites and every setting) will be cleared and the app will restart. Continue?</string>
