@@ -1654,6 +1654,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     private String mJumpRelayHost = null;
     private long mJumpChainUntil = 0;
     private boolean mBlankRecovered = false;
+    private Runnable mBlankRecheck; // v56: delayed blank re-check, cancelled on new navigation
     private int mValidatorLogs = 0;
     private int mPosition;
     private boolean mBarsVisible = true;
@@ -2108,6 +2109,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 }
                 // v96：先藏 webview，等 CLEAN_JS 首扫跑完再显示——hsck 首页顶部 58 条赌博横幅在首扫前会闪约 0.25 秒。
                 mBlankRecovered = false;
+                if (mBlankRecheck != null) view.removeCallbacks(mBlankRecheck);
                 view.setVisibility(View.INVISIBLE);
                 if (mForceShowWeb != null) view.removeCallbacks(mForceShowWeb);
                 mForceShowWeb = () -> view.setVisibility(View.VISIBLE);
@@ -2178,12 +2180,25 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 CookieManager.getInstance().flush();
                 // v100：空白页回滚——被拦的广告跳转有时会把当前页卸成空文档（标题空、无视频、无图），
                 // 点什么都没反应。检出空白就回滚到入口地址一次（mAnchorUrl），避免死在空白页。
-                view.evaluateJavascript("(function(){try{return ((document.title||'').trim()===''&&(document.body?document.body.innerText.trim():'')===''&&document.images.length===0)?'1':'0';}catch(e){return '0';}})()", blankVal -> {
-                    if ("1".equals(blankVal) && !mBlankRecovered && !TextUtils.isEmpty(mAnchorUrl) && !mAnchorUrl.equals(url)) {
+                // v56：首次检出空白不立即回滚——Nuxt 等 SPA 壳在 onPageFinished 时尚未水合，标题/正文/图
+                // 暂时全空是正常现象；延时 1.5 秒复核，仍空白才回滚，避免刷新被误判成空白页。
+                String blankJs = "(function(){try{var t=(document.title||'').trim()==='';var b=(document.body?document.body.innerText.trim():'')==='';var n=document.images.length;return (t?'1':'0')+','+(b?'1':'0')+','+n;}catch(e){return '0,0,0';}})()";
+                view.evaluateJavascript(blankJs, blankVal -> {
+                    String val = blankVal;
+                    if (val != null && val.length() >= 2 && val.startsWith("\"") && val.endsWith("\"")) val = val.substring(1, val.length() - 1);
+                    if (!"1,1,0".equals(val)) return;
+                    if (mBlankRecovered || TextUtils.isEmpty(mAnchorUrl) || mAnchorUrl.equals(url)) return;
+                    if (mBlankRecheck != null) view.removeCallbacks(mBlankRecheck);
+                    mBlankRecheck = () -> view.evaluateJavascript(blankJs, reVal -> {
+                        String re = reVal;
+                        if (re != null && re.length() >= 2 && re.startsWith("\"") && re.endsWith("\"")) re = re.substring(1, re.length() - 1);
+                        if (!"1,1,0".equals(re)) return;
+                        if (mBlankRecovered || TextUtils.isEmpty(mAnchorUrl) || mAnchorUrl.equals(url)) return;
                         mBlankRecovered = true;
                         DebugLogStore.add("WebPlay", "blank page, reload anchor url=" + mAnchorUrl);
                         view.loadUrl(mAnchorUrl);
-                    }
+                    });
+                    view.postDelayed(mBlankRecheck, 1500);
                 });
                 // push v1：页完探一次多线表（MacCMS 播放页才够格亮起播放按钮）。
                 mPushPageUrl = url;
@@ -3842,6 +3857,8 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     protected void onPause() {
         mActivityResumed = false;
         mBinding.web.onPause();
+        // v56：切后台/切站前把 Cookie 落盘，验证状态不因进程回收而丢。
+        CookieManager.getInstance().flush();
         super.onPause();
     }
 
@@ -3855,6 +3872,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         cancelPushProbeRetry();
         cancelPushProbePreloadPoll();
         if (mBinding != null) {
+            if (mBlankRecheck != null) mBinding.web.removeCallbacks(mBlankRecheck);
             mBinding.web.loadUrl("about:blank");
             mBinding.web.destroy();
         }
