@@ -3779,7 +3779,139 @@ public class WebSpider extends Spider {
                 return buildSearchUrl(action, n);
             }
         }
+        // push v34（S1）：页面上没有可用的 GET 搜索表单时，才认 POST 搜索表单（海洋 CMS 式 /search.php + searchword，奇优实证）。
+        return findPostSearchForm(html);
+    }
+
+    /**
+     * push v34（S1）：POST 搜索表单发现 —— 只认 &lt;form&gt; 标签本身写着 method=post、表单内有带搜索语义的文本框，
+     * 且表单内没有密码框/文件框/验证码类字段（登录框、带验证的搜索一律不用）。结构认，不认站名。
+     * 端点记成 POST|绝对action|关键词字段|隐藏字段(name=value&amp;… 已按 UTF-8 编码)。
+     */
+    private String findPostSearchForm(String html) {
+        try {
+            Matcher fm = Pattern.compile("<form\\s[^>]{0,300}action=[\"']([^\"'\\s]{2,200})[\"'][^>]{0,300}>", Pattern.CASE_INSENSITIVE | Pattern.DOTALL).matcher(html);
+            String lowHtml = html.toLowerCase(Locale.ROOT);
+            while (fm.find()) {
+                String action = fm.group(1);
+                if (action.startsWith("javascript") || action.startsWith("#")) continue;
+                String tag0 = fm.group(0).toLowerCase(Locale.ROOT);
+                if (!Pattern.compile("method\\s*=\\s*[\"']?post").matcher(tag0).find()) continue;
+                int end = lowHtml.indexOf("</form>", fm.end());
+                int segEnd = end > 0 ? Math.min(end, fm.start() + 20000) : Math.min(html.length(), fm.start() + 20000);
+                String seg = html.substring(fm.start(), segEnd);
+                String lowSeg = seg.toLowerCase(Locale.ROOT);
+                if (Pattern.compile("type=[\"']?(password|file)").matcher(lowSeg).find()
+                        || Pattern.compile("captcha|验证码|vcode|geetest|recaptcha|turnstile").matcher(lowSeg).find()) {
+                    log("搜索 POST 表单跳过（含登录/验证字段）" + action);
+                    continue;
+                }
+                String kwName = null;
+                StringBuilder hidden = new StringBuilder();
+                Matcher im = Pattern.compile("<input\\s[^>]{0,300}name=[\"']([A-Za-z][A-Za-z0-9_]{0,24})[\"'][^>]{0,300}>", Pattern.CASE_INSENSITIVE).matcher(seg);
+                while (im.find()) {
+                    String n = im.group(1);
+                    String tag = im.group(0).toLowerCase(Locale.ROOT);
+                    if (tag.contains("hidden")) {
+                        Matcher vm = Pattern.compile("value=[\"']([^\"']*)", Pattern.CASE_INSENSITIVE).matcher(im.group(0));
+                        String v = vm.find() ? unescapeHtml(vm.group(1)) : "";
+                        if (hidden.length() > 0) hidden.append('&');
+                        hidden.append(URLEncoder.encode(n, "UTF-8")).append('=').append(URLEncoder.encode(v, "UTF-8"));
+                        continue;
+                    }
+                    if (tag.contains("submit") || tag.contains("button")) continue;
+                    if (n.toLowerCase(Locale.ROOT).matches(".*(token|csrf|email|user|captcha|code|pass|__).*")) continue;
+                    String scope = seg.substring(Math.max(0, im.start() - 300), Math.min(seg.length(), im.end() + 300)).toLowerCase(Locale.ROOT);
+                    boolean sem = scope.contains("search") || tag.contains("type=\"search\"") || tag.contains("type='search'")
+                            || scope.matches("(?s).*[找搜查].*");
+                    if (kwName == null && sem) kwName = n;
+                }
+                if (kwName == null) continue;
+                String a = action;
+                if (!a.startsWith("http") && !a.startsWith("/")) a = "/" + a;
+                if (!a.startsWith("http")) a = abs(a);
+                return "POST|" + a + "|" + kwName + "|" + hidden;
+            }
+        } catch (Throwable e) {
+            log("POST 表单发现异常 " + e);
+        }
         return "";
+    }
+
+    /** push v34（S1）：页面字符集（meta charset 为 gb* 则 GBK，否则 UTF-8）——POST 关键词按它编码。 */
+    private static String pageCharset(String html) {
+        if (TextUtils.isEmpty(html)) return "UTF-8";
+        String head = html.substring(0, Math.min(html.length(), 4096)).toLowerCase(Locale.ROOT);
+        int mi = head.indexOf("charset=");
+        if (mi >= 0) {
+            String mc = head.substring(mi + 8).replaceAll("^[\"']", "").replaceAll("[\"'/>\\s;].*$", "");
+            if (mc.startsWith("gb")) return "GBK";
+        }
+        return "UTF-8";
+    }
+
+    /**
+     * push v34（S1）：按 POST 端点提交搜索。隐藏字段原样带、关键词按页面字符集编码，带当前 UA 与 Referer=首页；
+     * 3xx 跟随（改用 GET 取落地页）。响应走 get() 同一套搜索验证判定（429/验证页/拦截页 → 整站放弃，不重试不渲染）。
+     */
+    private String postSearch(String ep, String key) {
+        try {
+            if (noRender && (challenged || aborted)) return "";
+            String[] parts = ep.split("\\|", -1);
+            if (parts.length < 3) return "";
+            String url = parts[1];
+            String cs = pageCharset(homeHtml);
+            String body = (parts.length > 3 && !parts[3].isEmpty() ? parts[3] + "&" : "")
+                    + URLEncoder.encode(parts[2], "UTF-8") + "=" + URLEncoder.encode(key, cs);
+            okhttp3.Request.Builder rb = new okhttp3.Request.Builder().url(url)
+                    .header("User-Agent", UA)
+                    .header("Accept", "text/html,application/xhtml+xml,*/*;q=0.8")
+                    .header("Accept-Language", "zh-CN,zh;q=0.9")
+                    .header("Referer", homeUrl())
+                    .post(okhttp3.RequestBody.create(body, okhttp3.MediaType.parse("application/x-www-form-urlencoded")));
+            String shCk = SHIELD_COOKIE.get(hostOf(url).toLowerCase(Locale.ROOT));
+            String jsCk = JS_COOKIE.get(hostOf(url).toLowerCase(Locale.ROOT));
+            String ckHeader = TextUtils.isEmpty(shCk) ? jsCk : (TextUtils.isEmpty(jsCk) ? shCk : shCk + "; " + jsCk);
+            if (!TextUtils.isEmpty(ckHeader)) rb.header("Cookie", ckHeader);
+            try (Response res = OkHttp.noRedirect(15000).newCall(rb.build()).execute()) {
+                int code = res.code();
+                if (noRender && code == 429) {
+                    markSearchChallenge(url, "HTTP 429");
+                    return "";
+                }
+                if (code >= 300 && code < 400) {
+                    String loc = res.header("Location");
+                    if (TextUtils.isEmpty(loc)) return "";
+                    return get(abs(loc, url));
+                }
+                ResponseBody rbody = res.body();
+                if (rbody == null) return "";
+                byte[] bytes = rbody.bytes();
+                String charset = cs;
+                String ct = res.header("Content-Type");
+                if (ct != null) {
+                    String c = ct.toLowerCase(Locale.ROOT);
+                    int ci = c.indexOf("charset=");
+                    if (ci >= 0) {
+                        String hc = c.substring(ci + 8).split("[;\\s]")[0];
+                        charset = hc.startsWith("gb") ? "GBK" : hc;
+                    }
+                }
+                String out;
+                try {
+                    out = new String(bytes, charset);
+                } catch (Throwable t) {
+                    out = new String(bytes, "UTF-8");
+                }
+                out = deobfuscate(out);
+                if (noRender && searchGiveUp(url, url, code, out)) return "";
+                lastFetchUrl = url;
+                return unwrapEncodedPage(out);
+            }
+        } catch (Throwable e) {
+            log("搜索 POST 异常 " + e);
+            return "";
+        }
     }
 
     /** JS 跳转发现：location.assign/href/replace('URL' + 拼接) 或反引号模板字面量（`/filter?search=${kw}`），且 URL 含搜索参数名。 */
@@ -5161,9 +5293,12 @@ public class WebSpider extends Spider {
         vod.put("vod_area", firstMatch(html, "地区[：:]\\s*(?:<[^>]+>\\s*)*([^<\\s]{1,12})"));
         String gIntro = clean(firstMatchGroup(html, "<div[^>]+(?:class|id)=\"[^\"]*(?:desc|intro|summary|juqing|plot)[^\"]*\"[^>]*>(.*?)</div>"));
         if (!TextUtils.isEmpty(gIntro)) vod.put("vod_content", gIntro);
+        genericIntroFallback(vod, html);
         LinkedHashMap<String, List<String[]>> grouped = new LinkedHashMap<>();
+        LinkedHashMap<String, String> tabLineName = new LinkedHashMap<>();
+        boolean tabSplit = tabAnchorLines(html, grouped, tabLineName);
         // r249：只认明确播放路由（见 P_PLAY_ROUTE），并把「本页自身」剔掉，避免自链接成集。
-        Matcher e = P_PLAY_ROUTE.matcher(html);
+        Matcher e = P_PLAY_ROUTE.matcher(tabSplit ? "" : html);
         int idx = 0;
         java.util.Set<String> seenEp = new java.util.HashSet<>();
         while (e.find()) {
@@ -5177,6 +5312,10 @@ public class WebSpider extends Spider {
         }
         LinkedHashMap<String, String> lineName = new LinkedHashMap<>();
         lineName.put("line1", "默认线路");
+        if (tabSplit) {
+            lineName.putAll(tabLineName);
+            log("v34 通用详情按标签页拆线路 " + tabLineName.values() + "（" + abs(id) + "）");
+        }
         if (grouped.isEmpty()) {
             // r344：合集/专辑型详情页 —— 页面本身不是播放页，而是同模式高频链接列表
             //（真机 18:05 both.folrl0a2w.cc/moviesets/AiCollection/：24 条 /video/\d+/ 主区链接，
@@ -5220,6 +5359,103 @@ public class WebSpider extends Spider {
         }
         joinPlay(vod, grouped, lineName, "line1");
         return vod;
+    }
+
+    /**
+     * push v34（D1）：通用详情按标签页拆线路 —— 线路标签 &lt;a data-toggle="tab" href="#X"&gt;名字&lt;/a&gt;（属性先后都认）
+     * 与面板 id="X"（div/ul）按锚点一一配对；面板选集 = 面板内第一个播放链接起、到其后第一个 &lt;/ul&gt; 为止的播放链接
+     * （截掉面板下方「猜你喜欢」推荐卡），面板内按地址去重（本页自身也算一集：播放页当前集）。
+     * 全部满足才采用：≥2 个标签、每个标签都找得到面板、≥2 个面板真有选集；否则返回 false 走老逻辑。结构认，不认站名。
+     */
+    private boolean tabAnchorLines(String html, LinkedHashMap<String, List<String[]>> grouped, LinkedHashMap<String, String> lineName) {
+        try {
+            if (TextUtils.isEmpty(html) || !html.contains("data-toggle")) return false;
+            Matcher tm = Pattern.compile("<a[^>]*data-toggle=\"tab\"[^>]*href=\"#([A-Za-z][\\w-]{0,30})\"[^>]*>(.*?)</a>"
+                    + "|<a[^>]*href=\"#([A-Za-z][\\w-]{0,30})\"[^>]*data-toggle=\"tab\"[^>]*>(.*?)</a>", Pattern.DOTALL).matcher(html);
+            List<String[]> tabs = new ArrayList<>();
+            java.util.Set<String> tids = new java.util.HashSet<>();
+            while (tm.find()) {
+                String tid = tm.group(1) != null ? tm.group(1) : tm.group(3);
+                String nm = clean(tm.group(2) != null ? tm.group(2) : (tm.group(4) != null ? tm.group(4) : ""));
+                if (tids.add(tid)) tabs.add(new String[]{tid, nm});
+            }
+            if (tabs.size() < 2) return false;
+            int[] starts = new int[tabs.size()];
+            for (int i = 0; i < tabs.size(); i++) {
+                Matcher pm = Pattern.compile("<(?:div|ul)[^>]+id=\"" + Pattern.quote(tabs.get(i)[0]) + "\"").matcher(html);
+                if (!pm.find()) return false;
+                starts[i] = pm.start();
+            }
+            LinkedHashMap<String, List<String[]>> g = new LinkedHashMap<>();
+            LinkedHashMap<String, String> names = new LinkedHashMap<>();
+            int withEps = 0;
+            for (int i = 0; i < tabs.size(); i++) {
+                int s = starts[i];
+                int e = -1;
+                for (int x : starts) if (x > s && (e < 0 || x < e)) e = x;
+                if (e < 0) e = Math.min(html.length(), s + 60000);
+                String seg = html.substring(s, e);
+                Matcher fa = P_PLAY_ROUTE.matcher(seg);
+                if (fa.find()) {
+                    int ue = seg.indexOf("</ul>", fa.end());
+                    if (ue > 0) seg = seg.substring(0, ue);
+                }
+                List<String[]> list = new ArrayList<>();
+                java.util.Set<String> seen = new java.util.HashSet<>();
+                Matcher a = P_PLAY_ROUTE.matcher(seg);
+                int n = 0;
+                while (a.find()) {
+                    String href = a.group(1);
+                    if (!seen.add(href)) continue;
+                    String epName = clean(a.group(2));
+                    n++;
+                    list.add(new String[]{String.valueOf(n), epName.isEmpty() ? ("第" + n + "集") : epName, href});
+                    if (n > 2000) break;
+                }
+                if (list.isEmpty()) continue;
+                withEps++;
+                String key = "tab" + (i + 1);
+                g.put(key, list);
+                String nm = tabs.get(i)[1];
+                names.put(key, TextUtils.isEmpty(nm) ? ("线路" + (i + 1)) : nm);
+            }
+            if (withEps < 2) return false;
+            grouped.putAll(g);
+            lineName.putAll(names);
+            return true;
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    /**
+     * push v34（D2）：通用详情简介兜底 —— 现有取到的简介不足 20 字时，依次回落：
+     * &lt;p class="…desc…"&gt; 文字（去「简介：」标签与末尾「详情」）→ og:description → meta description（均须 ≥20 字）。
+     * 都没有就保留原值。
+     */
+    private void genericIntroFallback(JSONObject vod, String html) {
+        try {
+            String cur = clean(vod.optString("vod_content"));
+            if (cur.length() >= 20 || isErrorPage(html)) return;
+            String cand = "";
+            Matcher pm = Pattern.compile("<p[^>]+class=\"[^\"]*desc[^\"]*\"[^>]*>(.*?)</p>", Pattern.DOTALL).matcher(html);
+            while (pm.find()) {
+                String c = clean(pm.group(1)).replaceAll("^(剧情)?简介[：:]\\s*", "").replaceAll("\\s*详情\\s*$", "").trim();
+                if (c.length() >= 20) { cand = c; break; }
+            }
+            if (cand.isEmpty()) {
+                String og = clean(firstMatchGroup(html, "<meta[^>]+property=[\"']og:description[\"'][^>]+content=[\"']([^\"']{8,1500})[\"']"));
+                if (og.length() < 20) og = clean(firstMatchGroup(html, "<meta[^>]+content=[\"']([^\"']{8,1500})[\"'][^>]+property=[\"']og:description[\"']"));
+                if (og.length() >= 20) cand = og;
+            }
+            if (cand.isEmpty()) {
+                String md = clean(firstMatchGroup(html, "<meta[^>]+name=[\"']description[\"'][^>]+content=[\"']([^\"']{8,1500})[\"']"));
+                if (md.length() < 20) md = clean(firstMatchGroup(html, "<meta[^>]+content=[\"']([^\"']{8,1500})[\"'][^>]+name=[\"']description[\"']"));
+                if (md.length() >= 20) cand = md;
+            }
+            if (!cand.isEmpty()) vod.put("vod_content", cand);
+        } catch (Throwable ignore) {
+        }
     }
 
     /** r249：判两个地址是否同一页（忽略协议尾斜杠与 query），用于剔掉详情页自链接。 */
@@ -5605,7 +5841,15 @@ public class WebSpider extends Spider {
                 // 这类模板只上架了搜索框、没实现搜索页，靠 HTML 抽取永远 0 条 → 搜索「什么也搜不到」。
                 list = maccmsSuggest(key);
                 if (list.length() > 0) log("搜索 suggest JSON -> " + list.length() + " 条");
-                if (list.length() == 0 && !TextUtils.isEmpty(ep)) {
+                if (list.length() == 0 && !TextUtils.isEmpty(ep) && ep.startsWith("POST|")) {
+                    // push v34（S1）：POST 搜索端点（无第 2 页：站方 GET 翻页回首页）
+                    if (page > 1) return new JSONObject().put("list", new JSONArray()).toString();
+                    String body = postSearch(ep, key);
+                    list = "maccmsphp".equals(template) ? maccmsPhpItems(body, 0) : maccmsItems(body, 0);
+                    if (list.length() == 0) list = genericItems(body, 0);
+                    if (list.length() > 0 && searchSaysNoResult(body)) list = new JSONArray();
+                    log("搜索尝试(POST) " + ep.split("\\|", -1)[1] + " -> " + list.length() + " 条");
+                } else if (list.length() == 0 && !TextUtils.isEmpty(ep)) {
                     String u = applySearchPage(ep.replace("{kw}", kw), page);
                     String body = getCap(u);
                     list = "maccmsphp".equals(template) ? maccmsPhpItems(body, 0) : maccmsItems(body, 0);
@@ -5637,6 +5881,20 @@ public class WebSpider extends Spider {
                         "/index.php/vod/search.html?wd={kw}", "/?s={kw}", "/vodsearch/{kw}----------1---.html",
                         "/cn/search/{kw}", "/search.html?wd={kw}", "/?q={kw}"};
                 for (String tpl : urls) {
+                    if (tpl.startsWith("POST|")) {
+                        // push v34（S1）：POST 表单搜索端点 —— POST 无第 2 页（站方 GET 翻页 302 回首页），page>1 直接返回空。
+                        if (page > 1) return new JSONObject().put("list", new JSONArray()).toString();
+                        String ph = postSearch(tpl, key);
+                        if (noRender && challenged) break;
+                        list = genericItems(ph, 0);
+                        log("搜索尝试(POST) " + tpl.split("\\|", -1)[1] + " -> " + list.length() + " 条");
+                        if (list.length() > 0 && (searchSaysNoResult(ph) || searchFellBackToHome(ph, key))) {
+                            log("搜索候选忽略（POST：站点提示未找到或回首页）");
+                            list = new JSONArray();
+                        }
+                        if (list.length() > 0) break;
+                        continue;
+                    }
                     String u = tpl.replace("{kw}", kw);
                     if (!u.startsWith("http")) u = abs(u);
                     // query 型模板带分页（路径型分页每站不同，第一版不拼，返回第 1 页内容）
@@ -5685,9 +5943,41 @@ public class WebSpider extends Spider {
                     }
                 }
             }
+            list = dedupPlayRouteItems(list);
             return new JSONObject().put("list", list).toString();
         } catch (Throwable e) {
             return "{\"list\":[]}";
+        }
+    }
+
+    /**
+     * push v34（S2）：搜索结果同片去重 —— 某条是播放路由（/play/N-…），而同一作品号 N 已有非播放路由（详情）结果时，
+     * 丢掉播放路由那条（奇优单结果页「立即播放」按钮被抽成以站名命名的第 2 条实证）。只按地址里的作品号判，不看名字/站名。
+     */
+    private static JSONArray dedupPlayRouteItems(JSONArray list) {
+        try {
+            if (list == null || list.length() < 2) return list;
+            Pattern play = Pattern.compile("/(?:play|v_play|bofang|vodplay|player)/(\\d+)[-/._]");
+            Pattern det = Pattern.compile("/(\\d+)(?:\\.html?)?/?$");
+            java.util.Set<String> detailIds = new java.util.HashSet<>();
+            for (int i = 0; i < list.length(); i++) {
+                String id = normUrl(list.optJSONObject(i) == null ? "" : list.optJSONObject(i).optString("vod_id"));
+                if (play.matcher(id).find()) continue;
+                Matcher m = det.matcher(id);
+                if (m.find()) detailIds.add(m.group(1));
+            }
+            if (detailIds.isEmpty()) return list;
+            JSONArray out = new JSONArray();
+            for (int i = 0; i < list.length(); i++) {
+                JSONObject o = list.optJSONObject(i);
+                String id = normUrl(o == null ? "" : o.optString("vod_id"));
+                Matcher m = play.matcher(id);
+                if (m.find() && detailIds.contains(m.group(1))) continue;
+                out.put(o);
+            }
+            return out;
+        } catch (Throwable t) {
+            return list;
         }
     }
 
