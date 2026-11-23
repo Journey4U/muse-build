@@ -95,6 +95,11 @@ public class WebSourceDialog extends BaseAlertDialog {
             else onPositive();
         });
         binding.negative.setOnClickListener(v -> dismiss());
+        // 同步主线电视（已验收）：遥控器/输入法「完成」键直接确认
+        binding.name.setOnEditorActionListener((textView, actionId, event) -> {
+            if (actionId == EditorInfo.IME_ACTION_DONE) binding.positive.performClick();
+            return true;
+        });
         binding.url.setOnEditorActionListener((textView, actionId, event) -> {
             if (isBatch() && actionId == EditorInfo.IME_ACTION_DONE) {
                 binding.positive.performClick();
@@ -206,8 +211,9 @@ public class WebSourceDialog extends BaseAlertDialog {
         new Thread(() -> {
             final int result = LocalSourceHub.appendWebSource(name, url);
             App.post(() -> {
-                if (result == LocalSourceHub.WEB_OK) {
-                    Notify.show(done);
+                if (result == LocalSourceHub.WEB_OK || result == LocalSourceHub.WEB_CREATED) {
+                    // 同步主线电视（已验收）：新建本地网页源配置时提示已新建
+                    Notify.show(result == LocalSourceHub.WEB_CREATED ? ResUtil.getString(R.string.site_web_source_created, name) : done);
                     // 写完重载配置：新站立刻进切站列表，不用手动刷新
                     VodConfig.get().init().load(new Callback() {
                         @Override
@@ -239,6 +245,13 @@ public class WebSourceDialog extends BaseAlertDialog {
                 .setPositiveButton(R.string.permission_open_settings, (dialog, which) -> PermissionUtil.openAppSettings(activity))
                 .setNegativeButton(R.string.dialog_negative, null)
                 .show();
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        // 同步主线电视（已验收）：弹窗宽度固定为屏幕 55%
+        setWidth(0.55f);
     }
 
     private static boolean isBlank(String value) {

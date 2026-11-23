@@ -680,6 +680,7 @@
     <string name="site_target_title">选定当前目标</string>
     <string name="site_web_source_add">添加网页源</string>
     <string name="site_web_source_done">已添加网页源 %1$s</string>
+    <string name="site_web_source_created">已添加网页源 %1$s，已新建本地配置 Muse网页源.json</string>
     <string name="site_web_source_exists">该名称已存在</string>
     <string name="site_web_source_fail">添加网页源失败</string>
     <string name="site_web_source_name_hint">名称（留空自动取域名）</string>
