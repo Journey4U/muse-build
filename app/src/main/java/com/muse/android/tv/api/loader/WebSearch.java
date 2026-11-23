@@ -3,6 +3,7 @@ package com.muse.android.tv.api.loader;
 import android.text.TextUtils;
 
 import com.muse.android.tv.bean.Site;
+import com.github.catvod.crawler.SpiderDebug;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -96,6 +97,7 @@ public final class WebSearch {
         if (home.isEmpty()) return "";
         final WebSpider sp = spider(site, home);
         final boolean first = page == null || page.isEmpty() || "1".equals(page);
+        long start = System.currentTimeMillis();
         Future<String> f = POOL.submit(() -> first ? sp.searchContent(keyword, quick) : sp.searchContent(keyword, quick, page));
         String json;
         try {
@@ -103,16 +105,20 @@ public final class WebSearch {
         } catch (TimeoutException e) {
             sp.aborted = true;
             f.cancel(true);
+            SpiderDebug.log("web-search", "%s 超时 %sms，跳过", site.getName(), TIMEOUT_MS);
             return "";
         } catch (Throwable e) {
             sp.aborted = true;
             f.cancel(true);
+            SpiderDebug.log("web-search", "%s 异常 %s，跳过", site.getName(), e.toString());
             return "";
         }
         if (sp.isChallenged()) {
+            SpiderDebug.log("web-search", "%s 需验证，跳过", site.getName());
             return "";
         }
         String out = normalize(json, sp.rootUrl(), home);
+        SpiderDebug.log("web-search", "%s 完成 %sms%s", site.getName(), System.currentTimeMillis() - start, sp.isAutoPassed() ? "（验证已自动过）" : "");
         return out;
     }
 

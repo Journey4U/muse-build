@@ -5830,6 +5830,7 @@ public class WebSpider extends Spider {
                 // 但 maccms 分支根本没去用 —— 不是回归，是当初覆盖面只补到 generic 分支。
                 // 现在：① 发现的端点优先；② 抽空再回退老路由（未开 rewrite 的老站靠它，行为不变）。
                 String ep = searchEndpoint;
+                log("搜索诊断 template=" + template + " root=" + root + " ep=" + ep + " landing=" + TRANSIT_LANDED.get(hostOf(root).toLowerCase(Locale.ROOT)));
                 // r511：**V10 ajax suggest 优先** —— mtyy2 实测：表单端点 /vodsearch/-------------.html?wd=
                 // 返回 200/20294B 的**空搜索模板**（0 条），老路由 404；而同日可用的
                 // /index.php/ajax/suggest?mid=1&wd=庆余年 → JSON 12 条（id/name/pic 齐全）。
@@ -5843,6 +5844,7 @@ public class WebSpider extends Spider {
                     list = "maccmsphp".equals(template) ? maccmsPhpItems(body, 0) : maccmsItems(body, 0);
                     if (list.length() == 0) list = genericItems(body, 0);
                     if (list.length() > 0 && searchSaysNoResult(body)) list = new JSONArray();
+                    log("搜索尝试(POST) " + ep.split("\\|", -1)[1] + " -> " + list.length() + " 条");
                 } else if (list.length() == 0 && !TextUtils.isEmpty(ep)) {
                     String u = applySearchPage(ep.replace("{kw}", kw), page);
                     String body = getCap(u);
@@ -5852,12 +5854,14 @@ public class WebSpider extends Spider {
                     // 同一份 HTML 再用 genericItems 形态自适应抽一次，命中即停（正规 maccms 页首抽取已满，
                     // 这里只在 0 条时补，零副作用）。黄色仓库 hsck 落地域名即此形态。
                     if (list.length() == 0) list = genericItems(body, 0);
+                    log("搜索尝试 " + u + " -> " + list.length() + " 条");
                 }
                 if (list.length() == 0) {
                     String u = root + indexPath + "/vod/search.html?wd=" + kw + (page > 1 ? "&page=" + page : "");
                     String body = getCap(u);
                     list = "maccmsphp".equals(template) ? maccmsPhpItems(body, 0) : maccmsItems(body, 0);
                     if (list.length() == 0) list = genericItems(body, 0);
+                    log("搜索尝试(老路由) " + u + " -> " + list.length() + " 条");
                 }
             } else {
                 // r349：generic 搜索候选链 —— 真机日志实证旧版 4 个写死路径全部不匹配真实站点
@@ -5879,6 +5883,7 @@ public class WebSpider extends Spider {
                         String ph = postSearch(tpl, key);
                         if (noRender && challenged) break;
                         list = genericItems(ph, 0);
+                        log("搜索尝试(POST) " + tpl.split("\\|", -1)[1] + " -> " + list.length() + " 条");
                         if (list.length() > 0 && (searchSaysNoResult(ph) || searchFellBackToHome(ph, key))) {
                             log("搜索候选忽略（POST：站点提示未找到或回首页）");
                             list = new JSONArray();
@@ -5898,6 +5903,7 @@ public class WebSpider extends Spider {
                         log("搜索页被验证页拦截（客观受限，需人工过验证）size=" + searchHtml.length() + " " + u);
                     }
                     list = genericItems(searchHtml, 0);
+                    log("搜索尝试 " + u + " -> " + list.length() + " 条");
                     // r5xx：**「站点说没搜到，但侧栏还有一堆推荐文章」识别** —— 91吃瓜 实测：
                     // /search/黑料.html 被站点当成关键词「黑料html」→ 标题「未找到黑料html的相关内容」，
                     // 正文 0 条结果，但侧栏 10 个 /archives/ 链接被 genericItems 当成结果抽走 →
