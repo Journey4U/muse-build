@@ -17,12 +17,12 @@ package androidx.media3.exoplayer.hls.playlist;
 
 import android.text.TextUtils;
 import androidx.media3.common.C;
-import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -70,36 +70,44 @@ public final class HlsAdsParser {
     }
     Log.d(TAG, "開始執行 HlsAdsParser。");
     String[] lines = Util.split(m3u8, "\\r?\\n");
-    Set<Integer> adSegmentIndexes = findAds(lines, playlistUrl);
+    String[] strategy = new String[1];
+    Set<Integer> adSegmentIndexes = findAds(lines, playlistUrl, strategy);
     if (adSegmentIndexes.isEmpty()) {
       Log.d(TAG, "沒有偵測到廣告片段，保留原始播放清單。");
+      logNoStrip(lines, strategy[0]);
       return m3u8;
     }
     Log.d(TAG, "偵測到 " + adSegmentIndexes.size() + " 個廣告片段，開始重建播放清單。");
+    logStripSummary(lines, adSegmentIndexes, playlistUrl, strategy[0]);
     return rebuildM3u8(lines, adSegmentIndexes, m3u8.length());
   }
 
-  private static Set<Integer> findAds(String[] lines, String playlistUrl) {
+  private static Set<Integer> findAds(String[] lines, String playlistUrl, String[] strategy) {
     Log.d(TAG, "執行主要策略：檔名與路徑分析。");
     List<String> allSegments = getSegments(lines);
     Log.d(TAG, "播放清單共有 " + allSegments.size() + " 個媒體片段。");
     // 先认正片锚点：认出来就以它为准（含「结构不干净、不动」），不再落到段数/时长猜测。
     Set<Integer> anchored = findAdsByAnchor(allSegments, lines, playlistUrl);
     if (anchored != null) {
+      strategy[0] = anchored.isEmpty() ? "錨點（結構不乾淨，不動）" : "錨點";
       return anchored;
     }
     Set<Integer> adsFromFilename = findAdsByFilename(allSegments);
     if (!adsFromFilename.isEmpty()) {
       Log.d(TAG, "主要策略命中，使用檔名與路徑分析結果。");
+      strategy[0] = "檔名路徑";
       return adsFromFilename;
     }
     Log.d(TAG, "主要策略未找到廣告，改用不連續標籤分析。");
     Set<Integer> adsFromDiscontinuity = findAdsByDiscontinuity(lines);
     if (!adsFromDiscontinuity.isEmpty()) {
+      strategy[0] = "不連續標籤";
       return adsFromDiscontinuity;
     }
     Log.d(TAG, "不連續標籤分析未找到廣告，改用時長分析。");
-    return findAdsByDuration(lines);
+    Set<Integer> adsFromDuration = findAdsByDuration(lines);
+    strategy[0] = adsFromDuration.isEmpty() ? "各策略均未命中" : "時長";
+    return adsFromDuration;
   }
 
   private static List<String> getSegments(String[] lines) {
@@ -611,6 +619,123 @@ public final class HlsAdsParser {
       result.add(line);
     }
     return result;
+  }
+
+  // ---- 去廣告結果匯總（只記日誌，不參與判定） ----
+
+  private static void logNoStrip(String[] lines, String strategy) {
+    if (!Log.on()) return;
+    try {
+      Log.d(TAG, "去廣告結果［" + (strategy == null ? "各策略均未命中" : strategy) + "］：未剔除，原 "
+          + getSegments(lines).size() + " 片全部保留。");
+    } catch (Throwable ignored) {
+    }
+  }
+
+  private static void logStripSummary(
+      String[] lines, Set<Integer> ads, String playlistUrl, String strategy) {
+    if (!Log.on()) return;
+    try {
+      java.net.URI base = null;
+      try {
+        if (!TextUtils.isEmpty(playlistUrl)) base = new java.net.URI(playlistUrl.trim());
+      } catch (Exception ignored) {
+      }
+      String name = strategy == null ? "未知" : strategy;
+      int seg = 0;
+      int blocks = 0;
+      double pending = 0.0;
+      double cut = 0.0;
+      int runStart = -1;
+      int runCount = 0;
+      double runDur = 0.0;
+      Set<String> runDirs = new LinkedHashSet<>();
+      for (String raw : lines) {
+        String line = raw.trim();
+        if (line.startsWith(TAG_DURATION)) {
+          try {
+            pending = parseExtInfDurationSeconds(line);
+          } catch (NumberFormatException e) {
+            pending = 0.0;
+          }
+          continue;
+        }
+        if (!isSegmentLine(line)) continue;
+        double d = pending;
+        pending = 0.0;
+        if (ads.contains(seg)) {
+          if (runStart < 0) {
+            runStart = seg;
+            runCount = 0;
+            runDur = 0.0;
+            runDirs.clear();
+          }
+          runCount++;
+          runDur += d;
+          cut += d;
+          runDirs.add(segmentDir(base, line));
+        } else if (runStart >= 0) {
+          blocks++;
+          logRun(name, blocks, runStart, runCount, runDur, runDirs);
+          runStart = -1;
+        }
+        seg++;
+      }
+      if (runStart >= 0) {
+        blocks++;
+        logRun(name, blocks, runStart, runCount, runDur, runDirs);
+      }
+      Log.d(TAG, "去廣告結果［" + name + "］：原 " + seg + " 片 → 留 " + (seg - ads.size()) + " 片，剔 "
+          + ads.size() + " 片約 " + Util.formatInvariant("%.1f", cut) + " 秒（" + blocks + " 塊）。");
+    } catch (Throwable ignored) {
+    }
+  }
+
+  private static void logRun(
+      String strategy, int no, int start, int count, double dur, Set<String> dirs) {
+    StringBuilder from = new StringBuilder();
+    int shown = 0;
+    for (String d : dirs) {
+      if (shown == 2) break;
+      if (shown > 0) from.append("、");
+      from.append(d);
+      shown++;
+    }
+    if (dirs.size() > 2) from.append(" 等 ").append(dirs.size()).append(" 個目錄");
+    Log.d(TAG, "去廣告剔除［" + strategy + "］第 " + no + " 塊：第 " + (start + 1) + "–" + (start + count)
+        + " 片，共 " + count + " 片約 " + Util.formatInvariant("%.1f", dur) + " 秒，來源 " + from);
+  }
+
+  private static String segmentDir(java.net.URI base, String segment) {
+    try {
+      java.net.URI u = base == null ? new java.net.URI(segment) : base.resolve(segment);
+      String host = u.getHost();
+      String dir = dirOf(u.getRawPath());
+      return (host == null ? "（相對路徑）" : host) + dir + "/";
+    } catch (Exception e) {
+      int q = segment.indexOf('?');
+      return dirOf(q >= 0 ? segment.substring(0, q) : segment) + "/";
+    }
+  }
+
+  /** 去廣告日誌出口：寫進調試日誌頁（DebugLogStore），調試日誌開關關時不記。 */
+  private static final class Log {
+
+    static boolean on() {
+      try {
+        return com.github.catvod.crawler.DebugLogStore.isEnabled();
+      } catch (Throwable t) {
+        return false;
+      }
+    }
+
+    static void d(String tag, String msg) {
+      if (!on()) return;
+      try {
+        com.github.catvod.crawler.DebugLogStore.add(com.github.catvod.crawler.diagnostics.LogCategory.AD, tag, msg, false);
+      } catch (Throwable ignored) {
+      }
+    }
   }
 
   private interface Classifier {

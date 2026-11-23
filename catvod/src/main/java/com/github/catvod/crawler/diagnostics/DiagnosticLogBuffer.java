@@ -245,7 +245,7 @@ public final class DiagnosticLogBuffer implements AutoCloseable {
                         + ",\"pid\":" + (pid < 0 ? "null" : pid) + ",\"pidStatus\":\"" + (pid < 0 ? "not-collected" : "known")
                         + "\",\"captureGeneration\":" + generation + ",\"logCategory\":\"" + category.label + "\"}";
             }
-            else text = "[" + category.label + "] " + text + " [logSeq=" + seq + "]";
+            else text = "[" + category.label + "]" + (critical ? "[" + LogCategory.ERROR_LABEL + "]" : "") + " " + text + " [logSeq=" + seq + "]";
             String line = prefix + text;
             Entry entry = new Entry(seq, generation, line, line.getBytes(StandardCharsets.UTF_8).length + 192, critical, category);
             if (wasTruncated || text.contains("[truncated")) truncated++;

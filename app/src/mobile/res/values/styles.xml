@@ -34,6 +34,14 @@
     </style>
 
 
+    <!-- 日志面板横滑行里的胶囊：宽度按字（不再均分截字）。 -->
+    <style name="LogPanelChip" parent="LogPanelButton">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_weight">0</item>
+        <item name="android:paddingStart">12dp</item>
+        <item name="android:paddingEnd">12dp</item>
+    </style>
+
     <style name="LogPanelButton">
         <item name="android:layout_width">0dp</item>
         <item name="android:layout_height">wrap_content</item>

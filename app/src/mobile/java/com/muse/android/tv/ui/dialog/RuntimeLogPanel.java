@@ -112,8 +112,12 @@ public class RuntimeLogPanel {
     private String keyword = "";
     // Active category filter; null shows everything ("全部").
     private LogCategory category;
-    private final TextView[] chips = new TextView[6];
-    private final LogCategory[] chipCategories = {null, LogCategory.RUN, LogCategory.FILE, LogCategory.MEDIA, LogCategory.PLAY, LogCategory.SPIDER};
+    // 「报错」是筛选不是类：选中时只看带报错标记的条目（条目仍留在各自类里）。
+    private boolean errorsOnly;
+    private final TextView[] chips = new TextView[8];
+    // Order per Liu 2026-11-23: 全部｜影片｜播放｜广告拦截｜报错｜文件加载｜蜘蛛｜运行 (index 4 = 报错 filter).
+    private static final int ERROR_CHIP = 4;
+    private final LogCategory[] chipCategories = {null, LogCategory.MEDIA, LogCategory.PLAY, LogCategory.AD, null, LogCategory.FILE, LogCategory.SPIDER, LogCategory.RUN};
     private long lastVersion = -1;
     private boolean firstLoad = true;
     private boolean polling;
@@ -401,14 +405,17 @@ public class RuntimeLogPanel {
         // Category filter chips (capsule row under the count line). The
         // active category stacks with the keyword filter in applyFilter.
         chips[0] = root.findViewById(R.id.logCatAll);
-        chips[1] = root.findViewById(R.id.logCatRun);
-        chips[2] = root.findViewById(R.id.logCatFile);
-        chips[3] = root.findViewById(R.id.logCatMedia);
-        chips[4] = root.findViewById(R.id.logCatPlay);
-        chips[5] = root.findViewById(R.id.logCatSpider);
+        chips[1] = root.findViewById(R.id.logCatMedia);
+        chips[2] = root.findViewById(R.id.logCatPlay);
+        chips[3] = root.findViewById(R.id.logCatAd);
+        chips[4] = root.findViewById(R.id.logCatError);
+        chips[5] = root.findViewById(R.id.logCatFile);
+        chips[6] = root.findViewById(R.id.logCatSpider);
+        chips[7] = root.findViewById(R.id.logCatRun);
         for (int i = 0; i < chips.length; i++) {
             final LogCategory value = chipCategories[i];
-            chips[i].setOnClickListener(v -> setCategory(value));
+            final boolean errors = i == ERROR_CHIP;
+            chips[i].setOnClickListener(v -> setCategory(value, errors));
         }
         updateChips();
         searchInput.addTextChangedListener(new TextWatcher() {
@@ -433,16 +440,17 @@ public class RuntimeLogPanel {
 
     // ------------------------------------------------------------ data
 
-    private void setCategory(LogCategory value) {
-        if (category == value) return;
+    private void setCategory(LogCategory value, boolean errors) {
+        if (category == value && errorsOnly == errors) return;
         category = value;
+        errorsOnly = errors;
         updateChips();
         applyFilter(false);
     }
 
     private void updateChips() {
         for (int i = 0; i < chips.length; i++) {
-            if (chips[i] != null) chips[i].setSelected(chipCategories[i] == category);
+            if (chips[i] != null) chips[i].setSelected(errorsOnly ? i == ERROR_CHIP : (i != ERROR_CHIP && chipCategories[i] == category));
         }
     }
 
@@ -455,7 +463,7 @@ public class RuntimeLogPanel {
 
     private void applyFilter(boolean scrollTop) {
         boolean searching = !keyword.isEmpty();
-        boolean filtering = searching || category != null;
+        boolean filtering = searching || category != null || errorsOnly;
         // While a filter is active, polling refreshes must re-apply the
         // current keyword/category (reload does via raw+fields) and must
         // not yank the list to the bottom.
@@ -463,6 +471,7 @@ public class RuntimeLogPanel {
         List<String> filtered = new ArrayList<>();
         for (DebugLogStore.Entry entry : raw) {
             if (category != null && entry.category() != category) continue;
+            if (errorsOnly && !LogCategory.isError(entry.line())) continue;
             if (searching && !entry.line().toLowerCase(Locale.ROOT).contains(keyword)) continue;
             filtered.add(entry.line());
         }

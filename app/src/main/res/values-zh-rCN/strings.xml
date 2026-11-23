@@ -344,6 +344,8 @@
     <string name="log_cat_media">影片</string>
     <string name="log_cat_play">播放</string>
     <string name="log_cat_spider">蜘蛛</string>
+    <string name="log_cat_ad">广告拦截</string>
+    <string name="log_cat_error">报错</string>
     <string name="log_copied">已复制到剪贴板</string>
     <string name="log_address_copied">日志地址已复制</string>
     <string name="log_exported">已导出：%1$s</string>

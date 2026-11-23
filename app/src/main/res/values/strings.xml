@@ -414,6 +414,8 @@
 <string name="log_cat_media">Media</string>
 <string name="log_cat_play">Playback</string>
 <string name="log_cat_spider">Spider</string>
+<string name="log_cat_ad">Ad block</string>
+<string name="log_cat_error">Errors</string>
 <string name="log_copied">Copied to clipboard</string>
 <string name="log_address_copied">Log URL copied</string>
 <string name="log_exported">Exported: %1$s</string>

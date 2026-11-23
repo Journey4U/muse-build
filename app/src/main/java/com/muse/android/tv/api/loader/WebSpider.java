@@ -5,6 +5,7 @@ import android.text.TextUtils;
 import android.util.Base64;
 
 import com.github.catvod.crawler.DebugLogStore;
+import com.github.catvod.crawler.diagnostics.LogCategory;
 import com.github.catvod.crawler.Spider;
 import com.github.catvod.net.OkHttp;
 
@@ -1439,9 +1440,25 @@ public class WebSpider extends Spider {
     /** r246：埋点，真机 /debug/logs 里用 tag=web 过滤即可看到网页源每一步。 */
     private void log(String msg) {
         try {
-            DebugLogStore.add("web", label + " " + msg);
+            LogCategory stage = LOG_STAGE.get();
+            DebugLogStore.add(stage == null ? LogCategory.SPIDER : stage, "web", label + " " + msg, false);
         } catch (Throwable ignored) {
         }
+    }
+
+    // 日志分类（Liu 2026-11-23）：按调用入口记阶段——首页/分类/搜索 → 影片，详情/播放 → 播放；
+    // 其余（init、引擎自己开的后台线程）拿不到阶段 → 蜘蛛。只影响日志落类，不影响任何判定。
+    private static final ThreadLocal<LogCategory> LOG_STAGE = new ThreadLocal<>();
+
+    private static LogCategory enterStage(LogCategory stage) {
+        LogCategory previous = LOG_STAGE.get();
+        LOG_STAGE.set(stage);
+        return previous;
+    }
+
+    private static void leaveStage(LogCategory previous) {
+        if (previous == null) LOG_STAGE.remove();
+        else LOG_STAGE.set(previous);
     }
 
     /** r246：探测播放地址是否真的可播（有些 CDN 直链是失效的，播不了不等于解析错）。 */
@@ -4106,6 +4123,15 @@ public class WebSpider extends Spider {
 
     @Override
     public String homeContent(boolean filter) {
+        LogCategory previousStage = enterStage(LogCategory.MEDIA);
+        try {
+            return homeContentStaged(filter);
+        } finally {
+            leaveStage(previousStage);
+        }
+    }
+
+    private String homeContentStaged(boolean filter) {
         try {
             detect();
             JSONObject result = new JSONObject();
@@ -4131,6 +4157,15 @@ public class WebSpider extends Spider {
 
     @Override
     public String homeVideoContent() {
+        LogCategory previousStage = enterStage(LogCategory.MEDIA);
+        try {
+            return homeVideoContentStaged();
+        } finally {
+            leaveStage(previousStage);
+        }
+    }
+
+    private String homeVideoContentStaged() {
         try {
             detect();
             JSONArray list = zanpianItems(homeHtml, 30);
@@ -4198,6 +4233,15 @@ public class WebSpider extends Spider {
 
     @Override
     public String categoryContent(String tid, String pg, boolean filter, HashMap<String, String> extend) {
+        LogCategory previousStage = enterStage(LogCategory.MEDIA);
+        try {
+            return categoryContentStaged(tid, pg, filter, extend);
+        } finally {
+            leaveStage(previousStage);
+        }
+    }
+
+    private String categoryContentStaged(String tid, String pg, boolean filter, HashMap<String, String> extend) {
         try {
             detect();
             if ("nuxt-json-aes".equals(template)) return nuxtCategory(tid, parseInt(pg, 1));
@@ -4603,6 +4647,15 @@ public class WebSpider extends Spider {
 
     @Override
     public String detailContent(List<String> ids) {
+        LogCategory previousStage = enterStage(LogCategory.PLAY);
+        try {
+            return detailContentStaged(ids);
+        } finally {
+            leaveStage(previousStage);
+        }
+    }
+
+    private String detailContentStaged(List<String> ids) {
         try {
             detect();
             if (ids == null || ids.isEmpty()) return "{\"list\":[]}";
@@ -5804,6 +5857,15 @@ public class WebSpider extends Spider {
 
     @Override
     public String searchContent(String key, boolean quick, String pg) {
+        LogCategory previousStage = enterStage(LogCategory.MEDIA);
+        try {
+            return searchContentStaged(key, quick, pg);
+        } finally {
+            leaveStage(previousStage);
+        }
+    }
+
+    private String searchContentStaged(String key, boolean quick, String pg) {
         try {
             detect();
             int page = parseInt(pg, 1);
@@ -6190,6 +6252,15 @@ public class WebSpider extends Spider {
 
     @Override
     public String playerContent(String flag, String id, List<String> vipFlags) {
+        LogCategory previousStage = enterStage(LogCategory.PLAY);
+        try {
+            return playerContentStaged(flag, id, vipFlags);
+        } finally {
+            leaveStage(previousStage);
+        }
+    }
+
+    private String playerContentStaged(String flag, String id, List<String> vipFlags) {
         try {
             detect();
             if ("nuxt-json-aes".equals(template)) return nuxtPlay(id);

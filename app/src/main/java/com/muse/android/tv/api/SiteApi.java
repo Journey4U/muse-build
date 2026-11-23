@@ -188,7 +188,7 @@ public class SiteApi {
 
     @NonNull
     public static Result playerContent(@NonNull String key, @NonNull String flag, @NonNull String id) throws Exception {
-        SpiderDebug.log(LogCategory.MEDIA, "player", "key=%s,flag=%s,id=%s", key, flag, id);
+        SpiderDebug.log(LogCategory.PLAY, "player", "key=%s,flag=%s,id=%s", key, flag, id);
         Site site = VodConfig.get().getSite(key);
         Source.get().stop();
         WebSpider web = site.isWebSource() ? WebSearch.detailSpider(site) : null;
@@ -198,7 +198,7 @@ public class SiteApi {
             // 再走壳子标准 WebView 嗅探（加固 a/b 在 VideoActivity/CustomWebView）。后处理同 type 3 分支，
             // 唯一不同：结果地址为空时按播放页 parse=1 交嗅探（type 3 那条「空地址→原 id 直播」对网页源是把网页当视频播）。
             String playerContent = web.playerContent(flag, id, VodConfig.get().getFlags());
-            SpiderDebug.log(LogCategory.MEDIA, "player", playerContent);
+            SpiderDebug.log(LogCategory.PLAY, "player", playerContent);
             Result result = Result.fromJson(playerContent);
             if (result.getUrl().isEmpty()) {
                 String page = WebSearch.absolute(id, web.rootUrl());
@@ -214,7 +214,7 @@ public class SiteApi {
             return result;
         } else if (site.getType() == 3) {
             String playerContent = site.recent().spider().playerContent(flag, id, VodConfig.get().getFlags());
-            SpiderDebug.log(LogCategory.MEDIA, "player", playerContent);
+            SpiderDebug.log(LogCategory.PLAY, "player", playerContent);
             Result result = Result.fromJson(playerContent);
             if (result.getUrl().isEmpty() && (id.startsWith("http://") || id.startsWith("https://"))) {
                 result.setUrl(id);
@@ -230,7 +230,7 @@ public class SiteApi {
             params.put("play", id);
             params.put("flag", flag);
             String playerContent = call(site, params);
-            SpiderDebug.log(LogCategory.MEDIA, "player", playerContent);
+            SpiderDebug.log(LogCategory.PLAY, "player", playerContent);
             Result result = Result.fromJson(playerContent);
             if (result.getFlag().isEmpty()) result.setFlag(flag);
             result.setUrl(Source.get().fetch(result));
@@ -244,7 +244,7 @@ public class SiteApi {
             result.setParse(0);
             result.setFlag(flag);
             result.setUrl(Source.get().fetch(result));
-            SpiderDebug.log(LogCategory.MEDIA, "player", result.toString());
+            SpiderDebug.log(LogCategory.PLAY, "player", result.toString());
             return result;
         } else {
             Result result = new Result();
@@ -255,7 +255,7 @@ public class SiteApi {
             result.setPlayUrl(site.getPlayUrl());
             result.setParse(Sniffer.isVideoFormat(id) && result.getPlayUrl().isEmpty() ? 0 : 1);
             result.setUrl(Source.get().fetch(result));
-            SpiderDebug.log(LogCategory.MEDIA, "player", result.toString());
+            SpiderDebug.log(LogCategory.PLAY, "player", result.toString());
             return result;
         }
     }

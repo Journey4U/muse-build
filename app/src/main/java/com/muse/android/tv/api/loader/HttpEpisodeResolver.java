@@ -36,6 +36,7 @@ import android.webkit.CookieManager;
 import android.webkit.WebSettings;
 
 import com.github.catvod.crawler.DebugLogStore;
+import com.github.catvod.crawler.diagnostics.LogCategory;
 import com.github.catvod.net.OkHttp;
 import com.muse.android.tv.App;
 import com.muse.android.tv.setting.Setting;
@@ -219,7 +220,7 @@ public class HttpEpisodeResolver {
 
             HttpResult page = get(pageUrl, headers);
             log("L1 page http=" + page.code + " len=" + page.body.length());
-            if (page.code == -1) log("L1 page GET blocked/timeout");
+            if (page.code == -1) logError("L1 page GET blocked/timeout");
             String html = page.body;
             List<String> extraCandidates = new ArrayList<>();
             if (!TextUtils.isEmpty(html)) {
@@ -241,10 +242,10 @@ public class HttpEpisodeResolver {
             } else {
                 log("L1 skip empty-page http=" + page.code);
             }
-            log("FAIL all-layers page=" + trunc(pageUrl));
+            logError("FAIL all-layers page=" + trunc(pageUrl));
             fail();
         } catch (Throwable t) {
-            log("FAIL exception " + t.getClass().getSimpleName());
+            logError("FAIL exception " + t.getClass().getSimpleName());
             fail();
         }
     }
@@ -302,7 +303,7 @@ public class HttpEpisodeResolver {
         new Thread(() -> {
             List<Ep> done = worker.resolveSubPagesSync(subs);
             if (done.isEmpty()) {
-                log("L5 subpages fail all n=" + subs.size());
+                logError("L5 subpages fail all n=" + subs.size());
                 mainHandler.post(callback::onFailed);
                 return;
             }
@@ -640,12 +641,12 @@ public class HttpEpisodeResolver {
             String u1 = artPhp + "?get_signed_url=1&url=" + URLEncoder.encode(token, "UTF-8");
             HttpResult r1 = get(u1, headers);
             if (r1.code < 200 || r1.code >= 400 || TextUtils.isEmpty(r1.body)) {
-                log("L1 art miss sign-http=" + r1.code);
+                logError("L1 art miss sign-http=" + r1.code);
                 return null;
             }
             signedUrl = new JSONObject(r1.body).optString("signed_url", "");
         } catch (Exception e) {
-            log("L1 art miss sign-ex");
+            logError("L1 art miss sign-ex");
             return null;
         }
         if (TextUtils.isEmpty(signedUrl)) {
@@ -658,12 +659,12 @@ public class HttpEpisodeResolver {
             String u2 = signedUrl.startsWith("?") ? artPhp + signedUrl : absUrl(signedUrl, artPhp);
             HttpResult r2 = get(u2, headers);
             if (r2.code < 200 || r2.code >= 400 || TextUtils.isEmpty(r2.body)) {
-                log("L1 art miss fetch-http=" + r2.code);
+                logError("L1 art miss fetch-http=" + r2.code);
                 return null;
             }
             jmurl = new JSONObject(r2.body).optString("jmurl", "");
         } catch (Exception e) {
-            log("L1 art miss fetch-ex");
+            logError("L1 art miss fetch-ex");
             return null;
         }
         if (TextUtils.isEmpty(jmurl)) {
@@ -1207,6 +1208,11 @@ public class HttpEpisodeResolver {
 
     private static void log(String message) {
         DebugLogStore.add("HttpResolver", message);
+    }
+
+    /** Same as {@link #log} but also listed under the 报错 filter (HTTP error / timeout / exception / final FAIL). */
+    private static void logError(String message) {
+        DebugLogStore.addError(LogCategory.PLAY, "HttpResolver", message);
     }
 
     private void finish(String url, Map<String, String> headers, String layer) {

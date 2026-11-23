@@ -48,6 +48,7 @@ import com.muse.android.tv.utils.Notify;
 import com.muse.android.tv.utils.Sniffer;
 import com.muse.android.tv.utils.UrlUtil;
 import com.github.catvod.crawler.DebugLogStore;
+import com.github.catvod.crawler.diagnostics.LogCategory;
 import com.github.catvod.utils.Util;
 import com.google.common.net.HttpHeaders;
 
@@ -1899,7 +1900,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 if (isQiyouSite()) {
                     String u = reqUrl.toLowerCase(Locale.US);
                     if (u.contains("gdw.js") || u.contains("xs.js") || u.contains("xs2.js")) {
-                        if (mBlockedHosts.add(host)) DebugLogStore.add("WebPlay", "blocked qiyou ad-loader url=" + request.getUrl());
+                        if (mBlockedHosts.add(host)) DebugLogStore.add(LogCategory.AD, "WebPlay", "blocked qiyou ad-loader url=" + request.getUrl(), false);
                         return mEmpty;
                     }
                 }
@@ -1909,30 +1910,30 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 // 不 gate isQiyouSite()：新奇优域名（如 wdbay.com）key/title 里没有 qiyou/奇优，isQiyouSite() 认不出，
                 // 门一关加载器就漏过去、WS 就开了；WS 域名轮换拦不住，按 path 拦才管用。
                 if ("/static/jquery.js".equals(request.getUrl().getPath())) {
-                    if (mBlockedHosts.add(host)) DebugLogStore.add("WebPlay", "blocked qiyou static jquery url=" + request.getUrl());
+                    if (mBlockedHosts.add(host)) DebugLogStore.add(LogCategory.AD, "WebPlay", "blocked qiyou static jquery url=" + request.getUrl(), false);
                     return mEmpty;
                 }
                 // 广告加载器（混淆 js 拉的远程广告脚本，域名按日期轮换）：按子串拦，通用、不只麦田。
                 if (isAdLoaderUrl(request.getUrl().toString())) {
-                    if (mBlockedHosts.add(host)) DebugLogStore.add("WebPlay", "blocked ad-loader url=" + request.getUrl());
+                    if (mBlockedHosts.add(host)) DebugLogStore.add(LogCategory.AD, "WebPlay", "blocked ad-loader url=" + request.getUrl(), false);
                     return mEmpty;
                 }
                 // 底部广告轮询脚本（如 Mirages 主题 bottom_ad_poll.js）：只拉广告 feed，不承载正片，直接拦。
                 String path = request.getUrl().getPath();
                 if (path != null && path.toLowerCase(Locale.US).contains("ad_poll")) {
-                    if (mBlockedHosts.add(host)) DebugLogStore.add("WebPlay", "blocked ad_poll script=" + request.getUrl());
+                    if (mBlockedHosts.add(host)) DebugLogStore.add(LogCategory.AD, "WebPlay", "blocked ad_poll script=" + request.getUrl(), false);
                     return mEmpty;
                 }
                 // 骚火（v7 net）：/back_flow 是广告加载器劫持返回键的通道，按 path 子串拦，通用。
                 if (path != null && path.toLowerCase(Locale.US).contains("/back_flow")) {
-                    if (mBlockedHosts.add(host)) DebugLogStore.add("WebPlay", "blocked back_flow url=" + request.getUrl());
+                    if (mBlockedHosts.add(host)) DebugLogStore.add(LogCategory.AD, "WebPlay", "blocked back_flow url=" + request.getUrl(), false);
                     return mEmpty;
                 }
                 if (!TextUtils.isEmpty(host) && isAd(host)) {
                     // 视频流地址永不拦截：广告是图片/脚本/iframe，流本身不是广告。
                     // 有的站视频走轮换域名，域名单误伤时播放器只剩 0:00 空壳。
                     if (isMediaUrl(request.getUrl().getPath())) return super.shouldInterceptRequest(view, request);
-                    if (mBlockedHosts.add(host)) DebugLogStore.add("WebPlay", "blocked host=" + host + " url=" + request.getUrl());
+                    if (mBlockedHosts.add(host)) DebugLogStore.add(LogCategory.AD, "WebPlay", "blocked host=" + host + " url=" + request.getUrl(), false);
                     return mEmpty;
                 }
                 // push v1：嗅探 MacCMS 播放页媒体直链——只记录、不拦截（媒体地址永不拦）；嗅到新流后探一次多线表。
@@ -1985,6 +1986,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 String[] clickMark = mClickMark;
                 if (isClickHijack(clickMark, view.getUrl(), request.getUrl().toString(), request.isRedirect())) {
                     mClickMark = null;
+                    DebugLogStore.add(LogCategory.AD, "WebPlay", "push v23 点按劫持拦截(主框) 点=" + clickMark[0] + " 去=" + request.getUrl(), false);
                     restoreClickTarget(view, clickMark[0]);
                     return true;
                 }
@@ -2000,6 +2002,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                     if (fm != null) {
                         mClickMark = null;
                         mPressMark = null;
+                        DebugLogStore.add(LogCategory.AD, "WebPlay", "push v30 外站点击被改道 点=" + fm[0] + " 去=" + reqUrl3, false);
                         restoreClickTarget(view, fm[0]);
                         return true;
                     }
@@ -2211,9 +2214,9 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 if (request == null) return;
                 String errUrl = String.valueOf(request.getUrl());
                 if (request.isForMainFrame()) {
-                    DebugLogStore.add("WebPlay", "page error url=" + errUrl + " code=" + error.getErrorCode() + " desc=" + error.getDescription());
+                    DebugLogStore.add(LogCategory.RUN, "WebPlay", "page error url=" + errUrl + " code=" + error.getErrorCode() + " desc=" + error.getDescription(), true);
                 } else if (mResErrUrls.size() < 20 && mResErrUrls.add(errUrl)) {
-                    DebugLogStore.add("WebPlay", "res error url=" + errUrl + " code=" + error.getErrorCode());
+                    DebugLogStore.add(LogCategory.RUN, "WebPlay", "res error url=" + errUrl + " code=" + error.getErrorCode(), true);
                 }
             }
 
@@ -2251,6 +2254,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                         if (isClickHijack(clickSnap, clickPage, url, redirect)) {
                             // push v23 P2'：点的是本站链接、弹出的却是外站 → 劫持：丢弃该窗，不装进主页面；
                             // 还原用户本意（打开所点的本站链接，主框已在去的路上则不重复）。
+                            DebugLogStore.add(LogCategory.AD, "WebPlay", "push v23 点按劫持拦截(弹窗) 点=" + clickSnap[0] + " 去=" + url, false);
                             restoreClickTarget(view, clickSnap[0]);
                         } else if (isTapHijack(clickSnap, clickPage, url, redirect, isUserGesture)
                                 || isTapHijack(pressSnap, clickPage, url, redirect, isUserGesture)) {
@@ -2261,21 +2265,28 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                             //（只为避开广告脚本写死的 500ms 事件锁，不拿时长判广告；按下后已收到真实点击则不补）。
                             String restoreHref = sameSiteMarkHref(clickSnap, clickPage);
                             if (TextUtils.isEmpty(restoreHref)) restoreHref = sameSiteMarkHref(pressSnap, clickPage);
+                            DebugLogStore.add(LogCategory.AD, "WebPlay", "push v28 点按劫持拦截(弹窗·元素) 去=" + url + " 手势=" + isUserGesture
+                                    + " 点=" + (clickSnap == null ? "-" : (clickSnap[0].isEmpty() ? "元素" : clickSnap[0])), false);
                             if (!TextUtils.isEmpty(restoreHref)) {
+                                DebugLogStore.add(LogCategory.AD, "WebPlay", "push v29 拦后打开所按链接 " + restoreHref, false);
                                 restoreClickTarget(view, restoreHref);
                             } else {
                                 view.postDelayed(() -> {
                                     if (!clickNoHash(clickPage).equals(clickNoHash(view.getUrl()))) return;
-                                    view.evaluateJavascript("window.__museReplayPress?window.__museReplayPress():'nofn'", null);
+                                    view.evaluateJavascript("window.__museReplayPress?window.__museReplayPress():'nofn'",
+                                            v -> DebugLogStore.add(LogCategory.AD, "WebPlay", "push v29 拦后补点 结果=" + v, false));
                                 }, 600);
                             }
                         } else if (isUserGesture && (isForeignClickDetour(clickSnap, clickPage, url, redirect)
                                 || isForeignClickDetour(pressSnap, clickPage, url, redirect))) {
                             // push v30 R32-3：点/按的是外站 <a>，弹出的却是第三个站 → 丢弃该窗，打开用户点的那个外站链接。
                             String[] fm = isForeignClickDetour(clickSnap, clickPage, url, redirect) ? clickSnap : pressSnap;
+                            DebugLogStore.add(LogCategory.AD, "WebPlay", "push v30 外站点击被改道(弹窗) 点=" + fm[0] + " 去=" + url, false);
                             restoreClickTarget(view, fm[0]);
                         } else if (isAllowedNewWindowUrl(url, isUserGesture)) {
                             // 放行:在当前 WebView 打开;让 mJumpHost 跟到新页(修 v72 mUserGestured 缺陷)。
+                            DebugLogStore.add(LogCategory.AD, "WebPlay", "push v28 放行新窗口 目标=" + url + " 手势=" + isUserGesture
+                                    + " 点=" + (clickSnap == null ? "-" : (clickSnap[0].isEmpty() ? "元素" : clickSnap[0])), false);
                             mFollowJumpHost = true;
                             view.loadUrl(url);
                         }
@@ -2313,7 +2324,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 if (consoleMessage != null && consoleMessage.messageLevel() == ConsoleMessage.MessageLevel.ERROR) {
                     String msg = consoleMessage.message();
                     if (msg != null && mConsoleErrSeen.size() < 20 && mConsoleErrSeen.add(msg)) {
-                        DebugLogStore.add("WebPlay", "console error " + msg + " @" + consoleMessage.sourceId() + ":" + consoleMessage.lineNumber());
+                        DebugLogStore.add(LogCategory.RUN, "WebPlay", "console error " + msg + " @" + consoleMessage.sourceId() + ":" + consoleMessage.lineNumber(), true);
                     }
                 }
                 return super.onConsoleMessage(consoleMessage);
@@ -3052,14 +3063,14 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
             if (lines != null && lines.length() > 0) {
                 boolean renamed = dedupePushLineNames(lines);
                 mPushProbeLines = renamed ? obj.toString() : json;
-                DebugLogStore.add("WebPlay", "push 多线探针 线路=" + lines.length());
+                DebugLogStore.add(LogCategory.PLAY, "WebPlay", "push 多线探针 线路=" + lines.length(), false);
                 String diag = obj.optString("diag");
-                if (!diag.isEmpty()) DebugLogStore.add("WebPlay", "push 探针诊断 " + diag);
+                if (!diag.isEmpty()) DebugLogStore.add(LogCategory.PLAY, "WebPlay", "push 探针诊断 " + diag, false);
                 return true;
             } else if (hasSub) {
                 // push v12：无分集表但有子帖表时也存下来，供点推时走子页解析层。
                 mPushProbeLines = json;
-                DebugLogStore.add("WebPlay", "push 子页探针 子帖=" + subEps.length());
+                DebugLogStore.add(LogCategory.PLAY, "WebPlay", "push 子页探针 子帖=" + subEps.length(), false);
                 return true;
             }
         } catch (Throwable ignored) {
