@@ -8,6 +8,7 @@ import androidx.collection.ArrayMap;
 import com.muse.android.tv.App;
 import com.muse.android.tv.R;
 import com.muse.android.tv.api.config.VodConfig;
+import com.muse.android.tv.api.loader.WebSearch;
 import com.muse.android.tv.bean.Class;
 import com.muse.android.tv.bean.Result;
 import com.muse.android.tv.bean.Site;
@@ -232,6 +233,17 @@ public class SiteApi {
     public static Result searchContent(@NonNull Site site, @NonNull String keyword, boolean quick, @NonNull String page) throws Exception {
         SpiderDebug.log("search", "site=%s,keyword=%s,quick=%s,page=%s", site.getName(), keyword, quick, page);
         boolean hasPage = !page.equals("1");
+        if (site.isWebSource()) {
+            // push v31（Liu 2026-11-23 方案 A）：网页源（只有主页url）用内置 WebSpider 搜，单站 15 秒超时、
+            // 遇验证跳过、失败返回空；结果 vod_id 已补成绝对地址，点开由浏览器打开。其他源下面原路不变。
+            // 快搜（详情页换源 quick=true）不接网页源：换源结果会进原生详情，网页源没有原生详情，保持 v30 的空结果。
+            if (quick) return Result.empty();
+            String searchContent = WebSearch.search(site, keyword, false, page);
+            SpiderDebug.log("search", searchContent);
+            Result result = searchContent.isEmpty() ? Result.empty() : Result.fromJson(searchContent);
+            for (Vod vod : result.getList()) vod.setSite(site);
+            return result;
+        }
         if (isSpider(site)) {
             String searchContent = hasPage ? site.spider().searchContent(keyword, quick, page) : site.spider().searchContent(keyword, quick);
             SpiderDebug.log("search", searchContent);
