@@ -427,6 +427,8 @@
 <string name="reset_app_message">This will erase all app data (site configs, history, favorites, all settings, cache and logs), restore the app to its freshly installed state and restart it. Reset now?</string>
 
 <string name="setting_size">Image size</string>
+<string name="setting_search_cap">Results per site</string>
+<string name="setting_search_cap_unlimited">Unlimited</string>
 <string name="setting_tab_offset">Offset</string>
 <string name="setting_theme_color">Theme color</string>
 <string name="setting_version">Version</string>
@@ -809,6 +811,7 @@
     <string name="shelf_choose_folder">Select this folder</string>
     <string name="shelf_folder_result">Folder import done: %1$d added, %2$d skipped, %3$d failed</string>
     <string name="shelf_folder_empty">No TXT or EPUB files in this folder.</string>
+    <string name="config_auto_reloading">Config was cleared, reloading…</string>
 </resources>
 
 

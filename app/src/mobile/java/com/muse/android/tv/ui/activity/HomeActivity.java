@@ -19,6 +19,7 @@ import androidx.viewbinding.ViewBinding;
 import com.muse.android.tv.App;
 import com.muse.android.tv.R;
 import com.muse.android.tv.Updater;
+import com.muse.android.tv.api.config.ConfigGuard;
 import com.muse.android.tv.api.config.LiveConfig;
 import com.muse.android.tv.api.config.VodConfig;
 import com.muse.android.tv.api.config.WallConfig;
@@ -36,6 +37,7 @@ import com.muse.android.tv.receiver.ShortcutReceiver;
 import com.muse.android.tv.server.Server;
 import com.muse.android.tv.service.PlaybackService;
 import com.muse.android.tv.ui.base.BaseActivity;
+import com.muse.android.tv.ui.base.BaseFragment;
 import com.muse.android.tv.ui.custom.FragmentStateManager;
 import com.muse.android.tv.ui.fragment.SettingDanmakuFragment;
 import com.muse.android.tv.ui.fragment.SettingDecodeFragment;
@@ -61,6 +63,28 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
     private int orientation;
     private long mExitTime;
 
+    /** 纯网页源进站主页（Liu 2026-11-23 方案 A）：已自动进过站的源 key——同一次启动/同一次选中只自动进一次，返回后不再弹。 */
+    private static String sWebAutoKey;
+    /** 浏览器顶栏「切源」：回主页后打开切源对话框的待办标记（onResume 里消费）。 */
+    private static boolean sPendingSiteDialog;
+
+    /** 这个源这次还没自动进过站就记下并返回 true；已进过返回 false（防返回后又被弹进去）。 */
+    public static boolean takeWebAutoOpen(String key) {
+        if (key == null || key.equals(sWebAutoKey)) return false;
+        sWebAutoKey = key;
+        return true;
+    }
+
+    /** 用户在切源列表里重新选了源：清掉记号，选中纯网页源时照样自动进站。 */
+    public static void resetWebAutoOpen() {
+        sWebAutoKey = null;
+    }
+
+    /** 浏览器顶栏「切源」点击：回到主页后打开切源对话框。 */
+    public static void requestSiteDialog() {
+        sPendingSiteDialog = true;
+    }
+
     @Override
     protected ViewBinding getBinding() {
         return mBinding = ActivityHomeBinding.inflate(getLayoutInflater());
@@ -81,6 +105,11 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
     @Override
     protected void initView(Bundle savedInstanceState) {
         orientation = getResources().getConfiguration().orientation;
+        // 纯网页源进站主页：新启动（非重建）才重置「已自动进站」记号——App 启动时当前源是纯网页源会自动进站一次。
+        if (savedInstanceState == null) {
+            sWebAutoKey = null;
+            sPendingSiteDialog = false;
+        }
         mBinding.navigation.setOnItemSelectedListener(this);
         PermissionUtil.requestNotify(this);
         initFragment(savedInstanceState);
@@ -174,14 +203,36 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
 
     /** 进当前站点的主页（网页播放那套主页推导）；推不出就提示，不进空白页。 */
     private boolean openBrowser() {
+        // push v48：配置被清空（长时间不操作后）→ 先自动重载，加载完再进主页，不再只弹「没有主页」。
+        if (ConfigGuard.reloadIfEmpty("浏览器", () -> {
+            if (isFinishing() || isDestroyed()) return;
+            takeWebAutoOpen(VodConfig.get().getHome().getKey());
+            openBrowser();
+        })) return false;
         Site site = VodConfig.get().getHome();
         String url = site == null ? null : VideoActivity.siteHomePageUrl(site);
         if (TextUtils.isEmpty(url)) {
             Notify.show(R.string.nav_browser_empty);
             return false;
         }
-        WebPlayActivity.start(this, site.getName(), url, null, null, null, 0, site.getKey(), "", site.getClick(), null);
+        WebPlayActivity.startHome(this, site.getName(), url, site.getKey(), site.getClick());
         return false;
+    }
+
+    /** 浏览器顶栏「切源」回来：切回点播页，由 VodFragment 打开切源对话框（与点标题切源同一个对话框）。 */
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // push v48：长时间不操作回来，内存里的点播配置已被清空而界面还在 → 自动重载（加载完照常刷新主页）。
+        ConfigGuard.reloadIfEmpty("回到前台", null);
+        if (!sPendingSiteDialog) return;
+        sPendingSiteDialog = false;
+        change(0);
+        App.post(() -> {
+            if (isFinishing() || isDestroyed()) return;
+            BaseFragment fragment = mManager.getFragment(0);
+            if (fragment instanceof VodFragment) ((VodFragment) fragment).openSiteDialog();
+        }, 100);
     }
 
     private boolean openBookshelf() {

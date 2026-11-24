@@ -1,6 +1,7 @@
 package com.muse.android.tv.ui.fragment;
 
 import com.muse.android.tv.bean.Site;
+import com.muse.android.tv.ui.activity.VideoActivity;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -14,7 +15,7 @@ import java.util.Set;
 /**
  * 站名标记口径（Liu 2026-11-11 定）：名[文件夹](源类型)——[] 里是文件夹分类，
  * () 里只有 JSON / JS / PY / CAT / XYQ 五个规范名是源类型，其余 () 值是备注
- * （如 (ws) = 无搜），不算类型；备注今后写在 <> 里，与筛选无关。
+ * （如 (ws) = 无搜），不算类型，与筛选无关。
  * 源类型供长按搜索的「按源类型」用；文件夹分类供源列表与长按搜索的
  * 「按分类」用，大小写视为同一个（pq 与 PQ 合并）。类型匹配大小写不敏感，
  * 老名字里的 (json) / (py) 也归到规范名下。
@@ -23,6 +24,10 @@ public final class SiteType {
 
     /** 规范类型，顺序即按钮出现顺序。 */
     public static final List<String> CANONICAL = Arrays.asList("JSON", "JS", "PY", "CAT", "XYQ");
+
+    /** 源列表 / 长按搜索「按分类」里的纯网页源标签（v42，Liu 2026-11-24：只做手机版）。 */
+    public static final String WEB_SOURCE_LABEL = "网页源";
+    public static final String WEB_SOURCE_MARK = "[" + WEB_SOURCE_LABEL + "]";
 
     private SiteType() {
     }
@@ -84,6 +89,9 @@ public final class SiteType {
      */
     public static List<String> presentCategories(List<Site> sites) {
         Map<String, String> byLower = new LinkedHashMap<>();
+        // v42（Liu 2026-11-24）：有纯网页源就把 [网页源] 放第一位（紧跟「全部」）；
+        // 同名文件夹（大小写不敏感）并进这一个，不重复出按钮。
+        if (hasPureWebSource(sites)) byLower.put(WEB_SOURCE_LABEL.toLowerCase(Locale.ROOT), WEB_SOURCE_MARK);
         if (sites != null) {
             for (Site site : sites) {
                 if (site == null || site.isHide()) continue;
@@ -93,11 +101,23 @@ public final class SiteType {
         return new ArrayList<>(byLower.values());
     }
 
+    /** 可见源里是否有纯网页源（判定沿用进站主页那套 VideoActivity.isPureWebSource）。 */
+    private static boolean hasPureWebSource(List<Site> sites) {
+        if (sites == null) return false;
+        for (Site site : sites) {
+            if (site == null || site.isHide()) continue;
+            if (VideoActivity.isPureWebSource(site)) return true;
+        }
+        return false;
+    }
+
     /** 文件夹分类是否命中："[PQ]" 与站名里的 [pq] 也算命中（大小写不敏感）；空 = 不限。 */
     public static boolean matchesCategory(Site site, String groupMark) {
         if (groupMark == null || groupMark.isEmpty()) return true;
         String value = groupMark.trim();
         if (value.length() > 2 && value.startsWith("[") && value.endsWith("]")) value = value.substring(1, value.length() - 1);
+        // v42：[网页源] = 纯网页源，或文件夹名本就叫「网页源」的源
+        if (WEB_SOURCE_LABEL.equalsIgnoreCase(value.trim()) && VideoActivity.isPureWebSource(site)) return true;
         for (String category : categoriesOf(site)) if (category.equalsIgnoreCase(value)) return true;
         return false;
     }

@@ -314,6 +314,8 @@
     <string name="setting_auto">自动</string>
     <string name="setting_custom">自定义</string>
     <string name="setting_size">图片尺寸</string>
+    <string name="setting_search_cap">每站搜索条数</string>
+    <string name="setting_search_cap_unlimited">不限</string>
     <string name="setting_doh">DoH</string>
     <string name="setting_proxy">Proxy</string>
     <string name="setting_cache">缓存</string>
@@ -682,6 +684,7 @@
     <string name="site_share_fail">分享失败：没有找到可用的分享目标</string>
     <string name="site_target_title">选定当前目标</string>
     <string name="site_web_source_add">添加网页源</string>
+    <string name="site_web_source_created">已添加网页源 %1$s，已保存到本地配置 Muse网页源.json</string>
     <string name="site_web_source_done">已添加网页源 %1$s</string>
     <string name="site_web_source_exists">该名称已存在</string>
     <string name="site_web_source_fail">添加网页源失败</string>
@@ -713,6 +716,7 @@
     <string name="shelf_choose_folder">选择当前文件夹</string>
     <string name="shelf_folder_result">文件夹导入完成：新增 %1$d 本，跳过 %2$d 本，失败 %3$d 本</string>
     <string name="shelf_folder_empty">这个文件夹里没有 TXT 或 EPUB 文件。</string>
+    <string name="config_auto_reloading">源配置已失效，正在重新加载…</string>
 </resources>
 
 
