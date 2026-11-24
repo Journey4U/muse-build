@@ -36,6 +36,7 @@ import com.muse.android.tv.player.engine.PlayerEngine.SecondarySubtitleState;
 import com.muse.android.tv.player.engine.PlayerEngineFactory;
 import com.muse.android.tv.player.media.PlaySpec;
 import com.muse.android.tv.player.parse.ParseJob;
+import com.muse.android.tv.api.loader.PushMultiRes;
 import com.muse.android.tv.player.track.TrackUtil;
 import com.muse.android.tv.setting.DanmakuSetting;
 import com.muse.android.tv.setting.PlayerSetting;
@@ -59,6 +60,8 @@ public class PlayerManager implements ParseCallback {
     private PlayerEngine engine;
     private VideoSize videoSize;
     private ParseJob parseJob;
+    /** push v45/v27：网页源起播时由 VideoActivity 记下该片 key——只有这条片子的嗅探结果交播放器前先走 PushMultiRes 多画质升级（播放服务共用，别的页面/别的片不受影响）。 */
+    private String upgradeOnParseKey;
     private PlaySpec spec;
     private String parseSourceUrl;
     private Player player;
@@ -675,10 +678,26 @@ public class PlayerManager implements ParseCallback {
         if (spec != null) spec.addDanmaku(item);
     }
 
+    public void setUpgradeOnParse(String key) {
+        this.upgradeOnParseKey = key;
+    }
+
     @Override
     public void onParseSuccess(Map<String, String> headers, String url, String from) {
         if (!TextUtils.isEmpty(from)) Notify.show(ResUtil.getString(R.string.parse_from, from));
         if (headers != null) headers.remove(HttpHeaders.RANGE);
+        if (upgradeOnParseKey != null && spec != null && upgradeOnParseKey.equals(spec.getKey()) && url != null && (url.startsWith("http://") || url.startsWith("https://"))) {
+            // push v45/v27：网页源嗅探结果同样升级多画质（失败/非 m3u8 照原地址）；期间换了片则作废
+            final PlaySpec target = spec;
+            PushMultiRes.upgrade(url, headers, upgraded -> {
+                if (target == null || target != spec) return;
+                spec.setHeaders(headers);
+                spec.setUrl(TextUtils.isEmpty(upgraded) ? url : upgraded);
+                startCurrent(pendingStartPositionMs);
+                pendingStartPositionMs = C.TIME_UNSET;
+            });
+            return;
+        }
         if (spec != null) spec.setHeaders(headers);
         if (spec != null) spec.setUrl(url);
         startCurrent(pendingStartPositionMs);

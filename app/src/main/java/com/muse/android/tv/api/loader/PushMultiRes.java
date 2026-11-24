@@ -158,6 +158,11 @@ public final class PushMultiRes {
         DONE.remove(stream);
     }
 
+    /** push v45：该地址是否登记过多画质候选（网页源全局搜索播放据此决定要不要走升级，没登记的不联网、不多等）。 */
+    public static boolean hasOffer(String url) {
+        return !TextUtils.isEmpty(url) && OFFERS.containsKey(url);
+    }
+
     /** 播放前升级；结果在主线程回调（失败也回调原地址）。只对 http(s) 的 m3u8 或登记过候选的地址联网。 */
     public static void upgrade(String url, Map<String, String> headers, Callback cb) {
         if (cb == null) return;

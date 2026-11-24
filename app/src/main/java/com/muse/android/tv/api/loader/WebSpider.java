@@ -1141,6 +1141,25 @@ public class WebSpider extends Spider {
     private String searchEndpoint;
     /** r349：搜索端点按 host 缓存 —— 与 HOME_CACHE 同策略，进程存活期内有效。 */
     private static final Map<String, String> SEARCH_ENDPOINT = new java.util.concurrent.ConcurrentHashMap<>();
+    /** push v45：同一站同一关键词第 1 页命中的候选模板 —— 第 2 页起只用它翻页（不再落进别的候选拿到无关页）。key=根|词 */
+    private static final Map<String, String> SEARCH_HIT_TPL = lruMap(64);
+    /** push v45：站方分页参数名（第 1 页结果里的同路径分页链接认出，如 page/p/pg/paged；认不出用 page）。key=host */
+    private static final Map<String, String> SEARCH_PAGE_PARAM = lruMap(64);
+    /** push v45：同一站同一关键词已出现过的条目（按 vod_id）与最近页码 —— 第 N 页条目全是见过的 = 翻到底了。key=根|词 */
+    private static final Map<String, Object[]> SEARCH_SEEN = lruMap(64);
+    /** push v45：站方第 2 页地址规律（第 1 页结果页里 rel=next / 分页条「2」「下一页」链接，页码位换成 {pg}）。key=根|词 */
+    private static final Map<String, String> SEARCH_PAGE_TPL = lruMap(64);
+    /** push v45：本次播放解析用到的播放页 HTML（找页面声明的多画质主清单用；每次 playerContent 先清空）。 */
+    private String playHtmlForMaster;
+
+    private static <V> Map<String, V> lruMap(int max) {
+        return java.util.Collections.synchronizedMap(new LinkedHashMap<String, V>(16, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<String, V> eldest) {
+                return size() > max;
+            }
+        });
+    }
     /**
      * r371：**页面自己请求过的 JSON 接口 URL**（按 host 收集）。
      * 来源：注入 JS 的 XHR/fetch hook 把 content-type 含 json 的 URL 用 sniff://jsonurl: 回传。
@@ -5973,7 +5992,7 @@ public class WebSpider extends Spider {
         try {
             detect();
             int page = parseInt(pg, 1);
-            if ("nuxt-json-aes".equals(template)) return nuxtSearch(key, page);
+            if ("nuxt-json-aes".equals(template)) return repeatGuardJson(root + "|" + key, page, nuxtSearch(key, page));
             // r367：【首次打开提速】搜索端点发现改为懒执行 —— 打开源时不再跑
             // findSearchFromForm/Js/LinkedJs（后者会额外拉 ≤2 个外链 JS，每个 get() 超时 15s）。
             // 只有真正搜索时才做首次发现，之后走 SEARCH_ENDPOINT 静态缓存。
@@ -5982,6 +6001,7 @@ public class WebSpider extends Spider {
             String kw = URLEncoder.encode(key, "UTF-8");
             if ("youtube".equals(template)) {
                 list = youtubeSearchItems(key, 20);
+                list = stopRepeatedPage(root + "|" + key, page, list);   // push v45：不分页的接口第 2 页起同一批 → 收口
                 return new JSONObject().put("list", list).toString();
             }
             if ("zanpian".equals(template)) {
@@ -6005,7 +6025,10 @@ public class WebSpider extends Spider {
                 if (list.length() > 0) log("搜索 suggest JSON -> " + list.length() + " 条");
                 if (list.length() == 0 && !TextUtils.isEmpty(ep) && ep.startsWith("POST|")) {
                     // push v34（S1）：POST 搜索端点（无第 2 页：站方 GET 翻页回首页）
-                    if (page > 1) return new JSONObject().put("list", new JSONArray()).toString();
+                    if (page > 1) {
+                        log("搜索第 " + page + " 页：POST 表单搜索没有分页 → 收口，不再翻页");
+                        return new JSONObject().put("list", new JSONArray()).toString();
+                    }
                     String body = postSearch(ep, key);
                     list = "maccmsphp".equals(template) ? maccmsPhpItems(body, 0) : maccmsItems(body, 0);
                     if (list.length() == 0) list = genericItems(body, 0);
@@ -6013,6 +6036,11 @@ public class WebSpider extends Spider {
                     log("搜索尝试(POST) " + ep.split("\\|", -1)[1] + " -> " + list.length() + " 条");
                 } else if (list.length() == 0 && !TextUtils.isEmpty(ep)) {
                     String u = applySearchPage(ep.replace("{kw}", kw), page);
+                    String mPageTpl = page > 1 ? SEARCH_PAGE_TPL.get(root + "|" + key) : null;
+                    if (!TextUtils.isEmpty(mPageTpl)) {
+                        u = mPageTpl.replace("{pg}", String.valueOf(page));   // push v45：站方分页链接规律优先
+                        log("搜索翻页：按站方分页链接规律取第 " + page + " 页 " + u);
+                    }
                     String body = getCap(u);
                     if (lastFetchCode >= 400) {   // push v44：报错页不算结果
                         log("搜索候选跳过（HTTP " + lastFetchCode + "）" + u);
@@ -6025,6 +6053,7 @@ public class WebSpider extends Spider {
                     // 这里只在 0 条时补，零副作用）。黄色仓库 hsck 落地域名即此形态。
                     if (list.length() == 0) list = genericItems(body, 0);
                     log("搜索尝试 " + u + " -> " + list.length() + " 条");
+                    if (page <= 1 && list.length() > 0) rememberPageTpl(root + "|" + key, body, lastFetchUrl, u, key);
                 }
                 if (list.length() == 0) {
                     String u = root + indexPath + "/vod/search.html?wd=" + kw + (page > 1 ? "&page=" + page : "");
@@ -6050,10 +6079,17 @@ public class WebSpider extends Spider {
                         "/search/{kw}/", "/search/{kw}", "/search/{kw}.html",
                         "/index.php/vod/search.html?wd={kw}", "/?s={kw}", "/vodsearch/{kw}----------1---.html",
                         "/cn/search/{kw}", "/search.html?wd={kw}", "/?q={kw}"};
+                // push v45：第 2 页起只用第 1 页命中的那个候选翻页（P站/MissAV 实测：后页落进别的候选只会拿到无关页或回第 1 页）
+                String hitKey = root + "|" + key;
+                String hitTpl = page > 1 ? SEARCH_HIT_TPL.get(hitKey) : null;
+                if (!TextUtils.isEmpty(hitTpl)) urls = new String[]{hitTpl};
                 for (String tpl : urls) {
                     if (tpl.startsWith("POST|")) {
                         // push v34（S1）：POST 表单搜索端点 —— POST 无第 2 页（站方 GET 翻页 302 回首页），page>1 直接返回空。
-                        if (page > 1) return new JSONObject().put("list", new JSONArray()).toString();
+                        if (page > 1) {
+                            log("搜索第 " + page + " 页：POST 表单搜索没有分页 → 收口，不再翻页");
+                            return new JSONObject().put("list", new JSONArray()).toString();
+                        }
                         String ph = postSearch(tpl, key);
                         if (noRender && challenged) break;
                         list = genericItems(ph, 0);
@@ -6067,9 +6103,52 @@ public class WebSpider extends Spider {
                     }
                     String u = tpl.replace("{kw}", kw);
                     if (!u.startsWith("http")) u = abs(u);
-                    // query 型模板带分页（路径型分页每站不同，第一版不拼，返回第 1 页内容）
-                    if (page > 1 && u.contains("?") && !u.contains("page=")) u += "&page=" + page;
+                    // query 型模板带分页；push v45：路径型（/search/{kw}，MissAV 实证翻页是 ?page=N）也带——
+                    // maccms 横线序列型照 applySearchPage 换页码位，其余追加站方分页参数（第 1 页认出的，认不出用 page）。
+                    String pageParam = SEARCH_PAGE_PARAM.getOrDefault(hostOf(u).toLowerCase(Locale.ROOT), "page");
+                    String sitePageTpl = page > 1 && tpl.equals(hitTpl) ? SEARCH_PAGE_TPL.get(hitKey) : null;
+                    if (!TextUtils.isEmpty(sitePageTpl)) {
+                        // push v45：第 1 页结果里认出了站方分页链接规律 → 第 N 页直接用站方的地址（优先于下面的猜法）
+                        u = sitePageTpl.replace("{pg}", String.valueOf(page));
+                        log("搜索翻页：按站方分页链接规律取第 " + page + " 页 " + u);
+                    } else if (page > 1 && !hasQueryParam(u, pageParam) && !u.contains("page=")) {
+                        String ap = u.contains("?") ? u : applySearchPage(u, page);
+                        if (!ap.equals(u)) u = ap;
+                        else u += (u.contains("?") ? "&" : "?") + pageParam + "=" + page;
+                    }
                     String searchHtml = getCap(u);
+                    // push v45：站方跳转把页码丢了（P站实证：search=SSIS&page=2 → 301 到小写 search=ssis，page 没了 → 永远第 1 页），
+                    // 在落地地址上补回同名页码参数再取一次。只在第 2 页起、请求带页码而落地地址不带时触发。
+                    // push v45：候选被站方跳回站点首页（请求的不是首页路径、落地却是根路径 /）= 站方没按词搜，
+                    // 首页内容不算搜索结果（P站实测：/search/?wd= 有时 301→/search?wd=→ 跳回 /，首页 50 条被当结果）。
+                    if (lastFetchCode > 0 && lastFetchCode < 400 && !TextUtils.isEmpty(lastFetchUrl) && !lastFetchUrl.equals(u)
+                            && isRootPath(lastFetchUrl) && !isRootPath(u)) {
+                        log("搜索候选跳过（被站方跳回首页）" + u + " → " + lastFetchUrl);
+                        continue;
+                    }
+                    // 只在落地地址与请求同一路径时补（仅查询串被改写）；被跳到别的路径（P站实测有时第 2 页直接跳回首页 /?page=2）
+                    // = 站方没有这一页，本候选按无结果处理，不把首页内容当搜索结果。
+                    if (page > 1 && lastFetchCode > 0 && lastFetchCode < 400) {
+                        String landed = lastFetchUrl;
+                        String pn = hasQueryParam(u, pageParam) ? pageParam : "page";
+                        if (!TextUtils.isEmpty(landed) && !landed.equals(u)) {
+                            if (!samePath(landed, u)) {
+                                log("搜索翻页：第 " + page + " 页被站方跳到别的页面 " + landed + "，视为没有这一页");
+                                continue;
+                            }
+                            if (hasQueryParam(u, pn) && !hasQueryParam(landed, pn)) {
+                                String retry = landed + (landed.contains("?") ? "&" : "?") + pn + "=" + page;
+                                log("搜索翻页：站方跳转丢了页码，补回重取 " + retry);
+                                searchHtml = getCap(retry);
+                                u = retry;
+                                String landed2 = lastFetchUrl;
+                                if (lastFetchCode > 0 && lastFetchCode < 400 && !TextUtils.isEmpty(landed2) && !samePath(landed2, retry)) {
+                                    log("搜索翻页：补页码后仍被跳到别的页面 " + landed2 + "，视为没有这一页");
+                                    continue;
+                                }
+                            }
+                        }
+                    }
                     // push v44：搜索候选回 4xx/5xx = 报错页（MissAV/P站 404 页的导航、页脚站群链接曾被当结果收下即停），
                     // 内容一律丢弃、试下一个候选。只看本次 get 的最终状态码，不碰首页/分类/详情路径。
                     int sc = lastFetchCode;
@@ -6102,7 +6181,15 @@ public class WebSpider extends Spider {
                         list = new JSONArray();
                         continue;
                     }
-                    if (list.length() > 0) break;
+                    if (list.length() > 0) {
+                        if (page <= 1) {
+                            SEARCH_HIT_TPL.put(hitKey, tpl);
+                            String pp = detectPageParam(searchHtml, u);
+                            if (!TextUtils.isEmpty(pp)) SEARCH_PAGE_PARAM.put(hostOf(u).toLowerCase(Locale.ROOT), pp);
+                            rememberPageTpl(hitKey, searchHtml, lastFetchUrl, u, key);
+                        }
+                        break;
+                    }
                     // r359：壳站搜索渲染兜底 —— k84h5x 全站 ap-d 加密壳（搜索页纯 HTTP 零链接），
                     // 只对壳页触发：正常站搜索 0 结果不多花 25 秒。
                     // r360：判据扩展到 XOR document.write 加密站（sm455 型，与 detail 兜底同源），
@@ -6121,10 +6208,208 @@ public class WebSpider extends Spider {
                 }
             }
             list = dedupPlayRouteItems(list);
+            list = stopRepeatedPage(root + "|" + key, page, list);
             return new JSONObject().put("list", list).toString();
         } catch (Throwable e) {
             return "{\"list\":[]}";
         }
+    }
+
+    /**
+     * push v45（Liu 2026-11-24 实测：翻到第 10 页仍是那几部）：第 N 页（N≥2）的条目全都在前面各页出现过 = 站方没给新页
+     * （回了第 1 页或末页）→ 视为到底，返回空列表让列表停止加载。按 vod_id 判，对所有网页源通用；第 1 页重置记录。
+     */
+    private JSONArray stopRepeatedPage(String seenKey, int page, JSONArray list) {
+        try {
+            Set<String> ids = new HashSet<>();
+            for (int i = 0; i < list.length(); i++) {
+                JSONObject o = list.optJSONObject(i);
+                String id = o == null ? "" : o.optString("vod_id", "").trim();   // 原样比（不能去查询串：P站 view_video.php?viewkey= 全靠它区分）
+                if (!TextUtils.isEmpty(id)) ids.add(id);
+            }
+            if (page <= 1) {
+                SEARCH_SEEN.put(seenKey, new Object[]{1, ids});
+                return list;
+            }
+            Object[] prev = SEARCH_SEEN.get(seenKey);
+            if (prev == null || ids.isEmpty()) return list;
+            @SuppressWarnings("unchecked") Set<String> seen = (Set<String>) prev[1];
+            if (seen.containsAll(ids)) {
+                log("搜索第 " + page + " 页条目与前面各页完全重复（" + ids.size() + " 条）→ 视为到底，不再翻页");
+                return new JSONArray();
+            }
+            Set<String> merged = new HashSet<>(seen);
+            merged.addAll(ids);
+            SEARCH_SEEN.put(seenKey, new Object[]{page, merged});
+            return list;
+        } catch (Throwable t) {
+            return list;
+        }
+    }
+
+    /** push v45：对已成 JSON 的搜索结果套防重复（nuxt 等提前返回的路由）。 */
+    private String repeatGuardJson(String seenKey, int page, String json) {
+        try {
+            JSONObject o = new JSONObject(json);
+            JSONArray l = o.optJSONArray("list");
+            if (l == null) return json;
+            o.put("list", stopRepeatedPage(seenKey, page, l));
+            return o.toString();
+        } catch (Throwable t) {
+            return json;
+        }
+    }
+
+    /** push v45：第 1 页命中后记下站方第 2 页地址规律（认不出就不记，翻页走原猜法 + 防重复收口）。 */
+    private void rememberPageTpl(String hitKey, String html, String landed, String requested, String key) {
+        try {
+            String base = TextUtils.isEmpty(landed) ? requested : landed;
+            String t = detectPageTpl(html, base, key);
+            if (TextUtils.isEmpty(t)) {
+                SEARCH_PAGE_TPL.remove(hitKey);
+                return;
+            }
+            SEARCH_PAGE_TPL.put(hitKey, t);
+            log("搜索翻页：认出站方分页链接规律 " + t);
+        } catch (Throwable ignored) {
+        }
+    }
+
+    /**
+     * push v45（Liu 2026-11-24「搜索其他站点的，也重复」）：从第 1 页搜索结果页认站方第 2 页地址规律，返回页码位为 {pg} 的模板。
+     * 只认分页链接：rel="next"，或分页条里文字是「2」/「下一页」/next/›/» 的 <a>；链接须同站、且属于本次搜索
+     * （与搜索页同路径，或地址里带关键词）。页码位按常见写法认：?page=2 / &p=2 / pg / paged / pn、/page/2、
+     * 苹果CMS 横线序列 ----2---.html、-2.html、_2.html、末段 /2/。认不出返回空。
+     */
+    private String detectPageTpl(String html, String searchUrl, String key) {
+        if (TextUtils.isEmpty(html) || TextUtils.isEmpty(searchUrl)) return "";
+        List<String> cands = new ArrayList<>();
+        Matcher rel = Pattern.compile("<(?:a|link)\\b[^>]*\\brel=[\"']?next\\b[^>]*>", Pattern.CASE_INSENSITIVE).matcher(html);
+        while (rel.find() && cands.size() < 4) {
+            Matcher hm = Pattern.compile("\\bhref=[\"']([^\"'#]+)[\"']", Pattern.CASE_INSENSITIVE).matcher(rel.group());
+            if (hm.find()) cands.add(hm.group(1));
+        }
+        Matcher a = Pattern.compile("<a\\b([^>]*)>(.{0,200}?)</a>", Pattern.CASE_INSENSITIVE | Pattern.DOTALL).matcher(html);
+        int n = 0;
+        while (a.find() && n++ < 6000) {
+            String text = a.group(2).replaceAll("<[^>]*>", "").replace("&nbsp;", " ").trim();
+            String attrs = a.group(1);
+            boolean two = text.equals("2");
+            boolean next = text.contains("下一页") || text.contains("下页") || text.equalsIgnoreCase("next") || text.equals("›") || text.equals("»")
+                    || text.equals("&gt;") || text.equals("&raquo;") || text.equals("&rsaquo;") || text.equals(">");
+            if (!two && !next) continue;
+            Matcher hm = Pattern.compile("\\bhref=[\"']([^\"'#]+)[\"']", Pattern.CASE_INSENSITIVE).matcher(attrs);
+            if (hm.find()) cands.add(hm.group(1));
+        }
+        String host = hostOf(searchUrl).toLowerCase(Locale.ROOT);
+        String kl = key == null ? "" : key.toLowerCase(Locale.ROOT);
+        for (String c : cands) {
+            String h = unescapeHtml(c).trim();
+            if (h.startsWith("javascript") || h.isEmpty()) continue;
+            if (h.startsWith("//")) {
+                h = "https:" + h;
+            } else if (!h.startsWith("http")) {
+                if (h.startsWith("?")) {
+                    int q = searchUrl.indexOf('?');
+                    h = (q < 0 ? searchUrl : searchUrl.substring(0, q)) + h;
+                } else {
+                    h = abs(h, searchUrl);
+                }
+            }
+            if (!hostOf(h).toLowerCase(Locale.ROOT).equals(host)) continue;
+            String dec;
+            try {
+                dec = java.net.URLDecoder.decode(h.replace("+", "%2B"), "UTF-8").toLowerCase(Locale.ROOT);
+            } catch (Throwable e) {
+                dec = h.toLowerCase(Locale.ROOT);
+            }
+            if (!samePath(h, searchUrl) && (kl.isEmpty() || !dec.contains(kl))) continue;
+            String t = pageSlot(h);
+            if (!TextUtils.isEmpty(t)) return t;
+        }
+        return "";
+    }
+
+    /** push v45：把地址里第 2 页的页码位换成 {pg}；认不出页码位返回空。 */
+    private static String pageSlot(String h) {
+        String[] pats = {
+                "([?&](?:page|p|pg|paged|pn)=)2(?=&|$)",
+                "(/page/)2(?=/|\\?|\\.html|$)",
+                "(-+)2(-*\\.html)",
+                "(_)2(\\.html)",
+                "(/)2(/?)(?=\\?|$)"
+        };
+        for (String p : pats) {
+            Matcher m = Pattern.compile(p, Pattern.CASE_INSENSITIVE).matcher(h);
+            if (m.find()) {
+                String g2 = m.groupCount() >= 2 && m.group(2) != null ? m.group(2) : "";
+                return h.substring(0, m.start()) + m.group(1) + "{pg}" + g2 + h.substring(m.end());
+            }
+        }
+        return "";
+    }
+
+    /** push v45：两个地址是否同主机同路径（不分大小写、忽略结尾斜杠与查询串）。 */
+    private static boolean samePath(String a, String b) {
+        return pathKey(a).equals(pathKey(b));
+    }
+
+    /** push v45：地址路径是不是站点根（/ 或空）。 */
+    private static boolean isRootPath(String u) {
+        String k = pathKey(u);
+        return !k.isEmpty() && k.indexOf('/') < 0;
+    }
+
+    private static String pathKey(String u) {
+        if (TextUtils.isEmpty(u)) return "";
+        String s = u.replaceFirst("^https?://", "");
+        int q = s.indexOf('?');
+        if (q >= 0) s = s.substring(0, q);
+        int h = s.indexOf('#');
+        if (h >= 0) s = s.substring(0, h);
+        while (s.endsWith("/")) s = s.substring(0, s.length() - 1);
+        return s.toLowerCase(Locale.ROOT);
+    }
+
+    /** push v45：地址的查询串里有没有名为 name 的参数。 */
+    private static boolean hasQueryParam(String url, String name) {
+        if (TextUtils.isEmpty(url) || TextUtils.isEmpty(name)) return false;
+        int q = url.indexOf('?');
+        if (q < 0) return false;
+        for (String kv : url.substring(q + 1).split("[&#]")) {
+            int e = kv.indexOf('=');
+            String k = e < 0 ? kv : kv.substring(0, e);
+            if (k.equalsIgnoreCase(name)) return true;
+        }
+        return false;
+    }
+
+    /**
+     * push v45：从第 1 页搜索结果里认站方分页参数名 —— 找与本次搜索同路径、查询串里某参数值为 2 的链接
+     * （MissAV：/search/SSIS?page=2），参数名限 page/p/pg/paged/pn。认不出返回空（调用方用 page）。
+     */
+    private static String detectPageParam(String html, String searchUrl) {
+        try {
+            if (TextUtils.isEmpty(html) || TextUtils.isEmpty(searchUrl)) return "";
+            String path = searchUrl.replaceFirst("^https?://[^/]+", "");
+            int q = path.indexOf('?');
+            if (q >= 0) path = path.substring(0, q);
+            if (path.length() < 2) return "";
+            Matcher m = Pattern.compile("href=[\"']([^\"'#]*\\?[^\"'#]*)[\"']", Pattern.CASE_INSENSITIVE).matcher(html);
+            Pattern pp = Pattern.compile("(?:^|&)(page|p|pg|paged|pn)=2(?:&|$)", Pattern.CASE_INSENSITIVE);
+            int seen = 0;
+            while (m.find() && seen < 4000) {
+                seen++;
+                String h = unescapeHtml(m.group(1));
+                String hp = h.replaceFirst("^https?://[^/]+", "");
+                int hq = hp.indexOf('?');
+                if (hq < 0 || !hp.substring(0, hq).equalsIgnoreCase(path)) continue;
+                Matcher pm = pp.matcher(hp.substring(hq + 1));
+                if (pm.find()) return pm.group(1);
+            }
+        } catch (Throwable ignored) {
+        }
+        return "";
     }
 
     /**
@@ -6373,8 +6658,12 @@ public class WebSpider extends Spider {
     public String playerContent(String flag, String id, List<String> vipFlags) {
         LogCategory previousStage = enterStage(LogCategory.PLAY);
         try {
-            return playerContentStaged(flag, id, vipFlags);
+            playHtmlForMaster = null;
+            String out = playerContentStaged(flag, id, vipFlags);
+            offerDeclaredMaster(out);
+            return out;
         } finally {
+            playHtmlForMaster = null;
             leaveStage(previousStage);
         }
     }
@@ -6460,6 +6749,12 @@ public class WebSpider extends Spider {
             // VideoActivity:1094 认 novel://（NovelReaderActivity），:1098 认 pics://（ImageActivity）。
             // 小说 JSON 字段见 NovelReaderActivity:636：{"content":正文,"title":章节名}
             // 图片列表见 ImageActivity:100：pics:// 之后用 && 分隔。
+            // push v45（Liu 2026-11-24：P站从全局搜索点播只有单分辨率）：播放页播放器配置里站方声明了各档 hls
+            //（mediaDefinitions 数组：format=hls + videoUrl，P站系播放器结构）→ 直接用站方默认档起播，并把各档登记给
+            // PushMultiRes，起播前合成本机多画质主清单（与推送 v43 同一套）。没有这段配置的页面照旧走下面原路。
+            playHtmlForMaster = html;
+            String declared = mediaDefsPlay(html, page);
+            if (!TextUtils.isEmpty(declared)) return declared;
             if (isNovelPage(page)) {
                 // r386（AGENTS.md 第十六节）：**漫画页先于小说页判定** —— 18seman 实证事故：
                 // 这是韩漫站，章节页 URL 是 /index.php/chapter/26197，命中了 isNovelPage 的 /chapter，
@@ -7548,6 +7843,87 @@ public class WebSpider extends Spider {
     }
 
     /** r521：直解结果的统一出口（parse=0 + 带 Referer 的 header）。 */
+    /**
+     * push v45：从播放页取站方播放器配置声明的各档 hls（"mediaDefinitions":[{format:"hls",videoUrl,height,defaultQuality},…]，
+     * 取第一组）。≥1 档就用默认档（defaultQuality=true；没有标默认取第一条）起播；≥2 档登记给 PushMultiRes 合成多画质。
+     * mp4/remote 条目不收。按结构认，不认站名；不按时长判。
+     */
+    private String mediaDefsPlay(String html, String page) {
+        try {
+            if (TextUtils.isEmpty(html)) return "";
+            int k = html.indexOf("\"mediaDefinitions\"");
+            if (k < 0) return "";
+            int s = html.indexOf('[', k);
+            if (s < 0 || s - k > 40) return "";
+            int depth = 0, e = -1;
+            boolean inStr = false;
+            for (int i = s; i < html.length() && i < s + 200000; i++) {
+                char c = html.charAt(i);
+                if (inStr) {
+                    if (c == '\\') i++;
+                    else if (c == '"') inStr = false;
+                    continue;
+                }
+                if (c == '"') inStr = true;
+                else if (c == '[') depth++;
+                else if (c == ']' && --depth == 0) { e = i; break; }
+            }
+            if (e < 0) return "";
+            JSONArray arr = new JSONArray(html.substring(s, e + 1));
+            JSONArray defs = new JSONArray();
+            String defUrl = "";
+            int defH = 0;
+            Set<String> seenUrl = new HashSet<>();
+            for (int i = 0; i < arr.length(); i++) {
+                JSONObject o = arr.optJSONObject(i);
+                if (o == null || !"hls".equalsIgnoreCase(o.optString("format", ""))) continue;
+                String u = o.optString("videoUrl", "");
+                if (!u.startsWith("http") || !seenUrl.add(u)) continue;
+                int h = o.optInt("height", 0);
+                if (h <= 0) h = parseInt(o.optString("quality", ""), 0);
+                boolean d = o.optBoolean("defaultQuality", false);
+                if (d && TextUtils.isEmpty(defUrl)) { defUrl = u; defH = h; }
+                defs.put(new JSONObject().put("u", u).put("h", h).put("d", d ? 1 : 0));
+            }
+            if (defs.length() == 0) return "";
+            if (TextUtils.isEmpty(defUrl)) {
+                defUrl = defs.getJSONObject(0).getString("u");
+                defH = defs.getJSONObject(0).optInt("h", 0);
+                defs.getJSONObject(0).put("d", 1);
+            }
+            if (defs.length() >= 2) PushMultiRes.offer(defUrl, defs.toString(), "");
+            return mediaResult(defUrl, page, "站方声明各档 hls " + defs.length() + " 档，默认 " + defH + "p" + (defs.length() >= 2 ? "（已登记多画质）" : ""));
+        } catch (Throwable t) {
+            return "";
+        }
+    }
+
+    /**
+     * push v45（Liu 2026-11-24「不仅仅是P站」）：网页源解出单个 m3u8 后，若播放页里另外声明了主清单
+     * （…/playlist.m3u8 或 …/master.m3u8，与解出地址不同），登记给 PushMultiRes 作「页面声明」候选；
+     * 起播前升级时取回核实（≥2 档且含解出地址）才用，不成照原地址。已登记过站方各档的不覆盖。
+     */
+    private void offerDeclaredMaster(String out) {
+        try {
+            String html = playHtmlForMaster;
+            if (TextUtils.isEmpty(out) || TextUtils.isEmpty(html)) return;
+            JSONObject r = new JSONObject(out);
+            if (r.optInt("parse", 0) != 0) return;
+            String url = r.optString("url", "");
+            if (!url.startsWith("http") || !url.toLowerCase(Locale.ROOT).contains(".m3u8") || PushMultiRes.hasOffer(url)) return;
+            Matcher m = Pattern.compile("https?:(?:\\\\?/){2}[^\"'\\s<>()]+?/(?:playlist|master)\\.m3u8[^\"'\\s<>()]*", Pattern.CASE_INSENSITIVE).matcher(html);
+            int n = 0;
+            while (m.find() && n++ < 50) {
+                String d = m.group().replace("\\/", "/");
+                if (d.equals(url)) continue;
+                PushMultiRes.offer(url, "", d);
+                log("播放页声明了主清单，登记为多画质候选：" + (d.length() > 100 ? d.substring(0, 100) + "…" : d));
+                return;
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
     private String mediaResult(String url, String referer, String tag) {
         try {
             JSONObject r = new JSONObject();
