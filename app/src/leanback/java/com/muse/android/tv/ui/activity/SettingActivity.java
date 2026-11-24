@@ -96,6 +96,17 @@ public class SettingActivity extends BaseActivity implements ConfigListener, Sit
         mBinding.incognitoText.setText(Setting.getSwitch(Setting.isIncognito()));
         mBinding.sizeText.setText((size = ResUtil.getStringArray(R.array.select_size))[PlayerSetting.getSize()]);
         setSearchCapText();
+        setWebViewportText();
+    }
+
+    // push tv v32：浏览器缩放（网页视口宽度 1920/1600/1280，默认 1600）；遥控器 OK 键循环切换，照「每站搜索条数」项做法
+    private void setWebViewportText() {
+        mBinding.webViewportText.setText(String.valueOf(Setting.getWebViewport()));
+    }
+
+    private void setWebViewport(View view) {
+        Setting.putWebViewportIndex((Setting.getWebViewportIndex() + 1) % Setting.WEB_VIEWPORT_VALUES.length);
+        setWebViewportText();
     }
 
     // push v47：每站搜索条数（20/40/80/不限，默认 40）；遥控器 OK 键循环切换，照「图片尺寸」项做法
@@ -132,6 +143,7 @@ public class SettingActivity extends BaseActivity implements ConfigListener, Sit
         mBinding.wall.setOnClickListener(this::onWall);
         mBinding.size.setOnClickListener(this::setSize);
         mBinding.searchCap.setOnClickListener(this::setSearchCap);
+        mBinding.webViewport.setOnClickListener(this::setWebViewport);
         mBinding.cache.setOnClickListener(this::onCache);
         mBinding.backup.setOnClickListener(this::onBackup);
         mBinding.player.setOnClickListener(this::onPlayer);

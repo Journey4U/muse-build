@@ -311,6 +311,7 @@
     <string name="setting_size">圖片尺寸</string>
     <string name="setting_search_cap">每站搜尋條數</string>
     <string name="setting_search_cap_unlimited">不限</string>
+    <string name="setting_web_viewport">瀏覽器縮放（網頁寬度，越小字越大）</string>
     <string name="setting_doh">DoH</string>
     <string name="setting_proxy">Proxy</string>
     <string name="setting_cache">暫存</string>

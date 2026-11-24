@@ -1400,8 +1400,13 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         "ntElement,{childList:true,subtree:true});setTimeout(function(){try{preOb.disconnect();}catch(e){}},600000);/*push v29 R31-2*/var f1Ob=new MutationObserver(function(muts){for(var i=0;i<muts.length;i++){var ns=muts[i].addedNodes;for(var j=0;j<ns.length;j++){var n=ns[j];if(!n||n.nodeType!==1)continue;if(n.hasAttribute&&n.hasAttribute('data-cl-spot')){try{killClSpots();}catch(e){}}var l=n.tagName==='IFRAME'?[n]:(n.querySelectorAll?n.querySelectorAll('iframe'):[]);for(var k=0;k<l.length;k++){try{f1Hook(l[k]);f1Judge(l[k]);}catch(e){}}}}});if(document.documentElement)f1Ob.observe(document.documentElement,{childList:true,subtree:true});setTimeout(function(){try{f1Ob.disconnect();}catch(e){}},600000);})(",
         ");"
     };
-    // 1080 视口：电视浏览器按固定 1920px 布局，桌面站导航不再裹成多行（吃瓜/黑料/大赛上框占比大）。
-    private static final String VIEWPORT_JS = "(function(){try{var ms=document.getElementsByTagName('meta');var m=null;for(var i=0;i<ms.length;i++){if(ms[i].getAttribute('name')==='viewport'){m=ms[i];break;}}if(!m){m=document.createElement('meta');m.setAttribute('name','viewport');document.head.appendChild(m);}m.setAttribute('content','width=1920');}catch(e){}})();";
+    // 1080 视口：电视浏览器按固定宽度布局，桌面站导航不再裹成多行（吃瓜/黑料/大赛上框占比大）。
+    // push tv v32：宽度改读设置「浏览器缩放」（1920/1600/1280，默认 1600），页面提交时现读。
+    private static String viewportJs() {
+        return VIEWPORT_JS_TPL.replace("__W__", String.valueOf(Setting.getWebViewport()));
+    }
+
+    private static final String VIEWPORT_JS_TPL = "(function(){try{var ms=document.getElementsByTagName('meta');var m=null;for(var i=0;i<ms.length;i++){if(ms[i].getAttribute('name')==='viewport'){m=ms[i];break;}}if(!m){m=document.createElement('meta');m.setAttribute('name','viewport');document.head.appendChild(m);}m.setAttribute('content','width=__W__');}catch(e){}})();";
     private static final String CLEAN_JS;
     static {
         StringBuilder sb = new StringBuilder();
@@ -1599,7 +1604,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     private String mPushProbeRetryPageUrl = "";
     private ActivityWebPlayBinding mBinding;
     private WebResourceResponse mEmpty;
-    // 1080 视口：本页是否已注过 width=1920（onPageStarted 重置，onPageCommitVisible 只注一次）。
+    // 1080 视口：本页是否已注过视口宽度（onPageStarted 重置，onPageCommitVisible 只注一次）。
     private boolean mViewportInjected;
     private HashSet<String> mBlockedHosts = new HashSet<>();
     private HashSet<String> mResErrUrls = new HashSet<>();
@@ -2165,10 +2170,10 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
             public void onPageCommitVisible(WebView view, String url) {
                 super.onPageCommitVisible(view, url);
                 if (url == null || url.equals("about:blank")) return;
-                // 1080 视口：页面提交时定一次 1920px；onPageFinished 会因子 frame 多次触发，反复注会多次重排、肉眼可见多次缩放。
+                // 1080 视口：页面提交时定一次视口宽度（设置值）；onPageFinished 会因子 frame 多次触发，反复注会多次重排、肉眼可见多次缩放。
                 if (!mViewportInjected) {
                     mViewportInjected = true;
-                    view.evaluateJavascript(VIEWPORT_JS, null);
+                    view.evaluateJavascript(viewportJs(), null);
                 }
                 evalCleanJs(view);
             }
