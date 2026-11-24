@@ -54,6 +54,7 @@ import com.muse.android.tv.ui.presenter.HeaderPresenter;
 import com.muse.android.tv.ui.presenter.HistoryPresenter;
 import com.muse.android.tv.ui.presenter.ProgressPresenter;
 import com.muse.android.tv.ui.presenter.VodPresenter;
+import com.muse.android.tv.ui.presenter.WebHomePresenter;
 import com.muse.android.tv.utils.Notify;
 import com.muse.android.tv.utils.ResUtil;
 import com.github.catvod.utils.Prefers;
@@ -114,7 +115,9 @@ public class HomePageFragment extends BaseFragment implements VodPresenter.OnCli
         // 这里用 Activity 已缓存的最新首页结果直接补填，不新发请求。
         if (getActivity() instanceof HomeActivity) {
             HomeActivity activity = (HomeActivity) getActivity();
-            if (activity.hasHomeResult()) fillHome(activity.getHomeResult());
+            // 纯网页源进站主页：重建的首页页同样只放「进站主页」卡片。
+            if (VideoActivity.isPureWebSource(getHome())) showWebHome(getHome().getName());
+            else if (activity.hasHomeResult()) fillHome(activity.getHomeResult());
         }
     }
 
@@ -136,6 +139,7 @@ public class HomePageFragment extends BaseFragment implements VodPresenter.OnCli
         selector.addPresenter(Integer.class, new HeaderPresenter());
         selector.addPresenter(String.class, new ProgressPresenter());
         selector.addPresenter(Vod.class, new VodPresenter(this, Style.list()));
+        selector.addPresenter(WebHomePresenter.Card.class, new WebHomePresenter(this::openWebHome));
         selector.addPresenter(ListRow.class, new CustomRowPresenter(16), VodPresenter.class);
         selector.addPresenter(ListRow.class, new CustomRowPresenter(22), FuncPresenter.class);
         selector.addPresenter(ListRow.class, new CustomRowPresenter(16, FocusHighlight.ZOOM_FACTOR_SMALL, HorizontalGridView.FOCUS_SCROLL_ALIGNED), HistoryPresenter.class);
@@ -225,6 +229,22 @@ public class HomePageFragment extends BaseFragment implements VodPresenter.OnCli
         Style style = result.getStyle(getHome().getStyle());
         if (style.isList()) mAdapter.addAll(mAdapter.size(), result.getList());
         else addGrid(result.getList(), style);
+    }
+
+    /**
+     * 纯网页源进站主页（Liu 2026-11-23 方案 A）：内容态 + 删推荐标题之后全部 + 放一张「进站主页」大卡片
+     * （站名 + 进站主页，遥控器方向键可聚焦、确认键进站）。
+     */
+    public void showWebHome(String name) {
+        if (mBinding == null || mAdapter == null) return;
+        mBinding.progressLayout.showContent();
+        int d = getRecommendIndexAfter();
+        if (d >= 0 && mAdapter.size() > d) mAdapter.removeItems(d, mAdapter.size() - d);
+        mAdapter.add(mAdapter.size(), new WebHomePresenter.Card(name));
+    }
+
+    private void openWebHome() {
+        if (getActivity() instanceof HomeActivity) ((HomeActivity) getActivity()).openWebHome();
     }
 
     private void addGrid(List<Vod> items, Style style) {
@@ -325,6 +345,11 @@ public class HomePageFragment extends BaseFragment implements VodPresenter.OnCli
 
     /** 进当前站点的主页（网页播放那套主页推导）；推不出就提示，不进空白页（与手机版 HomeActivity.openBrowser 同逻辑）。 */
     private void openBrowser() {
+        // 纯网页源进站主页：首页功能行「浏览器」与进站卡片同一入口（顶栏带「切源」钮），与手机版底部导航「浏览器」一致。
+        if (getActivity() instanceof HomeActivity) {
+            ((HomeActivity) getActivity()).openWebHome();
+            return;
+        }
         Site site = getHome();
         String url = site == null ? null : VideoActivity.siteHomePageUrl(site);
         if (TextUtils.isEmpty(url)) {

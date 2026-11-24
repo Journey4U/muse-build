@@ -36,6 +36,7 @@ import com.muse.android.tv.R;
 import com.muse.android.tv.api.DanmakuApi;
 import com.muse.android.tv.api.SiteApi;
 import com.muse.android.tv.api.config.VodConfig;
+import com.muse.android.tv.api.loader.PushMultiRes;
 import com.muse.android.tv.api.loader.HttpEpisodeResolver;
 import com.muse.android.tv.api.loader.LocalSourceHub;
 import com.muse.android.tv.bean.Danmaku;
@@ -731,6 +732,11 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
             mWebEpHeaders = Collections.emptyMap();
             mWebSniffPage = null;
             final int seq = ++mWebResolveSeq;
+            // push v45/v27：网页源（全局搜索结果）走 WebView 嗅探解出的地址，交播放器前同样升级多画质；其他源清掉标记、行为不变。
+            try {
+                player().setUpgradeOnParse(getSite().isWebSource() ? getHistoryKey() : null);
+            } catch (Throwable ignored) {
+            }
             String page = url == null ? "" : url;
             if (getSite().isWebSource() && result.getParse() == 1 && (page.startsWith("http://") || page.startsWith("https://"))) {
                 // push v32（方案 R，加固 a；电视 v19 补）：网页源要嗅探时，先用推送线现成的纯 HTTP 解析器
@@ -748,7 +754,8 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
                             if (result.getHeader().isEmpty()) result.setHeader(new LinkedHashMap<>(headers));
                             else result.getHeader().putAll(headers);
                         }
-                        startPlayer(getHistoryKey(), result, false, getSite().getTimeout(), startPositionMs, metadata);
+                        // push v45/v27：纯 HTTP 解析器解出的地址同样先升级多画质再起播
+                        startWebMultiRes(result, false, startPositionMs, metadata, seq);
                     }
 
                     @Override
@@ -760,8 +767,38 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
                 });
                 return;
             }
+            // push v43/v25：浏览器推送的地址落地前升级为多画质（PushMultiRes：已是多档主清单原样播；找到主清单或合成本机主清单则换用；
+            // 都不成照原地址）。只对浏览器推送（带 browserPage）的 http(s) 地址；探针认正片的结果不动。
+            // push v45/v27（Liu 2026-11-24「不仅仅是P站」）：网页源（全局搜索结果）的播放地址同样走这套升级——
+            // 已是主清单原样；单档找页面声明主清单/同目录主清单核实多档才换；站方各档独立地址合成；都不成照原地址。
+            // 只对网页源、不需解析的 http(s) 地址；PushMultiRes 只对 m3u8 或登记过候选的地址联网，mp4 等直接原样。蜘蛛源/其他源不走这里。
+            boolean webMultiRes = getSite().isWebSource() && !useParse && !result.needParse();
+            if ((webMultiRes || (SiteApi.PUSH.equals(getKey()) && getIntent().hasExtra("browserPage"))) && url != null && (url.startsWith("http://") || url.startsWith("https://"))) {
+                showProgress();
+                PushMultiRes.upgrade(url, result.getHeader(), upgraded -> {
+                    if (isHostFinishing() || seq != mWebResolveSeq) return;
+                    if (!TextUtils.isEmpty(upgraded) && !upgraded.equals(url)) result.setUrl(upgraded);
+                    startPlayer(getHistoryKey(), result, useParse, getSite().getTimeout(), startPositionMs, metadata);
+                });
+                return;
+            }
             startPlayer(getHistoryKey(), result, useParse, getSite().getTimeout(), startPositionMs, metadata);
         }
+    }
+
+    /** push v45/v27：网页源解出的地址起播前升级多画质（同推送 v43/v25 的 PushMultiRes；失败/非 m3u8 照原地址）。 */
+    private void startWebMultiRes(Result result, boolean useParse, long startPositionMs, MediaMetadata metadata, int seq) {
+        String u = result.getUrl().v();
+        if (u == null || !(u.startsWith("http://") || u.startsWith("https://"))) {
+            startPlayer(getHistoryKey(), result, useParse, getSite().getTimeout(), startPositionMs, metadata);
+            return;
+        }
+        showProgress();
+        PushMultiRes.upgrade(u, result.getHeader(), upgraded -> {
+            if (isHostFinishing() || seq != mWebResolveSeq) return;
+            if (!TextUtils.isEmpty(upgraded) && !upgraded.equals(u)) result.setUrl(upgraded);
+            startPlayer(getHistoryKey(), result, useParse, getSite().getTimeout(), startPositionMs, metadata);
+        });
     }
 
     // ===== push v2：浏览器转播放落地（多线表 + HTTP 集解析）=====
@@ -1177,6 +1214,16 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     public static String siteHomePageUrl(Site site) {
         String url = resolveHomePageUrl(site);
         return url;
+    }
+
+    /**
+     * 纯网页源进站主页（Liu 2026-11-23 方案 A）：纯网页源 = 条目没有 api、没有 ext（v67 isWebSource，含条目「主页url」非空）、
+     * type 0，且按现行主页解析规则推得出主页地址。这类源选中/启动时直接全屏进站主页，首页页只放「进站主页」卡片。
+     */
+    public static boolean isPureWebSource(Site site) {
+        if (site == null || !site.isWebSource()) return false;
+        if (site.getType() != 0) return false;
+        return !TextUtils.isEmpty(siteHomePageUrl(site));
     }
 
     private static String resolveHomePageUrl(Site site) {
@@ -2359,6 +2406,8 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         updateEpisodesButton();
         App.post(mR3, 0);
         updatePlayInfo();
+        // v31：显隐刚更新过，再核一次目标是否还在控制栏内可见可聚焦，不是就回落功能栏首个按钮
+        if (!isControlFocusable(view)) view = firstControlFocus();
         view.requestFocus();
         setR1Callback();
     }
@@ -2743,14 +2792,44 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     }
 
     private View getFocus2() {
-        return mFocus2 == null || mFocus2.getVisibility() != View.VISIBLE || mFocus2 == mBinding.control.action.opening || mFocus2 == mBinding.control.action.ending ? mBinding.control.action.next : mFocus2;
+        if (mFocus2 == null || mFocus2 == mBinding.control.action.opening || mFocus2 == mBinding.control.action.ending || !isControlFocusable(mFocus2)) return firstControlFocus();
+        return mFocus2;
+    }
+
+    /** v31：控制栏焦点只认控制栏内可见可聚焦的视图（单集时上一集/下一集是 GONE，旧写法 requestFocus 落空）。 */
+    private boolean isControlFocusable(View view) {
+        if (view == null || !view.isFocusable()) return false;
+        View root = mBinding.control.getRoot();
+        View v = view;
+        while (v != null) {
+            if (v == root) return true; // 控制栏根本身可能还没显示（showControl 里才设可见），只核其内部各层
+            if (v.getVisibility() != View.VISIBLE) return false;
+            v = v.getParent() instanceof View ? (View) v.getParent() : null;
+        }
+        return false;
+    }
+
+    /** v31：回落焦点——下一集可见（多集）照旧落下一集；否则取功能栏第一个可见可聚焦按钮（单集即播放器键）。 */
+    private View firstControlFocus() {
+        View next = mBinding.control.action.next;
+        if (isControlFocusable(next)) return next;
+        View root = mBinding.control.action.getRoot();
+        View row = root instanceof ViewGroup && ((ViewGroup) root).getChildCount() > 0 ? ((ViewGroup) root).getChildAt(0) : root;
+        if (row instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) row;
+            for (int i = 0; i < group.getChildCount(); i++) {
+                View child = group.getChildAt(i);
+                if (child.getVisibility() == View.VISIBLE && child.isFocusable()) return child;
+            }
+        }
+        return mBinding.control.action.player;
     }
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
         if (isFullscreen() && KeyUtil.isMenuKey(event)) onToggle();
         if (isVisible(mBinding.control.getRoot())) setR1Callback();
-        if (isVisible(mBinding.control.getRoot())) mFocus2 = getCurrentFocus();
+        if (isVisible(mBinding.control.getRoot()) && isControlFocusable(getCurrentFocus())) mFocus2 = getCurrentFocus();
         if (isFullscreen() && isGone(mBinding.control.getRoot()) && mKeyDown.hasEvent(event) && service() != null) return mKeyDown.onKeyDown(event);
         if (KeyUtil.isMediaFastForward(event)) return onSeekForward();
         if (KeyUtil.isMediaRewind(event)) return onSeekBack();
@@ -2788,9 +2867,9 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     public void onKeyUp() {
         long position = player().getPosition();
         long duration = player().getDuration();
-        if (player().canSetOpening(position, duration)) {
+        if (player().canSetOpening(position, duration) && mBinding.control.action.opening.getVisibility() == View.VISIBLE) {
             showControl(mBinding.control.action.opening);
-        } else if (player().canSetEnding(position, duration)) {
+        } else if (player().canSetEnding(position, duration) && mBinding.control.action.ending.getVisibility() == View.VISIBLE) {
             showControl(mBinding.control.action.ending);
         } else {
             showControl(getFocus2());

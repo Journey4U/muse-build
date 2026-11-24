@@ -21,6 +21,7 @@ import androidx.viewpager.widget.ViewPager;
 import com.muse.android.tv.App;
 import com.muse.android.tv.R;
 import com.muse.android.tv.Updater;
+import com.muse.android.tv.api.config.ConfigGuard;
 import com.muse.android.tv.api.config.LiveConfig;
 import com.muse.android.tv.api.config.VodConfig;
 import com.muse.android.tv.api.config.WallConfig;
@@ -95,6 +96,28 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     private long mExitTime;
     private int mCurrentPage;
 
+    /** 纯网页源进站主页（Liu 2026-11-23 方案 A）：已自动进过站的源 key——同一次启动/同一次选中只自动进一次，返回后不再弹。 */
+    private static String sWebAutoKey;
+    /** 浏览器顶栏「切源」：回首页后打开切源对话框的待办标记（onResume 里消费）。 */
+    private static boolean sPendingSiteDialog;
+
+    /** 这个源这次还没自动进过站就记下并返回 true；已进过返回 false（防返回后又被弹进去）。 */
+    public static boolean takeWebAutoOpen(String key) {
+        if (key == null || key.equals(sWebAutoKey)) return false;
+        sWebAutoKey = key;
+        return true;
+    }
+
+    /** 用户在切源列表里重新选了源：清掉记号，选中纯网页源时照样自动进站。 */
+    public static void resetWebAutoOpen() {
+        sWebAutoKey = null;
+    }
+
+    /** 浏览器顶栏「切源」点击：回到首页后打开切源对话框。 */
+    public static void requestSiteDialog() {
+        sPendingSiteDialog = true;
+    }
+
     private Site getHome() {
         return VodConfig.get().getHome();
     }
@@ -123,6 +146,11 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     @Override
     protected void initView(Bundle savedInstanceState) {
         mClock = Clock.create(mBinding.clock).format("HH:mm:ss MM/dd E");
+        // 纯网页源进站主页：新启动（非重建）才重置「已自动进站」记号——App 启动时当前源是纯网页源会自动进站一次。
+        if (savedInstanceState == null) {
+            sWebAutoKey = null;
+            sPendingSiteDialog = false;
+        }
         PermissionUtil.requestNotify(this);
         setStrip();
         setPager();
@@ -209,6 +237,8 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
 
     /** 原版 R1/L：类型到达 → Cache 清后存入 + 条与页一起重建（新 adapter）+ 300ms 后填首页。 */
     private void onHomeResult(Result result) {
+        // 纯网页源进站主页：切到纯网页源前还在途的旧首页结果不再铺上来（首页页只留卡片）。
+        if (VideoActivity.isPureWebSource(getHome())) return;
         Cache.clear().put(result);
         mResult = result;
         mHasHomeResult = true;
@@ -240,6 +270,13 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
             if (home != null) home.showContent();
             return;
         }
+        // 纯网页源进站主页（Liu 2026-11-23 方案 A）：不拉首页（纯网页源没有接口，原来会报主页为空），
+        // 作废在途的首页加载，首页页只放「进站主页」卡片；这个源这次还没自动进过站就直接全屏进站。
+        if (VideoActivity.isPureWebSource(getHome())) {
+            ++mHomeLoadToken;
+            showWebHome();
+            return;
+        }
         mSavedFocus = getCurrentFocus();
         int token = ++mHomeLoadToken;
         App.post(() -> {
@@ -248,6 +285,43 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
             if (home != null) home.showProgress();
             mViewModel.homeContent();
         }, 200);
+    }
+
+    /** 纯网页源首页：清掉上一个源的分类条与分类页（只剩「首页」），首页页放卡片；首次自动进站。 */
+    private void showWebHome() {
+        Cache.clear().put(Result.empty());
+        mResult = Result.empty();
+        mHasHomeResult = true;
+        setStripTypes(new ArrayList<>());
+        mPagerAdapter = new HomePagerAdapter(getSupportFragmentManager(), getHome().getKey(), new ArrayList<>());
+        mBinding.pager.setAdapter(mPagerAdapter);
+        mBinding.pager.setNoScrollItem(0);
+        mPagerAdapter.notifyDataSetChanged();
+        String key = getHome().getKey();
+        App.post(() -> {
+            if (isFinishing() || isDestroyed()) return;
+            if (!key.equals(getHome().getKey()) || !VideoActivity.isPureWebSource(getHome())) return;
+            HomePageFragment home = getHomeFragment();
+            if (home != null && home.isAdapterReady()) home.showWebHome(getHome().getName());
+            if (takeWebAutoOpen(key)) openWebHome();
+        }, 300);
+    }
+
+    /** 全屏打开现有浏览器进当前源的主页（与首页功能行「浏览器」同一套主页推导，入口带「切源」钮）。 */
+    public void openWebHome() {
+        // push tv v30：配置被清空（长时间不操作后）→ 先自动重载，加载完再进站主页，不再只弹「没有主页」。
+        if (ConfigGuard.reloadIfEmpty("进站主页", () -> {
+            if (isFinishing() || isDestroyed()) return;
+            takeWebAutoOpen(getHome().getKey());
+            openWebHome();
+        })) return;
+        Site site = getHome();
+        String url = site == null ? null : VideoActivity.siteHomePageUrl(site);
+        if (TextUtils.isEmpty(url)) {
+            Notify.show(R.string.nav_browser_empty);
+            return;
+        }
+        WebPlayActivity.startHome(this, site.getName(), url, site.getKey(), site.getClick());
     }
 
     /** 原版 W()：标题取首页源名 / 配置名 / 应用名第一个非空。 */
@@ -540,6 +614,10 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     }
 
     public void showDialog() {
+        // push tv v30：配置被清空时源列表是空的（换源打不开）→ 先自动重载，加载完再打开源列表。
+        if (ConfigGuard.reloadIfEmpty("换源", () -> {
+            if (!isFinishing() && !isDestroyed()) showDialog();
+        })) return;
         SiteDialog.create().keyword().show(this);
     }
 
@@ -550,6 +628,8 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
 
     /** 原版 l(Site)：切源 + 分类重载事件 + 首页刷新。 */
     public void setSite(Site item) {
+        // 纯网页源进站主页：用户在切源列表里点选 = 一次新的选中，点纯网页源照样自动进站。
+        resetWebAutoOpen();
         VodConfig.get().setHome(item);
         RefreshEvent.category();
         refreshHome();
@@ -596,8 +676,18 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     @Override
     protected void onResume() {
         super.onResume();
+        // push tv v30：长时间不操作回来，内存里的点播配置已被清空而界面还在 → 自动重载（加载完照常刷新首页）。
+        ConfigGuard.reloadIfEmpty("回到前台", null);
         mClock.start();
         X();
+        // 浏览器顶栏「切源」回来：回首页页并打开切源对话框（与首页按钮/菜单键同一个）。
+        if (sPendingSiteDialog) {
+            sPendingSiteDialog = false;
+            if (mCurrentPage != 0) mBinding.pager.setCurrentItem(0);
+            App.post(() -> {
+                if (!isFinishing() && !isDestroyed()) showDialog();
+            }, 100);
+        }
     }
 
     @Override

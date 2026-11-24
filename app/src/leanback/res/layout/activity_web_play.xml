@@ -84,6 +84,20 @@
                 android:textColor="#FFFFFF"
                 android:textSize="16sp" />
 
+            <!-- 纯网页源进站主页（Liu 2026-11-23）：「切源」chip，与返回/刷新同写法（遥控器 D-pad 可聚焦），只在主页入口打开时显示 -->
+            <TextView
+                android:id="@+id/switchSite"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/selector_chip"
+                android:focusable="true"
+                android:focusableInTouchMode="true"
+                android:padding="8dp"
+                android:text="@string/web_switch_site"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:visibility="gone" />
+
             <!-- TV push v5：推送钮由右下角悬浮移入顶栏（返回/刷新同一排），遥控器 D-pad 可聚焦；初始隐藏，探到流/线路表时才亮起 -->
             <TextView
                 android:id="@+id/pushPlay"

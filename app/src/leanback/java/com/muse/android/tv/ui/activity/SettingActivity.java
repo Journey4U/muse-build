@@ -95,6 +95,21 @@ public class SettingActivity extends BaseActivity implements ConfigListener, Sit
         setLocalSourceText();
         mBinding.incognitoText.setText(Setting.getSwitch(Setting.isIncognito()));
         mBinding.sizeText.setText((size = ResUtil.getStringArray(R.array.select_size))[PlayerSetting.getSize()]);
+        setSearchCapText();
+    }
+
+    // push v47：每站搜索条数（20/40/80/不限，默认 40）；遥控器 OK 键循环切换，照「图片尺寸」项做法
+    private String[] getSearchCapItems() {
+        return new String[]{"20", "40", "80", ResUtil.getString(R.string.setting_search_cap_unlimited)};
+    }
+
+    private void setSearchCapText() {
+        mBinding.searchCapText.setText(getSearchCapItems()[Setting.getSearchCapIndex()]);
+    }
+
+    private void setSearchCap(View view) {
+        Setting.putSearchCapIndex((Setting.getSearchCapIndex() + 1) % Setting.SEARCH_CAP_VALUES.length);
+        setSearchCapText();
     }
 
     private void setCacheText() {
@@ -116,6 +131,7 @@ public class SettingActivity extends BaseActivity implements ConfigListener, Sit
         mBinding.live.setOnClickListener(this::onLive);
         mBinding.wall.setOnClickListener(this::onWall);
         mBinding.size.setOnClickListener(this::setSize);
+        mBinding.searchCap.setOnClickListener(this::setSearchCap);
         mBinding.cache.setOnClickListener(this::onCache);
         mBinding.backup.setOnClickListener(this::onBackup);
         mBinding.player.setOnClickListener(this::onPlayer);
