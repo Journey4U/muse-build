@@ -6031,7 +6031,7 @@ public class WebSpider extends Spider {
                     }
                     String body = postSearch(ep, key);
                     list = "maccmsphp".equals(template) ? maccmsPhpItems(body, 0) : maccmsItems(body, 0);
-                    if (list.length() == 0) list = genericItems(body, 0);
+                    if (list.length() == 0) list = searchItems(body);
                     if (list.length() > 0 && searchSaysNoResult(body)) list = new JSONArray();
                     log("搜索尝试(POST) " + ep.split("\\|", -1)[1] + " -> " + list.length() + " 条");
                 } else if (list.length() == 0 && !TextUtils.isEmpty(ep)) {
@@ -6051,7 +6051,7 @@ public class WebSpider extends Spider {
                     // 落地站点详情是 /v5/123-1-1.html 时正则能匹配；但若是 /play/123 之类的形态就 0 条。
                     // 同一份 HTML 再用 genericItems 形态自适应抽一次，命中即停（正规 maccms 页首抽取已满，
                     // 这里只在 0 条时补，零副作用）。黄色仓库 hsck 落地域名即此形态。
-                    if (list.length() == 0) list = genericItems(body, 0);
+                    if (list.length() == 0) list = searchItems(body);
                     log("搜索尝试 " + u + " -> " + list.length() + " 条");
                     if (page <= 1 && list.length() > 0) rememberPageTpl(root + "|" + key, body, lastFetchUrl, u, key);
                 }
@@ -6063,7 +6063,7 @@ public class WebSpider extends Spider {
                         body = "";
                     }
                     list = "maccmsphp".equals(template) ? maccmsPhpItems(body, 0) : maccmsItems(body, 0);
-                    if (list.length() == 0) list = genericItems(body, 0);
+                    if (list.length() == 0) list = searchItems(body);
                     log("搜索尝试(老路由) " + u + " -> " + list.length() + " 条");
                 }
             } else {
@@ -6092,7 +6092,7 @@ public class WebSpider extends Spider {
                         }
                         String ph = postSearch(tpl, key);
                         if (noRender && challenged) break;
-                        list = genericItems(ph, 0);
+                        list = searchItems(ph);
                         log("搜索尝试(POST) " + tpl.split("\\|", -1)[1] + " -> " + list.length() + " 条");
                         if (list.length() > 0 && (searchSaysNoResult(ph) || searchFellBackToHome(ph, key))) {
                             log("搜索候选忽略（POST：站点提示未找到或回首页）");
@@ -6162,8 +6162,13 @@ public class WebSpider extends Spider {
                             && (searchHtml.contains("系统安全验证") || searchHtml.contains("请输入密码") || searchHtml.contains("访问验证"))) {
                         log("搜索页被验证页拦截（客观受限，需人工过验证）size=" + searchHtml.length() + " " + u);
                     }
-                    list = genericItems(searchHtml, 0);
+                    list = searchItems(searchHtml);
                     log("搜索尝试 " + u + " -> " + list.length() + " 条");
+                    // push v46：结果区只有占位卡 + 前端模板（missav2 搜无此片）= 这站没结果，返回空、不再试别的候选（防别的候选抽出假条目）
+                    if (list.length() == 0 && searchResultIsEmptyTemplate(searchHtml, key)) {
+                        log("搜索无结果（结果区为空模板）" + u);
+                        break;
+                    }
                     // r5xx：**「站点说没搜到，但侧栏还有一堆推荐文章」识别** —— 91吃瓜 实测：
                     // /search/黑料.html 被站点当成关键词「黑料html」→ 标题「未找到黑料html的相关内容」，
                     // 正文 0 条结果，但侧栏 10 个 /archives/ 链接被 genericItems 当成结果抽走 →
@@ -6198,7 +6203,7 @@ public class WebSpider extends Spider {
                         try {
                             Map<String, String> hd = new LinkedHashMap<>();
                             String rh = webFetch(u, hd, 25000);
-                            list = genericItems(rh, 0);
+                            list = searchItems(rh);
                             log("搜索渲染兜底（加密壳）" + u + " -> " + list.length() + " 条");
                             if (list.length() > 0) break;
                         } catch (Throwable e) {
@@ -6457,6 +6462,72 @@ public class WebSpider extends Spider {
      * 且正文规模也接近首页（±5% 或 2KB 内）。吃瓜系 {@code /?s=词} 正是这种：URL 带词、内容却是首页。
      * <p>标题里出现关键词时一律认为站点确实按词搜了，直接放行。
      */
+    /**
+     * push v46（Liu 2026-11-24 13:49 截图：missav2 搜站里没有的词出「韓國直播」假卡）：搜索结果页抽条目前，
+     * 先把**导航性容器**整段拿掉 —— &lt;nav&gt;/&lt;aside&gt;/&lt;footer&gt;、role=navigation/menu/menubar、
+     * 以及「点外面就收起」的弹出菜单（Alpine @click.outside / @click.away、Vue v-click-outside）。
+     * 这些容器里的链接是导航项（分类、直播、站群），不是搜索结果。&lt;header&gt; 不拿（文章卡片标题常在卡内 header 里）。
+     * 只用于搜索调用链；首页/分类/详情不走这里。找不到配对闭合标签的容器原样保留（宁可不拿，不误删正文）。
+     */
+    private static final Pattern NAV_REGION_OPEN = Pattern.compile(
+            "<(nav|aside|footer)\\b[^>]*>|<([a-zA-Z][a-zA-Z0-9]*)\\b[^>]*(?:\\srole=\"(?:navigation|menu|menubar)\"|\\s(?:@click\\.outside|@click\\.away|x-on:click\\.outside|x-on:click\\.away|v-click-outside)\\b)[^>]*>",
+            Pattern.CASE_INSENSITIVE);
+
+    static String stripNavRegions(String html) {
+        if (TextUtils.isEmpty(html)) return html;
+        StringBuilder out = new StringBuilder(html.length());
+        Matcher m = NAV_REGION_OPEN.matcher(html);
+        int pos = 0;
+        while (pos < html.length() && m.find(pos)) {
+            String tag = (m.group(1) != null ? m.group(1) : m.group(2)).toLowerCase(Locale.ROOT);
+            int close = matchCloseTag(html, tag, m.end());
+            if (close < 0) {   // 没配对上：本标签原样保留，从它后面接着找
+                out.append(html, pos, m.end());
+                pos = m.end();
+                continue;
+            }
+            out.append(html, pos, m.start());
+            pos = close;
+        }
+        if (pos < html.length()) out.append(html, pos, html.length());
+        return out.toString();
+    }
+
+    /** push v46：从 from 起找与已打开的 &lt;tag&gt; 配对的闭合标签，返回闭合标签之后的位置；找不到返回 -1。 */
+    private static int matchCloseTag(String html, String tag, int from) {
+        Matcher t = Pattern.compile("<(/?)" + Pattern.quote(tag) + "\\b[^>]*>", Pattern.CASE_INSENSITIVE).matcher(html);
+        t.region(from, html.length());
+        int depth = 1;
+        while (t.find()) {
+            if (t.group(0).endsWith("/>")) continue;
+            if (t.group(1).isEmpty()) depth++;
+            else if (--depth == 0) return t.end();
+        }
+        return -1;
+    }
+
+    /** push v46：搜索调用链统一的条目抽取 —— 先去导航性容器再走 genericItems。 */
+    private JSONArray searchItems(String html) {
+        return genericItems(stripNavRegions(html), 0);
+    }
+
+    /**
+     * push v46：**结果区为空模板** —— 站方服务端只给了结果网格的占位卡和前端模板（Alpine x-for / Vue v-for 的
+     * &lt;template&gt;，链接写成 :href 绑定），真条目要浏览器跑脚本才出来；源码里一张影片卡都没有。
+     * missav2 实证：搜「每日大赛」200，标题「每日大赛的搜尋結果」，网格里只有 x-show="! recommendItems.length"
+     * 的 href="#" 占位卡 + &lt;template x-for="item in recommendItems…"&gt;（推荐片，不是搜索结果）。
+     * 判据（全部满足）：本页 title 或首个 h1 含搜索词（确是这个词的结果页）；页里有 x-for/v-for 前端模板；
+     * 去导航后抽不到任何条目（调用处保证）。满足即判「这站没结果」，不再试别的候选。
+     */
+    private static boolean searchResultIsEmptyTemplate(String html, String key) {
+        if (TextUtils.isEmpty(html) || TextUtils.isEmpty(key)) return false;
+        if (!Pattern.compile("\\s(?:x-for|v-for)=\"", Pattern.CASE_INSENSITIVE).matcher(html).find()) return false;
+        String probe = htmlTitleOf(html);
+        Matcher h = Pattern.compile("<h1[^>]*>(.*?)</h1>", Pattern.CASE_INSENSITIVE | Pattern.DOTALL).matcher(html);
+        if (h.find()) probe = probe + " " + unescapeHtml(h.group(1)).replaceAll("<[^>]+>", "");
+        return probe.toLowerCase(Locale.ROOT).contains(key.trim().toLowerCase(Locale.ROOT));
+    }
+
     private boolean searchFellBackToHome(String html, String key) {
         try {
             if (TextUtils.isEmpty(html) || TextUtils.isEmpty(homeHtml)) return false;
