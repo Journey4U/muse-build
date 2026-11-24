@@ -2406,6 +2406,8 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         updateEpisodesButton();
         App.post(mR3, 0);
         updatePlayInfo();
+        // v31：显隐刚更新过，再核一次目标是否还在控制栏内可见可聚焦，不是就回落功能栏首个按钮
+        if (!isControlFocusable(view)) view = firstControlFocus();
         view.requestFocus();
         setR1Callback();
     }
@@ -2790,14 +2792,44 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     }
 
     private View getFocus2() {
-        return mFocus2 == null || mFocus2.getVisibility() != View.VISIBLE || mFocus2 == mBinding.control.action.opening || mFocus2 == mBinding.control.action.ending ? mBinding.control.action.next : mFocus2;
+        if (mFocus2 == null || mFocus2 == mBinding.control.action.opening || mFocus2 == mBinding.control.action.ending || !isControlFocusable(mFocus2)) return firstControlFocus();
+        return mFocus2;
+    }
+
+    /** v31：控制栏焦点只认控制栏内可见可聚焦的视图（单集时上一集/下一集是 GONE，旧写法 requestFocus 落空）。 */
+    private boolean isControlFocusable(View view) {
+        if (view == null || !view.isFocusable()) return false;
+        View root = mBinding.control.getRoot();
+        View v = view;
+        while (v != null) {
+            if (v == root) return true; // 控制栏根本身可能还没显示（showControl 里才设可见），只核其内部各层
+            if (v.getVisibility() != View.VISIBLE) return false;
+            v = v.getParent() instanceof View ? (View) v.getParent() : null;
+        }
+        return false;
+    }
+
+    /** v31：回落焦点——下一集可见（多集）照旧落下一集；否则取功能栏第一个可见可聚焦按钮（单集即播放器键）。 */
+    private View firstControlFocus() {
+        View next = mBinding.control.action.next;
+        if (isControlFocusable(next)) return next;
+        View root = mBinding.control.action.getRoot();
+        View row = root instanceof ViewGroup && ((ViewGroup) root).getChildCount() > 0 ? ((ViewGroup) root).getChildAt(0) : root;
+        if (row instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) row;
+            for (int i = 0; i < group.getChildCount(); i++) {
+                View child = group.getChildAt(i);
+                if (child.getVisibility() == View.VISIBLE && child.isFocusable()) return child;
+            }
+        }
+        return mBinding.control.action.player;
     }
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
         if (isFullscreen() && KeyUtil.isMenuKey(event)) onToggle();
         if (isVisible(mBinding.control.getRoot())) setR1Callback();
-        if (isVisible(mBinding.control.getRoot())) mFocus2 = getCurrentFocus();
+        if (isVisible(mBinding.control.getRoot()) && isControlFocusable(getCurrentFocus())) mFocus2 = getCurrentFocus();
         if (isFullscreen() && isGone(mBinding.control.getRoot()) && mKeyDown.hasEvent(event) && service() != null) return mKeyDown.onKeyDown(event);
         if (KeyUtil.isMediaFastForward(event)) return onSeekForward();
         if (KeyUtil.isMediaRewind(event)) return onSeekBack();
@@ -2835,9 +2867,9 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     public void onKeyUp() {
         long position = player().getPosition();
         long duration = player().getDuration();
-        if (player().canSetOpening(position, duration)) {
+        if (player().canSetOpening(position, duration) && mBinding.control.action.opening.getVisibility() == View.VISIBLE) {
             showControl(mBinding.control.action.opening);
-        } else if (player().canSetEnding(position, duration)) {
+        } else if (player().canSetEnding(position, duration) && mBinding.control.action.ending.getVisibility() == View.VISIBLE) {
             showControl(mBinding.control.action.ending);
         } else {
             showControl(getFocus2());
