@@ -1050,6 +1050,10 @@ public class WebSpider extends Spider {
      */
     private String lastFetchUrl = "";
 
+    /** push v44：最近一次 get() 的最终 HTTP 状态码（跟完 3xx 之后；0=未取到）。只供搜索候选判「报错页不算结果」用，
+     *  首页/分类/详情路径不读它，行为不变。 */
+    private volatile int lastFetchCode;
+
     /**
      * r292：首页按站点缓存 —— detect() 里的 detected 是实例字段，而壳对 detail/player 往往用不同实例，
      * 真机 14:37 日志里 detect 在同一次操作中跑了两遍，每次都去抓 224778 字的首页（2~5 秒）。
@@ -1861,8 +1865,9 @@ public class WebSpider extends Spider {
     private String get(String url) {
         if (noRender && (challenged || aborted)) return "";   // muse v31：搜索路径遇验证/已超时即整站放弃，不再发请求
         String cur = remapLanded(abs(url));
+        lastFetchCode = 0;
         String cached = RENDER_CACHE.get(cur);
-        if (!TextUtils.isEmpty(cached)) { lastFetchUrl = cur; return cached; }
+        if (!TextUtils.isEmpty(cached)) { lastFetchUrl = cur; lastFetchCode = 200; return cached; }
         for (int i = 0; i < MAX_REDIRECT; i++) {
             // r284：超时必须回到 15s —— 4kcz 这类站的详情页本身要 8~10 秒，
             // r283 压到 8s 会让请求直接超时 → 页面空 → 判成错误页 → 抽不到播放路由（真机 12:33 实证）。
@@ -1904,6 +1909,7 @@ public class WebSpider extends Spider {
                                 String out = new String(res2.body().bytes(), "utf-8");
                                 if (out.length() > 1500) {
                                     lastFetchUrl = cur;
+                                    lastFetchCode = 200;
                                     log("403 退避重试成功 " + cur + " → " + out.length() + " 字");
                                     if (noRender) autoPassed = true;
                                     rememberPage(cur, out);
@@ -1941,6 +1947,7 @@ public class WebSpider extends Spider {
                 // 而很多中文小说/听书站（真机飞卢 ts.faloo.com/Category.aspx）是 **GBK**，
                 // 响应头不带 charset 时整页解成乱码，中文分类名一个都匹配不到。
                 byte[] bytes = body.bytes();
+                lastFetchCode = code;   // push v44：搜索候选据此丢弃 4xx/5xx 报错页
                 lastFetchUrl = cur;   // r520：记录落地地址（3xx 已跟完）—— 三方播放器按它拼 api.php
                 String charset = "utf-8";
                 String ct = res.header("Content-Type");
@@ -1966,6 +1973,7 @@ public class WebSpider extends Spider {
                     pbody = passJsCookie(cur, pbody);
                     // r403：宝塔 WAF（BT-WAF）JS 挑战 —— lu9936.lol 实证，纯 HTTP 一跳可过
                     pbody = passBtwaf(cur, pbody);
+                    if (!java.util.Objects.equals(pbody, before)) lastFetchCode = 200;   // push v44：过盾重取的是新页面
                     if (noRender) {
                         // muse v31（Liu 2026-11-23 10:37/10:41）：现成纯 HTTP 能过的（JS 写 cookie、宝塔 WAF）上面已照用；
                         // 过完仍是 Cloudflare / JS 验证空壳 / 安全验证页 = 需真浏览器或人工，搜索路径直接放弃该站，
@@ -3756,7 +3764,11 @@ public class WebSpider extends Spider {
             }
             if (TextUtils.isEmpty(homeHtml) || homeHtml.length() < 500) return;
             String found = findSearchFromForm(homeHtml);
+            // push v44：站方在首页 JSON-LD 里声明的搜索地址（WebSite → SearchAction.target）—— P站实证
+            if (TextUtils.isEmpty(found)) found = findSearchFromSearchAction(homeHtml);
             if (TextUtils.isEmpty(found)) found = findSearchFromJs(homeHtml);
+            // push v44：内联脚本 location.href = `…/search/${kw}` 路径型模板串 —— MissAV 实证
+            if (TextUtils.isEmpty(found)) found = findSearchFromPathTemplate(homeHtml);
             if (TextUtils.isEmpty(found)) found = findSearchFromLinkedJs();
             if (!TextUtils.isEmpty(found)) {
                 searchEndpoint = found;
@@ -3932,6 +3944,97 @@ public class WebSpider extends Spider {
     }
 
     /** JS 跳转发现：location.assign/href/replace('URL' + 拼接) 或反引号模板字面量（`/filter?search=${kw}`），且 URL 含搜索参数名。 */
+    /**
+     * push v44：JSON-LD 搜索声明 —— &lt;script type="application/ld+json"&gt; 里 "@type":"SearchAction" 的
+     * target（字符串，或 EntryPoint 对象的 urlTemplate），把 query-input 声明的占位名（缺省任意 {名}）换成 {kw}。
+     * 只收与本站同主域的地址（防把 Google 等外站当端点）。结构认，不认站名。P站实证：
+     * target = https://cn.pornhub.com/video/search?search={search_term_string}。
+     */
+    private String findSearchFromSearchAction(String html) {
+        try {
+            if (TextUtils.isEmpty(html) || !html.contains("SearchAction")) return "";
+            Matcher sm = Pattern.compile("<script[^>]+application/ld\\+json[^>]*>(.*?)</script>", Pattern.CASE_INSENSITIVE | Pattern.DOTALL).matcher(html);
+            while (sm.find()) {
+                String js = sm.group(1);
+                int at = js.indexOf("SearchAction");
+                if (at < 0) continue;
+                String seg = js.substring(at, Math.min(js.length(), at + 1500)).replace("\\/", "/");
+                String target = firstMatchGroup(seg, "\"urlTemplate\"\\s*:\\s*\"([^\"]{8,300})\"");
+                if (TextUtils.isEmpty(target)) target = firstMatchGroup(seg, "\"target\"\\s*:\\s*\"([^\"]{8,300})\"");
+                if (TextUtils.isEmpty(target)) continue;
+                String name = firstMatchGroup(seg, "name=([A-Za-z0-9_]{1,40})");
+                String tpl;
+                if (!TextUtils.isEmpty(name) && target.contains("{" + name + "}")) tpl = target.replace("{" + name + "}", "{kw}");
+                else tpl = target.replaceFirst("\\{[A-Za-z0-9_]{1,40}\\}", "{kw}");
+                if (!tpl.contains("{kw}")) continue;
+                if (!tpl.startsWith("http")) tpl = abs(tpl);
+                if (!sameSiteHost(hostOf(tpl), hostOf(root))) {
+                    log("搜索端点(SearchAction) 非本站地址，跳过 " + tpl);
+                    continue;
+                }
+                log("搜索端点发现(SearchAction) " + tpl);
+                return tpl;
+            }
+        } catch (Throwable ignored) {
+        }
+        return "";
+    }
+
+    /** push v44：两个 host 是否同主域（去掉 www./语言子域等，比较末两段；任一为空视为否）。 */
+    private static boolean sameSiteHost(String a, String b) {
+        if (TextUtils.isEmpty(a) || TextUtils.isEmpty(b)) return false;
+        a = a.toLowerCase(Locale.ROOT);
+        b = b.toLowerCase(Locale.ROOT);
+        if (a.equals(b)) return true;
+        String[] pa = a.split("\\."), pb = b.split("\\.");
+        if (pa.length < 2 || pb.length < 2) return false;
+        return (pa[pa.length - 2] + "." + pa[pa.length - 1]).equals(pb[pb.length - 2] + "." + pb[pb.length - 1]);
+    }
+
+    /**
+     * push v44：内联脚本里的路径型搜索跳转 —— `location.href = 条件 ? \`/search/${kw}\` : \`/${this.locale}/search/${kw}\``
+     * （MissAV 首页 Vue 片段实证）。旧 findSearchFromJs 只认「location.href(\`…\`」紧跟模板串、且以 参数名= 结尾的形态，
+     * 这种「赋值 + 三元 + 路径末段是关键词」认不出。规则：取 location.(href|assign|replace) 赋值语句里的模板串，
+     * 末个 ${…} 前须以 /search/ 结尾（不分大小写）；只含这一个占位的模板优先（站方默认语言分支），
+     * 都带别的占位时，用页面里 locale: '<值>' 代入 ${this.locale}/${locale}，代不了就放弃。结构认，不认站名。
+     */
+    private String findSearchFromPathTemplate(String html) {
+        try {
+            if (TextUtils.isEmpty(html)) return "";
+            Matcher am = Pattern.compile("location\\.(?:href|assign|replace)\\s*(?:=|\\()([^;\\n]{4,400})").matcher(html);
+            String localized = "";
+            while (am.find()) {
+                String expr = am.group(1);
+                Matcher tm = Pattern.compile("`([^`]{4,200})`").matcher(expr);
+                while (tm.find()) {
+                    String t = tm.group(1);
+                    int last = t.lastIndexOf("${");
+                    if (last <= 0 || t.indexOf('}', last) != t.length() - 1) continue;
+                    String head = t.substring(0, last);
+                    if (!head.toLowerCase(Locale.ROOT).endsWith("/search/")) continue;
+                    if (!head.contains("${")) {
+                        String tpl = abs(head + "{kw}");
+                        log("搜索端点发现(脚本模板) " + tpl);
+                        return tpl;
+                    }
+                    if (TextUtils.isEmpty(localized)) {
+                        String loc = firstMatchGroup(html, "[{,\\s]locale\\s*:\\s*['\"]([A-Za-z-]{2,8})['\"]");
+                        if (!TextUtils.isEmpty(loc)) {
+                            String h2 = head.replace("${this.locale}", loc).replace("${locale}", loc);
+                            if (!h2.contains("${")) localized = abs(h2 + "{kw}");
+                        }
+                    }
+                }
+            }
+            if (!TextUtils.isEmpty(localized)) {
+                log("搜索端点发现(脚本模板) " + localized);
+                return localized;
+            }
+        } catch (Throwable ignored) {
+        }
+        return "";
+    }
+
     private String findSearchFromJs(String js) {
         Matcher m = Pattern.compile("location\\.(?:assign|href|replace)\\s*\\(?\\s*[\"']([^\"']{4,200})[\"']\\s*\\+").matcher(js);
         while (m.find()) {
@@ -4078,6 +4181,7 @@ public class WebSpider extends Spider {
                 if (!retryBad) {
                     log("search cap 已通过，取到真实搜索页 " + retry.length() + " 字");
                     html = retry;
+                    lastFetchCode = 200;
                     if (noRender) autoPassed = true;
                 }
             }
@@ -5910,6 +6014,10 @@ public class WebSpider extends Spider {
                 } else if (list.length() == 0 && !TextUtils.isEmpty(ep)) {
                     String u = applySearchPage(ep.replace("{kw}", kw), page);
                     String body = getCap(u);
+                    if (lastFetchCode >= 400) {   // push v44：报错页不算结果
+                        log("搜索候选跳过（HTTP " + lastFetchCode + "）" + u);
+                        body = "";
+                    }
                     list = "maccmsphp".equals(template) ? maccmsPhpItems(body, 0) : maccmsItems(body, 0);
                     // r542：**通用兜底** —— maccmsItems 锚死数字 .html（/voddetail/123.html），
                     // 落地站点详情是 /v5/123-1-1.html 时正则能匹配；但若是 /play/123 之类的形态就 0 条。
@@ -5921,6 +6029,10 @@ public class WebSpider extends Spider {
                 if (list.length() == 0) {
                     String u = root + indexPath + "/vod/search.html?wd=" + kw + (page > 1 ? "&page=" + page : "");
                     String body = getCap(u);
+                    if (lastFetchCode >= 400) {   // push v44：报错页不算结果
+                        log("搜索候选跳过（HTTP " + lastFetchCode + "）" + u);
+                        body = "";
+                    }
                     list = "maccmsphp".equals(template) ? maccmsPhpItems(body, 0) : maccmsItems(body, 0);
                     if (list.length() == 0) list = genericItems(body, 0);
                     log("搜索尝试(老路由) " + u + " -> " + list.length() + " 条");
@@ -5958,6 +6070,13 @@ public class WebSpider extends Spider {
                     // query 型模板带分页（路径型分页每站不同，第一版不拼，返回第 1 页内容）
                     if (page > 1 && u.contains("?") && !u.contains("page=")) u += "&page=" + page;
                     String searchHtml = getCap(u);
+                    // push v44：搜索候选回 4xx/5xx = 报错页（MissAV/P站 404 页的导航、页脚站群链接曾被当结果收下即停），
+                    // 内容一律丢弃、试下一个候选。只看本次 get 的最终状态码，不碰首页/分类/详情路径。
+                    int sc = lastFetchCode;
+                    if (sc >= 400) {
+                        log("搜索候选跳过（HTTP " + sc + "）" + u);
+                        continue;
+                    }
                     // r356：搜索页被验证码/盾拦截时明确留痕 —— ddys.la 搜索页是「系统安全验证」
                     // 页（3426B），genericItems 抽 0 条但日志只显示「-> 0 条」，分不清是没结果还是被拦。
                     if (searchHtml != null && searchHtml.length() < 8000
@@ -9091,16 +9210,37 @@ public class WebSpider extends Spider {
                 "(?i)/(?:ctg|main_ctg|categories|category|tag|topic|list|type|sort|filter|catalog|channel|series|collections?|search|user|member)(?:\\?|$)");
         // 详情语义的 query path —— 加权 10 倍，确保同页分类标签再多也压不过内容入口
         Pattern queryDetail = Pattern.compile("(?i)/(?:video|detail|play|view|watch|item|post|movie|article|novel|read)(?:\\?|$)");
-        Matcher qm = Pattern.compile("href=\"(/[a-zA-Z0-9_./-]{1,60}\\?[a-zA-Z_][a-zA-Z0-9_]*=\\d+[^\"'\\s]*)\"", Pattern.CASE_INSENSITIVE).matcher(html);
+        // push v44：参数值放宽到「字母数字 id」（P站 /view_video.php?viewkey=6977fd7474886 实证：旧版只认纯数字值，
+        //   这类十六进制 id 要么不收、要么按 \d+ 收了却抽不中）；同前缀里只要出现过带字母的值，模式值段用 [A-Za-z0-9_-]+，
+        //   全是数字的照旧 \d+（hohoj /video?id=N 等老站行为不变）。值里至少要有一位数字（排除 ?lang=en 这类）。
+        //   参数名是分类/排序/翻页语义（c、cat、tag、type、sort、page…）的不是详情：P站搜索页 /video?c=732 分类链接
+        //   旧版按 video 路径加权 10 倍压过影片卡。参数名是 id/viewkey/vid 这类详情语义的，同样加权 10 倍；静态资源（.css/.js/图片?v=版本号）不计。
+        Pattern queryNonContentKey = Pattern.compile("(?i)^(?:c|cat|cate|catid|category|tag|tags|type|sort|order|o|page|p|lang|filter)$");
+        Pattern queryDetailKey = Pattern.compile("(?i)^(?:id|vid|viewkey|vkey|aid)$");
+        LinkedHashMap<String, int[]> qcounts = new LinkedHashMap<>();
+        Matcher qm = Pattern.compile("href=\"(/[a-zA-Z0-9_./-]{1,60}\\?([a-zA-Z_][a-zA-Z0-9_]*)=([A-Za-z0-9_-]{1,40})[^\"'\\s]*)\"", Pattern.CASE_INSENSITIVE).matcher(html);
         while (qm.find()) {
             String q = qm.group(1);
+            String key = qm.group(2);
+            String val = qm.group(3);
+            if (!val.matches(".*\\d.*")) continue;
+            // 静态资源带版本号（/xx.css?v=2026112001、.js?v=）不是链接条目：参数名详情加权后会被它们抢走模式（吃瓜搜索页实证）
+            if (q.substring(0, q.indexOf('?')).toLowerCase(Locale.ROOT).matches(".*\\.(?:css|js|png|jpe?g|gif|webp|svg|ico|woff2?|ttf|json|xml)$")) continue;
             if (queryNonContent.matcher(q).find()) continue;
+            if (queryNonContentKey.matcher(key).matches()) continue;
             int eq = q.indexOf('=');
-            // 只保留 `?key=` + 数字，丢掉 & 后的追踪参数（否则每个不同参数生成一个特异模式）
-            String pat = Pattern.quote(q.substring(0, eq + 1)) + "\\d+";
-            int weight = queryDetail.matcher(q).find() ? 10 : 1;
+            // 只保留 `?key=` + 值，丢掉 & 后的追踪参数（否则每个不同参数生成一个特异模式）
+            String prefix = q.substring(0, eq + 1);
+            int weight = (queryDetail.matcher(q).find() || queryDetailKey.matcher(key).matches()) ? 10 : 1;
+            int[] qc = qcounts.get(prefix);
+            if (qc == null) { qc = new int[2]; qcounts.put(prefix, qc); }
+            qc[0] += weight;
+            if (!val.matches("\\d+")) qc[1] = 1;
+        }
+        for (Map.Entry<String, int[]> e : qcounts.entrySet()) {
+            String pat = Pattern.quote(e.getKey()) + (e.getValue()[1] == 1 ? "[A-Za-z0-9_-]+" : "\\d+");
             Integer c = counts.get(pat);
-            counts.put(pat, (c == null ? 0 : c) + weight);
+            counts.put(pat, (c == null ? 0 : c) + e.getValue()[0]);
         }
         // r342：slug 模式统计 —— /moviesets/AiCollection/ 这类「无数字详情页」（合集/专辑站）。
         // 真机 both 站「合集」抽空真因：主列表 48 条全是无数字 slug，numericPattern 全返回 null 被丢弃，
