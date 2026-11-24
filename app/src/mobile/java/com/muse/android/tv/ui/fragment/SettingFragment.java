@@ -105,6 +105,7 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
         setMediaInfoText();
         setAutoPlayText();
         setSizeText();
+        setSearchCapText();
     }
 
     /** 一级显示的图片尺寸文字：切回设置页时也要刷新，否则从主页视图切换钮改的尺寸同步不过来。 */
@@ -145,6 +146,7 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
         mBinding.live.setOnClickListener(this::onLive);
         mBinding.wall.setOnClickListener(this::onWall);
         mBinding.size.setOnClickListener(this::setSize);
+        mBinding.searchCap.setOnClickListener(this::setSearchCap);
         mBinding.cache.setOnClickListener(this::onCache);
         mBinding.backup.setOnClickListener(this::onBackup);
         mBinding.player.setOnClickListener(this::onPlayer);
@@ -352,6 +354,24 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
             mBinding.sizeText.setText(size[which]);
             PlayerSetting.putSize(which);
             RefreshEvent.size();
+            dialog.dismiss();
+        }).show();
+    }
+
+    // push v47：每站搜索条数（20/40/80/不限，默认 40）
+    private String[] getSearchCapItems() {
+        return new String[]{"20", "40", "80", ResUtil.getString(R.string.setting_search_cap_unlimited)};
+    }
+
+    private void setSearchCapText() {
+        mBinding.searchCapText.setText(getSearchCapItems()[Setting.getSearchCapIndex()]);
+    }
+
+    private void setSearchCap(View view) {
+        String[] items = getSearchCapItems();
+        new MaterialAlertDialogBuilder(requireActivity()).setTitle(R.string.setting_search_cap).setNegativeButton(R.string.dialog_negative, null).setSingleChoiceItems(items, Setting.getSearchCapIndex(), (dialog, which) -> {
+            Setting.putSearchCapIndex(which);
+            mBinding.searchCapText.setText(items[which]);
             dialog.dismiss();
         }).show();
     }
