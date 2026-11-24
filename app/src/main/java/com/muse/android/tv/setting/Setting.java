@@ -117,6 +117,21 @@ public class Setting {
         Prefers.put("sync_mode", Math.clamp(mode, MIN_SYNC_MODE, MAX_SYNC_MODE));
     }
 
+    /** push v47：每站搜索条数档位 0=20、1=40（默认）、2=80、3=不限（0 表示不限）。 */
+    public static final int[] SEARCH_CAP_VALUES = {20, 40, 80, 0};
+
+    public static int getSearchCapIndex() {
+        return Math.clamp(Prefers.getInt("search_cap", 1), 0, SEARCH_CAP_VALUES.length - 1);
+    }
+
+    public static void putSearchCapIndex(int index) {
+        Prefers.put("search_cap", Math.clamp(index, 0, SEARCH_CAP_VALUES.length - 1));
+    }
+
+    public static int getSearchCap() {
+        return SEARCH_CAP_VALUES[getSearchCapIndex()];
+    }
+
     public static boolean isIncognito() {
         return Prefers.getBoolean("incognito");
     }
