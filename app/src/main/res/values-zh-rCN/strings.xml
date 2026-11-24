@@ -716,6 +716,7 @@
     <string name="shelf_choose_folder">选择当前文件夹</string>
     <string name="shelf_folder_result">文件夹导入完成：新增 %1$d 本，跳过 %2$d 本，失败 %3$d 本</string>
     <string name="shelf_folder_empty">这个文件夹里没有 TXT 或 EPUB 文件。</string>
+    <string name="config_auto_reloading">源配置已失效，正在重新加载…</string>
 </resources>
 
 

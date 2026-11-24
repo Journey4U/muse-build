@@ -19,6 +19,7 @@ import androidx.viewbinding.ViewBinding;
 import com.muse.android.tv.App;
 import com.muse.android.tv.R;
 import com.muse.android.tv.Updater;
+import com.muse.android.tv.api.config.ConfigGuard;
 import com.muse.android.tv.api.config.LiveConfig;
 import com.muse.android.tv.api.config.VodConfig;
 import com.muse.android.tv.api.config.WallConfig;
@@ -202,6 +203,12 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
 
     /** 进当前站点的主页（网页播放那套主页推导）；推不出就提示，不进空白页。 */
     private boolean openBrowser() {
+        // push v48：配置被清空（长时间不操作后）→ 先自动重载，加载完再进主页，不再只弹「没有主页」。
+        if (ConfigGuard.reloadIfEmpty("浏览器", () -> {
+            if (isFinishing() || isDestroyed()) return;
+            takeWebAutoOpen(VodConfig.get().getHome().getKey());
+            openBrowser();
+        })) return false;
         Site site = VodConfig.get().getHome();
         String url = site == null ? null : VideoActivity.siteHomePageUrl(site);
         if (TextUtils.isEmpty(url)) {
@@ -216,6 +223,8 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
     @Override
     protected void onResume() {
         super.onResume();
+        // push v48：长时间不操作回来，内存里的点播配置已被清空而界面还在 → 自动重载（加载完照常刷新主页）。
+        ConfigGuard.reloadIfEmpty("回到前台", null);
         if (!sPendingSiteDialog) return;
         sPendingSiteDialog = false;
         change(0);

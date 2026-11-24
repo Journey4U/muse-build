@@ -18,6 +18,7 @@ import androidx.viewpager.widget.ViewPager;
 import com.github.catvod.crawler.DebugLogStore;
 import com.github.catvod.crawler.diagnostics.LogCategory;
 import com.muse.android.tv.R;
+import com.muse.android.tv.api.config.ConfigGuard;
 import com.muse.android.tv.api.config.VodConfig;
 import com.muse.android.tv.bean.Class;
 import com.muse.android.tv.bean.Config;
@@ -222,6 +223,10 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
     }
 
     private void onSite(View view) {
+        // push v48：配置被清空时源列表是空的（换源打不开）→ 先自动重载，加载完再打开源列表。
+        if (ConfigGuard.reloadIfEmpty("换源", () -> {
+            if (isAdded() && mBinding != null) onSite(mBinding.title);
+        })) return;
         SiteDialog.create().change().show(this);
     }
 
@@ -360,6 +365,12 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
 
     /** 全屏打开现有浏览器进当前纯网页源的主页（与底部导航「浏览器」同一套主页推导与入口）。 */
     private void openWebHome() {
+        // push v48：配置被清空（长时间不操作后）→ 先自动重载，加载完再进站主页，不再只弹「没有主页」。
+        if (ConfigGuard.reloadIfEmpty("进站主页", () -> {
+            if (!isAdded() || mBinding == null) return;
+            HomeActivity.takeWebAutoOpen(getHome().getKey());
+            openWebHome();
+        })) return;
         Site site = getHome();
         String url = VideoActivity.siteHomePageUrl(site);
         if (TextUtils.isEmpty(url)) {

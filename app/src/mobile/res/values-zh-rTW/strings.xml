@@ -63,4 +63,5 @@
         <item>子母畫面</item>
     </string-array>
 
+    <string name="nav_browser_empty">該站點沒有主頁</string>
 </resources>

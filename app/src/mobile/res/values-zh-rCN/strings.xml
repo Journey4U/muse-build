@@ -63,4 +63,5 @@
         <item>画中画</item>
     </string-array>
 
+    <string name="nav_browser_empty">该站点没有主页</string>
 </resources>
