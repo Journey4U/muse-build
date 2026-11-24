@@ -36,6 +36,7 @@ import androidx.viewbinding.ViewBinding;
 
 import com.muse.android.tv.R;
 import com.muse.android.tv.api.config.RuleConfig;
+import com.muse.android.tv.api.loader.PushMultiRes;
 import com.muse.android.tv.api.loader.BrowserMeta;
 import com.muse.android.tv.api.loader.HttpEpisodeResolver;
 import com.muse.android.tv.bean.Episode;
@@ -1535,14 +1536,14 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         + "m=/source\\s*[:=]\\s*[^;]{0,400}?(https?:\\/\\/[^'\"\\s;]+\\.(?:m3u8|mp4)[^'\"\\s;]*)/.exec(dec);if(m&&isStreamUrl(m[1])){var rw=pageRw(m[1]);return (rw&&isStreamUrl(rw))?rw:m[1];}}}catch(e){}return '';}function pageRw(raw){try{var RW=/\\b([A-Za-z_$][\\w$]*)\\s*=\\s*\\1\\.replace\\(\\s*\\/((?:\\\\.|[^\\/\\\\\\n])+)\\/([gimsuy]*)\\s*,\\s*(['\"])([^'\"\\n]*)\\4\\s*\\)/g;var ss=document.querySelectorAll('script');for(var i=0;i<ss.length;i++){var t=ss[i].textContent||'';if(t.indexOf('.replace(')<0)continue;var m;RW.lastIndex=0;while((m=RW.exec(t))){if(m[1]!=='source')continue;var re;try{re=new RegExp(m[2],m[3]);}catch(e){continue;}var out=raw.replace(re,m[5]);if(out===raw)continue;try{if(new URL(out).origin===location.origin)return out;}catch(e){}}}}catch(e){}return '';}function perfM3u8(){try{if(!window.performance||!performance.getEntriesByType)return "
         + "'';var es=performance.getEntriesByType('resource');var found=[];for(var i=0;i<es.length;i++){var u=es[i].name||'';if(/\\.m3u8($|[?&#])/i.test(u)&&found.indexOf(u)<0)found.push(u);}if(found.length===1)return "
         + "found[0];return '';}catch(e){return '';}}function frameStream(){try{var AD=/(^|[\\s_\\-])(ad|ads|advert|advertisement|banner|sponsor|sponsored|promotion)([\\s_\\-]|$)/i;var PL=/(^|[\\s_\\-])(player|playbox|dplayer)([\\s_\\-]|$)/i;var RC=/(^|[\\s_\\-])(recommend|recommended|related|thumbnail|thumbnails|preview|previews|more-videos|sidebar|also-watch)([\\s_\\-]|$)/i;function cx(el){return ((el.getAttribute&&el.getAttribute('class'))||'')+' '+((el.getAttribute&&el.getAttribute('id'))||'');}function up(el,re){var d=el.ownerDocument,n=el;while(n&&n!==d.body&&n!==d.documentElement){if(re.test(cx(n)))return true;n=n.parentElement;}return false;}var fr=document.querySelectorAll('iframe');for(var k=0;k<fr.length;k++){var f=fr[k];if(up(f,AD)||!up(f,PL))continue;var d=null,w=null;try{d=f.contentDocument;w=f.contentWindow;}catch(e){}if(!d||!d.body)continue;var vs=d.querySelectorAll('video'),best=null,bs=-1;for(var i=0;i<vs.length;i++){var v=vs[i];if(up(v,AD)||up(v,RC)||(v.loop&&v.muted))continue;var r=v.getBoundingClientRect(),a=r.width*r.height;if(a>bs){bs=a;best=v;}}if(best){var s='';try{s=best.currentSrc||best.getAttribute('src')||'';}catch(e){}if(/^https?:/i.test(s)&&isStreamUrl(s))return s;}try{var es=w.performance.getEntriesByType('resource'),fl=[];for(var j=0;j<es.length;j++){var u=es[j].name||'';if(/\\.m3u8($|[?&#])/i.test(u)&&fl.indexOf(u)<0)fl.push(u);}if(fl.length===1)return fl[0];}catch(e){}}return '';}catch(e){return '';}}function mainStream(){try{var md0=mediaDefDefault();if(md0)return md0;var mv=mainVideo();if(mv&&!adPlaying()){var s=vidSrc(mv);if(s&&/^https?:/i.test(s)&&isStreamUrl(s))return s;}try{var c=window.player_aaaa||window.player_data||window.player_config||window.MacPlayer;if(c&&c.url&&isStreamUrl(c.url))return "
-        + "absUrl(c.url);}catch(e){}var md=mediaDefDefault();if(md)return md;var pk=packedSource();if(pk)return pk;var pf=perfM3u8();if(pf)return pf;var fsr=frameStream();if(fsr)return fsr;return '';}catch(e){return '';}}function hasMainPlayer(){try{var "
+        + "absUrl(c.url);}catch(e){}var md=mediaDefDefault();if(md)return md;var pk=packedSource();if(pk)return pk;var pf=perfM3u8();if(pf)return pf;var fsr=frameStream();if(fsr)return fsr;return '';}catch(e){return '';}}function mediaDefAll(){var out=[];try{var ss=document.querySelectorAll('script');for(var i=0;i<ss.length;i++){var t=ss[i].textContent||'';var k=t.indexOf('mediaDefinitions');if(k<0)continue;var a=t.indexOf('[',k);if(a<0||a-k>40)continue;var dep=0,q='',e=-1;for(var p=a;p<t.length;p++){var ch=t.charAt(p);if(q){if(ch==='\\\\'){p++;continue;}if(ch===q)q='';continue;}if(ch==='\"'||ch===\"'\"){q=ch;continue;}if(ch==='[')dep++;else if(ch===']'){dep--;if(dep===0){e=p;break;}}}if(e<0)continue;var seg=t.substring(a,e+1);var objs=[],od=0,oq='',os=-1;for(var c=0;c<seg.length;c++){var cc=seg.charAt(c);if(oq){if(cc==='\\\\'){c++;continue;}if(cc===oq)oq='';continue;}if(cc==='\"'||cc===\"'\"){oq=cc;continue;}if(cc==='{'){if(od===0)os=c;od++;}else if(cc==='}'){od--;if(od===0&&os>=0){objs.push(seg.substring(os,c+1));os=-1;}}}for(var oi=0;oi<objs.length&&out.length<8;oi++){var o=objs[oi];var m=/\"videoUrl\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"/.exec(o);if(!m)continue;var u=m[1].replace(/\\\\\\//g,'/');if(!/^https?:/i.test(u))continue;if(/\"remote\"\\s*:\\s*true/.test(o))continue;var fm=/\"format\"\\s*:\\s*\"([^\"]*)\"/.exec(o);var isH=fm?fm[1].toLowerCase()==='hls':/\\.m3u8/i.test(u);if(!isH)continue;var hm=/\"height\"\\s*:\\s*\"?(\\d+)/.exec(o)||/\"quality\"\\s*:\\s*\"?(\\d+)/.exec(o);var dq=/\"defaultQuality\"\\s*:\\s*true/.test(o)?1:0;var dup=false;for(var j=0;j<out.length;j++)if(out[j].u===u)dup=true;if(!dup)out.push({u:u,h:hm?parseInt(hm[1],10):0,d:dq});}if(out.length)return out;}}catch(e){}return out;}function declMasterSrc(){try{var s=packedSource();return (s&&/\\.m3u8/i.test(s))?s:'';}catch(e){return '';}}function hasMainPlayer(){try{var "
         + "mv=mainVideo();if(mv){var s=vidSrc(mv);if(s&&/^https?:/i.test(s))return true;}try{var c=window.player_aaaa||window.player_data||window.player_config||window.MacPlayer;if(c&&c.url)return true;}catch(e){}if(packedSource())return "
         + "true;try{var dps=document.querySelectorAll('.dplayer[data-config]');for(var i=0;i<dps.length;i++){if(dplayerUrl(dplayerCfg(dps[i])))return true;}}catch(e){}if(out&&out.length)return true;if(subs&&subs.length)return "
         + "true;try{var frs=document.querySelectorAll('iframe[src]');for(var j=0;j<frs.length;j++){var f=frs[j].getAttribute('src')||'';if(/\\/static\\/player\\//i.test(f)||/dplayer\\.html/i.test(f))return true;if(/^https?:/i.test(absUrl(f))&&!hasAdMark(frs[j])&&inPlayerCtx(frs[j]))return "
         + "true;}}catch(e){}try{var vids=document.querySelectorAll('video');var mv2=mainVideo();for(var vi=0;vi<vids.length;vi++){var vv=vids[vi];if(isGifPrev(vv)||hasAdMark(vv)||inRecCtx(vv)||elHidden(vv))continue;if(vv.closest&&vv.closest('video-player,[data-playback-player]'))return "
         + "true;var anc=vv.parentElement,plc=false;while(anc&&anc!==document.body){if(/(^|[\\s_\\-])(player|playbox|dplayer)([\\s_\\-]|$)/i.test(ctxStr(anc))){plc=true;break;}anc=anc.parentElement;}if(plc&&vidSrcAny(vv))return "
         + "true;if(mv2&&vv===mv2&&vidSrcAny(vv))return true;}}catch(e){}return false;}catch(e){return false;}}function playerCfg(){try{var c=window.player_aaaa||window.player_data||window.player_config||window.MacPlayer;if(!c)return "
-        + "'';return JSON.stringify(c);}catch(e){return '';}}return JSON.stringify({lines:out,diag:diag,pic:picOf(),player:playerCfg(),curEpName:(dp&&dp.curName)||curEpName,origin:location.origin,vid:vid,sid:sid,ep:curEp,mainStream:(dp&&dp.curUrl)||mainStream(),mainVideo:mainVideoSrc(),adSrcs:adSrcs(),adPlaying:adPlaying()?1:0,subEps:subs,hasMainPlayer:hasMainPlayer()?1:0,tabsFound:genTabsFound,episodesFound:genEpsFound,genericLines:genLines,genTabs:genTabList});})()";
+        + "'';return JSON.stringify(c);}catch(e){return '';}}return JSON.stringify({lines:out,diag:diag,pic:picOf(),player:playerCfg(),curEpName:(dp&&dp.curName)||curEpName,origin:location.origin,vid:vid,sid:sid,ep:curEp,mainStream:(dp&&dp.curUrl)||mainStream(),mainVideo:mainVideoSrc(),adSrcs:adSrcs(),hlsDefs:mediaDefAll(),declMaster:declMasterSrc(),adPlaying:adPlaying()?1:0,subEps:subs,hasMainPlayer:hasMainPlayer()?1:0,tabsFound:genTabsFound,episodesFound:genEpsFound,genericLines:genLines,genTabs:genTabList});})()";
     // push v20：gaze 懒加载面板预加载——tab+按钮式线路有未加载面板（data-loaded=false）时逐个点开 tab 让站方填集、点回原 tab；返回 {"clicked":N,"pending":P}。
     private static final String PROBE_PRELOAD_JS = "(function(){try{var all=document.querySelectorAll('[role=\"tab\"],[data-toggle=\"tab\"]');var groups=[];for(var i=0;i<all.length;i++){var t=all[i];var par=t.parentElement;if(!par)continue;var g=null;for(var gi=0;gi<groups.length;gi++)if(groups[gi].par===par){g=groups[gi];break;}if(!g){g={par:par,tabs:[]};groups.push(g);}g.tabs.push(t);}if(!window.__museProbePreloadPanels)window.__museProbePreloadPanels=[];var clicked=0,pending=0;function alreadyClicked(p){var a=window.__museProbePreloadPanels;for(var k=0;k<a.length;k++)if(a[k]===p)return true;return false;}function panelOf(el){var id='';try{id=el.getAttribute('aria-controls')||'';}catch(e){}var tgt='';try{tgt=el.getAttribute('data-target')||el.getAttribute('href')||'';}catch(e){}if(tgt&&tgt.charAt(0)==='#')id=tgt.slice(1);if(id){try{var pp=document.getElementById(id);if(pp)return pp;}catch(e){}}try{var par2=el.parentElement;if(!par2)return null;var sibs=par2.querySelectorAll('[role=\"tab\"]');var idx=-1;for(var k=0;k<sibs.length;k++)if(sibs[k]===el){idx=k;break;}if(idx<0)return null;var anc=par2;for(var d=0;d<4&&anc;d++){var panels=anc.querySelectorAll('[role=\"tabpanel\"]');if(panels.length===sibs.length)return panels[idx];anc=anc.parentElement;}}catch(e){}return null;}function isActive(el){try{var cl=el.getAttribute('class')||'';return /(^|\\s)(active|current|cur|selected|on)(\\s|$)/.test(cl)||el.getAttribute('aria-selected')==='true';}catch(e){return false;}}function hasEps(p){try{var bs=p.querySelectorAll('button');for(var i=0;i<bs.length;i++){var b=bs[i];if(b.getAttribute('data-id'))return true;var tx=(b.innerText||b.textContent||'').trim();if(/^第\\d+集$/.test(tx)||/^\\d+$/.test(tx))return true;}return false;}catch(e){return false;}}for(var gi2=0;gi2<groups.length;gi2++){var grp=groups[gi2];if(grp.tabs.length<2)continue;var gaze=true;var panels=[];for(var ti=0;ti<grp.tabs.length;ti++){var tab=grp.tabs[ti];if(tab.tagName!=='BUTTON'){gaze=false;break;}var pn=panelOf(tab);if(!pn||!pn.dataset||pn.dataset.loaded===undefined){gaze=false;break;}panels.push(pn);}if(!gaze)continue;var orig=null;for(var ai=0;ai<grp.tabs.length;ai++)if(isActive(grp.tabs[ai])){orig=grp.tabs[ai];break;}if(!orig)orig=grp.tabs[0];var groupClicked=0;for(var pi=0;pi<panels.length;pi++){var p2=panels[pi];if(p2.dataset.loaded==='true')continue;if(hasEps(p2))continue;pending++;if(alreadyClicked(p2))continue;try{grp.tabs[pi].click();}catch(e){}window.__museProbePreloadPanels.push(p2);clicked++;groupClicked++;}if(groupClicked>0&&orig){try{orig.click();}catch(e){}}}return JSON.stringify({clicked:clicked,pending:pending});}catch(e){return '{\"clicked\":0,\"pending\":0}';}})()";
     // push v20：预加载轮询——返回还未出集的已点面板数（'0' 即齐了）。
@@ -1571,6 +1572,9 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     private volatile boolean mPushHasMainPlayer = false;
     // push v11：探针带回的主片流（声明地址）+ 广告流黑名单 + 片头广告播放中（PROBE_JS 新字段；切页时清）。
     private volatile String mPushMainStream = "";
+    /** push v43/v25：探针带回的站方各档 hls（JSON 数组 [{u,h,d}]）与页面声明的主清单——推送多画质升级用（PushMultiRes）。 */
+    private volatile String mPushHlsDefs = "";
+    private volatile String mPushDeclMaster = "";
     private volatile java.util.Set<String> mPushAdSrcs = java.util.Collections.emptySet();
     private volatile boolean mPushAdPlaying = false;
     private volatile Map<String, String> mPushSniffedHeaders;
@@ -2155,6 +2159,8 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 mPushPageOgPic = "";
                 mPushMetaPageUrl = "";
                 mPushMainStream = "";
+                mPushHlsDefs = "";
+                mPushDeclMaster = "";
                 mPushAdSrcs = java.util.Collections.emptySet();
                 mPushAdPlaying = false;
                 // push v14：嗅流按页隔离——切页即清旧流/旧头/嗅流页与待续播，旧页的流绝不许占位到新页。
@@ -3433,6 +3439,9 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         try {
             String ms = obj.optString("mainStream", "");
             mPushMainStream = ms == null ? "" : ms;
+            JSONArray hd = obj.optJSONArray("hlsDefs");
+            mPushHlsDefs = hd == null ? "" : hd.toString();
+            mPushDeclMaster = obj.optString("declMaster", "");
             java.util.Set<String> ads = new java.util.HashSet<>();
             JSONArray arr = obj.optJSONArray("adSrcs");
             if (arr != null) {
@@ -3484,6 +3493,8 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 if (mPushProbePageUrl.equals(mPushPageUrl)) storePushProbeLines(pobj, pobj.toString());
             } else {
                 mPushMainStream = "";
+                mPushHlsDefs = "";
+                mPushDeclMaster = "";
                 mPushAdSrcs = java.util.Collections.emptySet();
                 mPushAdPlaying = false;
             }
@@ -3821,6 +3832,8 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
             metaArea = mPushPageArea;
             if (TextUtils.isEmpty(pushPic)) pushPic = mPushPageOgPic;
         }
+        // push v43/v25：登记本页站方各档/声明主清单，播放器落地前 PushMultiRes 升级为多画质（不成照原地址）。
+        PushMultiRes.offer(stream, mPushHlsDefs, mPushDeclMaster);
         VideoActivity.startWithHeaders(this, stream, headers, title, flag, episode, null, mPushPageUrl, mPushProbeLines, pushPic, origin, vid, sid, nid, metaContent, metaYear, metaArea);
     }
 

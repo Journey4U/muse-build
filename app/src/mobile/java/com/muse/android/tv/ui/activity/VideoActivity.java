@@ -47,6 +47,7 @@ import com.muse.android.tv.R;
 import com.muse.android.tv.api.DanmakuApi;
 import com.muse.android.tv.api.SiteApi;
 import com.muse.android.tv.api.config.VodConfig;
+import com.muse.android.tv.api.loader.PushMultiRes;
 import com.muse.android.tv.api.loader.LocalSourceHub;
 import com.muse.android.tv.api.loader.HttpEpisodeResolver;
 import com.muse.android.tv.bean.Danmaku;
@@ -1675,6 +1676,17 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
                     mWebSniffPage = page;
                     startPlayer(getHistoryKey(), result, useParse, getSite().getTimeout(), startPositionMs, metadata);
                 }
+            });
+            return;
+        }
+        // push v43/v25：浏览器推送的地址落地前升级为多画质（PushMultiRes：已是多档主清单原样播；找到主清单或合成本机主清单则换用；
+        // 都不成照原地址）。只对浏览器推送（带 browserPage）的 http(s) 地址；探针认正片的结果不动。
+        if (SiteApi.PUSH.equals(getKey()) && getIntent().hasExtra("browserPage") && url != null && (url.startsWith("http://") || url.startsWith("https://"))) {
+            showProgress();
+            PushMultiRes.upgrade(url, result.getHeader(), upgraded -> {
+                if (isHostFinishing() || seq != mWebResolveSeq) return;
+                if (!TextUtils.isEmpty(upgraded) && !upgraded.equals(url)) result.setUrl(upgraded);
+                startPlayer(getHistoryKey(), result, useParse, getSite().getTimeout(), startPositionMs, metadata);
             });
             return;
         }

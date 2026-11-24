@@ -10,6 +10,7 @@ import com.muse.android.tv.server.process.Local;
 import com.muse.android.tv.server.process.Media;
 import com.muse.android.tv.server.process.Parse;
 import com.muse.android.tv.server.process.Proxy;
+import com.muse.android.tv.server.process.PushMaster;
 import com.github.catvod.utils.Asset;
 
 import java.io.InputStream;
@@ -41,6 +42,7 @@ public class Nano extends NanoHTTPD {
         process.add(new Media());
         process.add(new Parse());
         process.add(new Proxy());
+        process.add(new PushMaster());
     }
 
     public static Response ok() {
