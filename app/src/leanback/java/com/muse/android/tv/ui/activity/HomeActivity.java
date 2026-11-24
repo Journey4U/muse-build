@@ -21,6 +21,7 @@ import androidx.viewpager.widget.ViewPager;
 import com.muse.android.tv.App;
 import com.muse.android.tv.R;
 import com.muse.android.tv.Updater;
+import com.muse.android.tv.api.config.ConfigGuard;
 import com.muse.android.tv.api.config.LiveConfig;
 import com.muse.android.tv.api.config.VodConfig;
 import com.muse.android.tv.api.config.WallConfig;
@@ -308,6 +309,12 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
 
     /** 全屏打开现有浏览器进当前源的主页（与首页功能行「浏览器」同一套主页推导，入口带「切源」钮）。 */
     public void openWebHome() {
+        // push tv v30：配置被清空（长时间不操作后）→ 先自动重载，加载完再进站主页，不再只弹「没有主页」。
+        if (ConfigGuard.reloadIfEmpty("进站主页", () -> {
+            if (isFinishing() || isDestroyed()) return;
+            takeWebAutoOpen(getHome().getKey());
+            openWebHome();
+        })) return;
         Site site = getHome();
         String url = site == null ? null : VideoActivity.siteHomePageUrl(site);
         if (TextUtils.isEmpty(url)) {
@@ -607,6 +614,10 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     }
 
     public void showDialog() {
+        // push tv v30：配置被清空时源列表是空的（换源打不开）→ 先自动重载，加载完再打开源列表。
+        if (ConfigGuard.reloadIfEmpty("换源", () -> {
+            if (!isFinishing() && !isDestroyed()) showDialog();
+        })) return;
         SiteDialog.create().keyword().show(this);
     }
 
@@ -665,6 +676,8 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     @Override
     protected void onResume() {
         super.onResume();
+        // push tv v30：长时间不操作回来，内存里的点播配置已被清空而界面还在 → 自动重载（加载完照常刷新首页）。
+        ConfigGuard.reloadIfEmpty("回到前台", null);
         mClock.start();
         X();
         // 浏览器顶栏「切源」回来：回首页页并打开切源对话框（与首页按钮/菜单键同一个）。

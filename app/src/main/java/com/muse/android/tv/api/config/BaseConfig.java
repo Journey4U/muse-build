@@ -37,6 +37,8 @@ abstract class BaseConfig {
     protected boolean sync;
     protected volatile Config config;
     private volatile Future<?> future;
+    /** push v48：最近一次 load(Callback) 发起的时间（ConfigGuard 用来判断「是否正有一次加载在途」）。 */
+    private volatile long loadStartAt;
 
     protected abstract String getTag();
 
@@ -84,8 +86,15 @@ abstract class BaseConfig {
     public void load(Callback callback) {
         int id = taskId.incrementAndGet();
         if (future != null && !future.isDone()) future.cancel(true);
+        loadStartAt = System.currentTimeMillis();
         future = Task.submit(() -> loadConfig(id, config, callback));
         callback.start();
+    }
+
+    /** push v48：有一次加载在途且发起不到 withinMs 毫秒 → true（ConfigGuard 据此不重复起加载）。 */
+    public boolean isLoadingWithin(long withinMs) {
+        Future<?> f = future;
+        return f != null && !f.isDone() && System.currentTimeMillis() - loadStartAt < withinMs;
     }
 
     protected void loadConfig(int id, Config config, Callback callback) {
