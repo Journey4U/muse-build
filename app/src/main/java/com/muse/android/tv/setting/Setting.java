@@ -132,6 +132,21 @@ public class Setting {
         return SEARCH_CAP_VALUES[getSearchCapIndex()];
     }
 
+    /** push tv v32：电视浏览器视口宽度档位 0=1920、1=1600（默认）、2=1280；值越小网页字越大。 */
+    public static final int[] WEB_VIEWPORT_VALUES = {1920, 1600, 1280};
+
+    public static int getWebViewportIndex() {
+        return Math.clamp(Prefers.getInt("web_viewport", 1), 0, WEB_VIEWPORT_VALUES.length - 1);
+    }
+
+    public static void putWebViewportIndex(int index) {
+        Prefers.put("web_viewport", Math.clamp(index, 0, WEB_VIEWPORT_VALUES.length - 1));
+    }
+
+    public static int getWebViewport() {
+        return WEB_VIEWPORT_VALUES[getWebViewportIndex()];
+    }
+
     public static boolean isIncognito() {
         return Prefers.getBoolean("incognito");
     }

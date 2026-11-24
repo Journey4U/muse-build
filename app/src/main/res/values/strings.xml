@@ -427,6 +427,7 @@
 <string name="setting_size">Image size</string>
 <string name="setting_search_cap">Results per site</string>
 <string name="setting_search_cap_unlimited">Unlimited</string>
+<string name="setting_web_viewport">Browser zoom (page width, smaller = larger text)</string>
 <string name="setting_tab_offset">Offset</string>
 <string name="setting_theme_color">Theme color</string>
 <string name="setting_version">Version</string>
