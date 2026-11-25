@@ -45,6 +45,11 @@ import okhttp3.ResponseBody;
  *      （BANDWIDTH/RESOLUTION/CODECS 取自子清单，取不到按文件名/高度补），站方默认档排第一；
  *   4. 都不成 → 原地址照旧推，不报错。
  * 不按时长/段数判断；智能去广告仍由播放器对每个子清单各自生效（主清单无 #EXT-X-ENDLIST，HlsAdsParser 原样放行）。
+ *
+ * push v49/v33（Liu 2026-11-25 批准，123av Referer 修法 A）：浏览器推送登记了几套候选请求头时（原样嗅到的头 →
+ * Referer=当前页 → 不带 Referer），取推送地址这一步（原本就有的第一次取清单）按序试，首个 2xx 且以 #EXTM3U 开头的
+ * 那套即为选中头：后续找主清单/合成都用它，并交回播放器（Exo、MPV 的子清单/分片/key 请求都走这套头）。
+ * 不另起网络往返；单次超时 5 秒、几套合计不超过 7 秒（沿用现值）；都不成照原头。记一行「播放」日志（选中第几套、各套状态码）。
  */
 public final class PushMultiRes {
 
@@ -67,6 +72,8 @@ public final class PushMultiRes {
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
     private static final Map<String, Offer> OFFERS = lru(16);
     private static final Map<String, String> DONE = lru(32);
+    private static final Map<String, List<Map<String, String>>> HEADER_SETS = lru(16);
+    private static final Map<String, Map<String, String>> CHOSEN = lru(32);
 
     private PushMultiRes() {
     }
@@ -158,6 +165,30 @@ public final class PushMultiRes {
         DONE.remove(stream);
     }
 
+    /**
+     * push v49/v33：登记推送地址的候选请求头（按试的顺序：原样嗅到的头 → Referer=当前页 → 不带 Referer；
+     * 重复的已由调用方去掉）。主线程调用。只登记、不联网；upgrade 取推送地址那一步按序试。
+     */
+    public static void offerHeaders(String stream, List<Map<String, String>> sets) {
+        if (TextUtils.isEmpty(stream)) return;
+        CHOSEN.remove(stream);
+        if (sets == null || sets.size() < 2) {
+            HEADER_SETS.remove(stream);
+            return;
+        }
+        List<Map<String, String>> copy = new ArrayList<>();
+        for (Map<String, String> m : sets) copy.add(m == null ? new LinkedHashMap<>() : new LinkedHashMap<>(m));
+        HEADER_SETS.put(stream, copy);
+        DONE.remove(stream);
+    }
+
+    /** push v49/v33：upgrade 试出来的选中头（没登记候选、或几套都不成时为 null——调用方照原头）。 */
+    public static Map<String, String> chosenHeaders(String url) {
+        if (TextUtils.isEmpty(url)) return null;
+        Map<String, String> h = CHOSEN.get(url);
+        return h == null ? null : new LinkedHashMap<>(h);
+    }
+
     /** push v45：该地址是否登记过多画质候选（网页源全局搜索播放据此决定要不要走升级，没登记的不联网、不多等）。 */
     public static boolean hasOffer(String url) {
         return !TextUtils.isEmpty(url) && OFFERS.containsKey(url);
@@ -176,7 +207,8 @@ public final class PushMultiRes {
             return;
         }
         Offer offer = OFFERS.get(url);
-        if (offer == null && !isM3u8(url)) {
+        List<Map<String, String>> sets = HEADER_SETS.get(url);
+        if (offer == null && sets == null && !isM3u8(url)) {
             cb.onResult(url);
             return;
         }
@@ -185,7 +217,7 @@ public final class PushMultiRes {
             EXEC.execute(() -> {
                 String out = url;
                 try {
-                    out = doUpgrade(url, h, offer);
+                    out = doUpgrade(url, h, offer, sets);
                 } catch (Throwable e) {
                     log("多画质升级异常，照原地址播放：" + e.getClass().getSimpleName());
                 }
@@ -199,8 +231,41 @@ public final class PushMultiRes {
         }
     }
 
-    private static String doUpgrade(String url, Map<String, String> headers, Offer offer) {
-        Fetched self = fetch(url, headers);
+    private static String doUpgrade(String url, Map<String, String> headers, Offer offer, List<Map<String, String>> sets) {
+        Fetched self;
+        if (sets != null && sets.size() >= 2) {
+            // push v49/v33：候选头按序试取推送地址（就是原本这一次取清单），首个 2xx + #EXTM3U 的那套即选中头。
+            long deadline = System.currentTimeMillis() + SYNTH_WAIT_MS;
+            StringBuilder codes = new StringBuilder();
+            Fetched got = null;
+            int pick = -1;
+            for (int i = 0; i < sets.size(); i++) {
+                long left = deadline - System.currentTimeMillis();
+                if (codes.length() > 0) codes.append("，");
+                if (left <= 300) {
+                    codes.append("第").append(i + 1).append("套 超时未试");
+                    continue;
+                }
+                Fetched f = fetch(url, sets.get(i), Math.min(TIMEOUT_MS, left));
+                codes.append("第").append(i + 1).append("套 ").append(f.code < 0 ? "失败" : String.valueOf(f.code)).append(f.code >= 200 && f.code < 300 && !f.ok() ? "(非m3u8)" : "");
+                if (f.ok()) {
+                    got = f;
+                    pick = i;
+                    break;
+                }
+            }
+            if (got != null) {
+                headers = new LinkedHashMap<>(sets.get(pick));
+                CHOSEN.put(url, new LinkedHashMap<>(headers));
+                log("取清单试头：选中第" + (pick + 1) + "套（" + headerSetName(pick, sets.size()) + "）；" + codes);
+                self = got;
+            } else {
+                log("取清单试头：" + sets.size() + " 套都不成，照原头播放；" + codes);
+                self = new Fetched(-1, "", url);
+            }
+        } else {
+            self = fetch(url, headers);
+        }
         if (self.ok()) {
             int n = countVariants(self.text);
             if (n >= 2) {
@@ -471,13 +536,23 @@ public final class PushMultiRes {
         }
     }
 
+    private static String headerSetName(int i, int n) {
+        if (n == 3) return i == 0 ? "原样嗅到的头" : (i == 1 ? "Referer=当前页" : "不带 Referer");
+        if (i == n - 1) return "不带 Referer";
+        return i == 0 ? "原样嗅到的头" : "Referer=当前页";
+    }
+
     private static Fetched fetch(String url, Map<String, String> headers) {
+        return fetch(url, headers, TIMEOUT_MS);
+    }
+
+    private static Fetched fetch(String url, Map<String, String> headers, long timeoutMs) {
         try {
             Request.Builder rb = new Request.Builder().url(url);
             if (headers != null) for (Map.Entry<String, String> e : headers.entrySet()) {
                 if (!TextUtils.isEmpty(e.getKey()) && !TextUtils.isEmpty(e.getValue())) rb.header(e.getKey(), e.getValue());
             }
-            try (Response res = OkHttp.client(TIMEOUT_MS).newCall(rb.build()).execute()) {
+            try (Response res = OkHttp.client(timeoutMs).newCall(rb.build()).execute()) {
                 ResponseBody body = res.body();
                 String text = "";
                 if (body != null) {

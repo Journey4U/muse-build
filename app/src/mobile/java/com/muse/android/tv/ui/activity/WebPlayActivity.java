@@ -1015,7 +1015,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         "phzgw.cc,demjpgtf.zvpxyyql.cc,api2.jpfviwgkz.cc,xxycw341.com,vnhgr465.com,caow.us,583.cc,9521.com,2726.com,831",
         "9.com,9212.app,322.cc,384.tv,4477.tv,177.gg,5651.com,275.cc,391.cc,837.tv,1x4g6f2.com,aizhantj.com,0cy5aps.com",
         ",ax8rylb.com,7xkpxuw.com,4gl3g.z.com,mehqk5u.com,smun7ro.com,67x8epk.com,kvkluj8.com,lw1su4n.com,hcxftcl.com,n",
-        "f65hwr.com,3dzmgtc.com,dkepyys.com,hv7hpkk.com,tq.qwehkg.top,ta.dqgjla.top,tz.erghsasq.top,magsrv.com,forkedspare.com,trafficjunky.net,trafficjunky.com,toplineads.com,dzhjmp.com,mayzaent.com,greentrafsa.com,gasipedibexide.com,doppiocdn.com,strpst.com,xxxjmp.com,fozekikikiminu.com,snaptrckr.fun,es344.com,rallytrck.website,storagexhd.com,erosaiapp.to\".split(','));functi",
+        "f65hwr.com,3dzmgtc.com,dkepyys.com,hv7hpkk.com,tq.qwehkg.top,ta.dqgjla.top,tz.erghsasq.top,magsrv.com,forkedspare.com,trafficjunky.net,trafficjunky.com,toplineads.com,dzhjmp.com,mayzaent.com,greentrafsa.com,gasipedibexide.com,doppiocdn.com,strpst.com,xxxjmp.com,fozekikikiminu.com,snaptrckr.fun,es344.com,rallytrck.website,storagexhd.com,erosaiapp.to,attacheatableoverlabor.com,ethnicexpressions.org\".split(','));functi",
         "on isAdDomain(h){if(!h)return false;h=h.toLowerCase();if(__museAdSet.has(h))return true;var i=h.indexOf('.');w",
         "hile(i>=0){h=h.slice(i+1);if(__museAdSet.has(h))return true;i=h.indexOf('.');}return false;}function isAdUrl(u",
         "){try{var x=new URL(u,location.href);return !!x.hostname&&isAdDomain(x.hostname);}catch(e){return false;}}func",
@@ -1414,7 +1414,9 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         "pe!==1)continue;var cd=null;if(n.classList&&n.classList.contains('dplayer-pre-countdown'))cd=n;else if(n.query",
         "Selector)cd=n.querySelector('.dplayer-pre-countdown');if(cd){killPreRollOne(cd);return;}}}});if(document.docum",
         "entElement)preOb.observe(document.documentElement,{childList:true,subtree:true});setTimeout(function(){try{pre",
-        "Ob.disconnect();}catch(e){}},600000);/*push v29 R31-2*/var f1Ob=new MutationObserver(function(muts){for(var i=0;i<muts.length;i++){var ns=muts[i].addedNodes;for(var j=0;j<ns.length;j++){var n=ns[j];if(!n||n.nodeType!==1)continue;if(n.hasAttribute&&n.hasAttribute('data-cl-spot')){try{killClSpots();}catch(e){}}var l=n.tagName==='IFRAME'?[n]:(n.querySelectorAll?n.querySelectorAll('iframe'):[]);for(var k=0;k<l.length;k++){try{f1Hook(l[k]);f1Judge(l[k]);}catch(e){}}}}});if(document.documentElement)f1Ob.observe(document.documentElement,{childList:true,subtree:true});setTimeout(function(){try{f1Ob.disconnect();}catch(e){}},600000);})();"
+        "Ob.disconnect();}catch(e){}},600000);/*push v29 R31-2*/var f1Ob=new MutationObserver(function(muts){for(var i=0;i<muts.length;i++){var ns=muts[i].addedNodes;for(var j=0;j<ns.length;j++){var n=ns[j];if(!n||n.nodeType!==1)continue;if(n.hasAttribute&&n.hasAttribute('data-cl-spot')){try{killClSpots();}catch(e){}}var l=n.tagName==='IFRAME'?[n]:(n.querySelectorAll?n.querySelectorAll('iframe'):[]);for(var k=0;k<l.length;k++){try{f1Hook(l[k]);f1Judge(l[k]);}catch(e){}}}}});if(document.documentElement)f1Ob.observe(document.documentElement,{childList:true,subtree:true});setTimeout(function(){try{f1Ob.disconnect();}catch(e){}},600000);})();",
+        // push v49/v33（123av 弹窗修法 2）：全屏透明点击陷阱（固定/绝对定位盖满视口、无文字图片视频表单验证、指向外站或 # 加开窗）→ 移除并盯重插。
+        "(function(){try{if(window.__museTrapOn)return;var __t0=(document.title||'').toLowerCase();if(__t0.indexOf('请稍候')>=0||__t0.indexOf('just a moment')>=0)return;window.__museTrapOn=1;function reg(h){var p=String(h||'').toLowerCase().split('.');return p.length>=2?p.slice(-2).join('.'):String(h||'').toLowerCase();}function foreignHref(h){try{var u=new URL(h,location.href);if(u.protocol!=='http:'&&u.protocol!=='https:')return false;return reg(u.hostname)!==reg(location.hostname);}catch(e){return false;}}function placeholder(h){h=String(h||'').trim().toLowerCase();return h===''||h.charAt(0)==='#'||h.indexOf('javascript:')===0;}function opensWindow(a){if(String(a.getAttribute('target')||'').toLowerCase()==='_blank')return true;if(typeof a.onclick==='function')return true;if(a.getAttribute('onclick'))return true;return false;}function guarded(el){var n=el,d=0;while(n&&n.nodeType===1&&d<8){var c=(typeof n.className==='string')?n.className:((n.className&&n.className.baseVal)||'');var id=((n.id||'')+' '+c).toLowerCase();if(/agedisclaimer|age[-_]?verif|age[-_]?gate|age[-_]?check|over18|under18|age[-_]?confirm|challenge|captcha|turnstile|cf-/.test(id))return true;if(n!==document.body&&n!==document.documentElement&&n.querySelector&&n.querySelector('video,iframe'))return true;n=n.parentElement;d++;}return false;}function blankEl(el){if((el.textContent||'').trim()!=='')return false;if(el.querySelector('img,video,iframe,svg,canvas,picture,object,embed,form,input,button,select,textarea,label'))return false;var cs=getComputedStyle(el);if(cs.backgroundImage&&cs.backgroundImage!=='none')return false;return true;}function coversViewport(el){var cs=getComputedStyle(el);if(cs.position!=='fixed'&&cs.position!=='absolute')return false;if(cs.display==='none'||cs.visibility==='hidden'||cs.pointerEvents==='none')return false;var r=el.getBoundingClientRect();var de=document.documentElement;var W=(de&&de.clientWidth)||window.innerWidth;var H=(de&&de.clientHeight)||window.innerHeight;if(!(W>0&&H>0))return false;return r.left<=1&&r.top<=1&&r.right>=W-1&&r.bottom>=H-1;}function trapWhy(a){if(!a||a.tagName!=='A'||!a.isConnected)return '';if(guarded(a))return '';if(!coversViewport(a))return '';if(!blankEl(a))return '';var h=a.getAttribute('href')||'';if(foreignHref(h))return '全屏透明外站链接';if(placeholder(h)&&opensWindow(a))return '全屏透明开窗链接';return '';}function note(a,why){try{window.__museTrapN=(window.__museTrapN||0)+1;if(window.__museTrapN>20)return;if(window.museClickGuard&&window.museClickGuard.mark)window.museClickGuard.mark(String(a.getAttribute('href')||''),String(location.href||''),why,'trap');}catch(e){}}function zap(a){var why=trapWhy(a);if(!why)return false;var p=a.parentElement;note(a,why);if(a.parentNode)a.parentNode.removeChild(a);try{if(p&&p!==document.body&&p!==document.documentElement&&p.children.length===0&&blankEl(p)&&coversViewport(p)&&!guarded(p))p.parentNode.removeChild(p);}catch(e){}return true;}function sweep(root){try{var l=(root&&root.tagName==='A')?[root]:((root||document).querySelectorAll?(root||document).querySelectorAll('a'):[]);for(var i=0;i<l.length;i++){try{zap(l[i]);}catch(e){}}}catch(e){}}sweep(document);setTimeout(function(){sweep(document);},1000);setTimeout(function(){sweep(document);},3000);if(window.MutationObserver&&document.documentElement){var ob=new MutationObserver(function(ms){for(var i=0;i<ms.length;i++){var m=ms[i];if(m.type==='attributes'){if(m.target&&m.target.tagName==='A')sweep(m.target);continue;}var ns=m.addedNodes;for(var j=0;j<ns.length;j++){var n=ns[j];if(n&&n.nodeType===1)sweep(n);}}});ob.observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['style','href','target','class']});setTimeout(function(){try{ob.disconnect();}catch(e){}},600000);}}catch(e){}})();"
     };
     private static final String CLEAN_JS;
     static {
@@ -1645,6 +1647,11 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
     /** v76：跳转已用——v61/v74/v92 放行一次跨站跳转后记下起跳 host；真实站落地时清 mJumpHost，之后真实站上的跨站点击不再放行（假分类/假视频）。 */
     private boolean mJumpUsed = false;
     private String mJumpOriginHost = null;
+    /** push v49/v33（123av 弹窗修法 1）：已按结构核实是「跳转页」的 host（站内深链少、不是真实站）。v61 带手势放行只在
+     * mJumpHost == 当前 host 且已核实时才生效——入口按 host 兜底默认出来的 mJumpHost 不再凭空享有放行；核实为真实站则清 mJumpHost。 */
+    private String mJumpPageHost = null;
+    /** push v49/v33：本页「拦外站跳转」日志计数（每页上限 20 行，新页清零）。 */
+    private int mAdJumpLogN = 0;
     /** push v23 P2'：点按意图记录——{所点本站 <a> 的地址, 点按所在页地址}；页面 window 捕获阶段 click 监听经 JS 桥写入
      * （只记录，永不放行）。非链接点按写 {"", 页}；新页开始导航即清。字段跟本浏览器实例走，不是全局状态。 */
     private volatile String[] mClickMark = null;
@@ -1765,6 +1772,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         }
         mJumpUsed = false;
         mJumpOriginHost = null;
+        mJumpPageHost = null;
         ArrayList<String> names = intent.getStringArrayListExtra("names");
         if (names != null) mNames = names;
         ArrayList<String> ids = intent.getStringArrayListExtra("ids");
@@ -2048,7 +2056,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 // 用户在该页上点按进真实站是正常操作（有些发布站不自动跳，必须人工点）。只放行「当前页就是跳转页」
                 // 且带手势的点按；目标是已知广告域名时照样拦。v76：落到真实站即清 mJumpHost，这里不再生效
                 //（之前 mJumpHost 会跟到真实站，假分类/假视频也被放行）；防广告劫持的规矩照旧。
-                if (request.hasGesture() && !TextUtils.isEmpty(mJumpHost)
+                if (request.hasGesture() && !TextUtils.isEmpty(mJumpHost) && jumpPageVerified(currentHost)
                         && !TextUtils.isEmpty(currentHost) && mJumpHost.equalsIgnoreCase(currentHost)
                         && (TextUtils.isEmpty(targetHost) || !isAd(targetHost))) {
                     // v73:放行的点按到达新页后,让 mJumpHost 跟到新页一次(修 v72 mUserGestured 缺陷)。
@@ -2097,6 +2105,8 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                         mJumpChainUntil = SystemClock.uptimeMillis() + 10000;
                         return false;
                     }
+                    // push v49/v33：带手势的外站主框跳转被拦，记广告拦截日志。
+                    if (request.hasGesture()) logAdJump("主框", request.getUrl().toString());
                     // v106：只 return true，不 stopLoading()——v101 的 stopLoading() 会把当前片页也杀成空白
                     //（23:34:06 点播后广告跳转被拦，紧随其后 page videos=0 titleLen=0；只拦跳转、页面留着）。
                     return true;
@@ -2109,6 +2119,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
             public void onPageStarted(WebView view, String url, Bitmap favicon) {
                 super.onPageStarted(view, url, favicon);
                 if (url == null || url.equals("about:blank")) return;
+                mAdJumpLogN = 0;
                 // v72：初始页跳转跟进——防丢url/发布站自动跳到真正的发布页时（如 n.plmmttv7y7m.com → vip1949.com），
                 // mJumpHost 还是起跳站 host，与当前页对不上，v61 例外不生效。用户点按前一次性跟进到新 host；
                 // 新 host 是广告域名时不跟进；用户一点按就不再跟进。
@@ -2201,19 +2212,8 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 // v97：不再立即显示——等 CLEAN_JS 回调再显示，否则分类页加载快会抢在首扫前闪出横幅墙（同 onPageCommitVisible）。
                 evalCleanJs(view);
                 // v77：直接进站也算“跳转完成”——入口页加载完，若是真实站（含 ≥2 站内正片链接），清 mJumpHost 激活 v76 规则；发布站页无站内正片链接，不触发。
-                if (!TextUtils.isEmpty(mJumpHost)) {
-                    String curHost = null;
-                    try { curHost = Uri.parse(url).getHost(); } catch (Exception ignored) {}
-                    if (!TextUtils.isEmpty(curHost) && curHost.equalsIgnoreCase(mJumpHost)) {
-                        view.evaluateJavascript("(function(){var as=document.querySelectorAll('a[href]');var n=0;for(var i=0;i<as.length;i++){var h=as[i].getAttribute('href')||'';if(h.indexOf('/vodtype/')===0||h.indexOf('/voddetail/')===0||h.indexOf('/vodplay/')===0){if(++n>=2)return true;}}return false;})()", value -> {
-                            if ("true".equals(value)) {
-                                mJumpHost = "";
-                                mJumpUsed = false;
-                                mJumpOriginHost = null;
-                            }
-                        });
-                    }
-                }
+                // push v49/v33：不再只认苹果 CMS 路径——按结构核实入口页（站内深链多 = 真实站 → 清 mJumpHost；少 = 跳转页 → 才享有 v61 放行）。
+                checkJumpPage(view, url, false);
                 // v56：把 Cookie 落盘——cf_clearance 只留在内存里时进程一死验证就丢；flush 后重进、刷新仍有效。
                 CookieManager.getInstance().flush();
                 // v100：空白页回滚——被拦的广告跳转有时会把当前页卸成空文档（标题空、无视频、无图），
@@ -2342,6 +2342,9 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                                     + " 点=" + (clickSnap == null ? "-" : (clickSnap[0].isEmpty() ? "元素" : clickSnap[0])), false);
                             mFollowJumpHost = true;
                             view.loadUrl(url);
+                        } else {
+                            // push v49/v33：拦下的外站新窗口（window.open / target=_blank）记广告拦截日志。
+                            logAdJump("新窗口", url + " 手势=" + isUserGesture);
                         }
                         // 拦:什么都不做。销毁临时 WebView。
                         tempWebView.post(tempWebView::destroy);
@@ -2601,6 +2604,11 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 DebugLogStore.add(LogCategory.AD, "WebPlay", "push v41 站方广告位整块藏 类型=" + attrs + " 位=" + href + " 页=" + docUrl, false);
                 return;
             }
+            // push v49/v33：全屏透明点击陷阱移除——记一行广告拦截日志，不动点按记录。
+            if ("trap".equals(kind)) {
+                DebugLogStore.add(LogCategory.AD, "WebPlay", "push v49 透明点击陷阱移除 依据=" + attrs + " 指向=" + href + " 页=" + docUrl, false);
+                return;
+            }
             String[] m = new String[]{href == null ? "" : href, docUrl == null ? "" : docUrl, attrs == null ? "" : attrs};
             // push v28 F2a：按下（mousedown/pointerdown）另存一份，只给新窗口路径用；点按（click）照 v23 写 mClickMark。
             if ("press".equals(kind)) mPressMark = m;
@@ -2715,6 +2723,94 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         view.post(() -> view.loadUrl(href));
     }
 
+    /** push v49/v33：跳转页结构判定脚本——数站内链接（同主域、去重的非根路径）与外站链接；苹果 CMS 正片路径 ≥2，
+     * 或站内深链 ≥8 且站内链接不少于外站链接 → 真实站（real）；否则跳转页（jump）。不看尺寸、不看时长。 */
+    private static final String JUMP_PAGE_JS = "(function(){try{var host=location.hostname||'';function reg(h){var p=String(h||'').toLowerCase().split('.');return p.length>=2?p.slice(-2).join('.'):String(h||'').toLowerCase();}var hr=reg(host);var as=document.querySelectorAll('a[href]');var same=0,foreign=0,cms=0,np=0,seen={};for(var i=0;i<as.length;i++){var h=(as[i].getAttribute('href')||'').trim();if(!h||h.charAt(0)==='#'||/^(javascript|mailto|tel):/i.test(h))continue;var u;try{u=new URL(h,location.href);}catch(e){continue;}if(u.protocol!=='http:'&&u.protocol!=='https:')continue;if(reg(u.hostname)!==hr){foreign++;continue;}same++;var p=u.pathname||'/';if(p.indexOf('/vodtype/')===0||p.indexOf('/voddetail/')===0||p.indexOf('/vodplay/')===0)cms++;if(p!=='/'&&!seen[p]){seen[p]=1;np++;}}var real=cms>=2||(np>=8&&same>=foreign);return (real?'real':'jump')+':'+same+'/'+foreign+'/'+np+'/'+cms;}catch(e){return 'err';}})()";
+
+    /** push v49/v33：v61 带手势放行的前提——当前页 host 已核实是跳转页。 */
+    private boolean jumpPageVerified(String currentHost) {
+        return mJumpPageHost != null && !TextUtils.isEmpty(currentHost) && mJumpPageHost.equalsIgnoreCase(currentHost);
+    }
+
+    /** push v49/v33：页面加载完核实入口页是不是跳转页（取代 v77 只认苹果 CMS 路径的判定）：真实站 → 清 mJumpHost（v61/v74 不再放行）；
+     * 跳转页 → 记 mJumpPageHost，3 秒后再核一次（SPA 页面渲染后链接才出来）。 */
+    private void checkJumpPage(WebView view, String url, boolean recheck) {
+        if (view == null || TextUtils.isEmpty(url) || TextUtils.isEmpty(mJumpHost)) return;
+        String curHost = null;
+        try {
+            curHost = Uri.parse(url).getHost();
+        } catch (Exception ignored) {
+        }
+        if (TextUtils.isEmpty(curHost) || !curHost.equalsIgnoreCase(mJumpHost)) return;
+        final String host = curHost;
+        view.evaluateJavascript(JUMP_PAGE_JS, value -> {
+            String v = value == null ? "" : value.replace("\"", "");
+            if (TextUtils.isEmpty(mJumpHost) || !host.equalsIgnoreCase(mJumpHost)) return;
+            if (!clickNoHash(url).equals(clickNoHash(view.getUrl()))) return;
+            if (v.startsWith("real")) {
+                mJumpHost = "";
+                mJumpUsed = false;
+                mJumpOriginHost = null;
+                mJumpPageHost = null;
+                DebugLogStore.add(LogCategory.AD, "WebPlay", "push v49 入口页判为真实站，关闭跳转页放行 统计=" + v + " 页=" + url, false);
+            } else if (v.startsWith("jump")) {
+                mJumpPageHost = host;
+                if (!recheck) view.postDelayed(() -> checkJumpPage(view, url, true), 3000);
+            }
+        });
+    }
+
+    /** push v49/v33：拦下外站跳转记一行「广告拦截」日志（每页上限 20 行）。 */
+    private void logAdJump(String where, String target) {
+        if (mAdJumpLogN >= 20) return;
+        mAdJumpLogN++;
+        DebugLogStore.add(LogCategory.AD, "WebPlay", "push v49 拦外站跳转(" + where + ") 去=" + target, false);
+    }
+
+    /** push v49/v33（123av Referer 修法 A）：把候选请求头登记给 PushMultiRes——①原样嗅到的头 ②Referer=当前页 ③不带 Referer，
+     * 相同的去重。交给播放器的初始头（pushPlayHeaders 的判定）不动；PushMultiRes 取清单时按序试，选中的那套再换给播放器。 */
+    private void offerPushHeaderSets(String stream) {
+        if (TextUtils.isEmpty(stream)) return;
+        try {
+            List<Map<String, String>> sets = new ArrayList<>();
+            Map<String, String> raw = mPushSniffedHeaders;
+            Map<String, String> base = new LinkedHashMap<>();
+            if (raw != null) base.putAll(raw);
+            if (raw != null && !raw.isEmpty()) sets.add(new LinkedHashMap<>(raw));
+            Map<String, String> page = new LinkedHashMap<>(base);
+            pushHdrRemove(page, "Referer");
+            if (!mPushPageUrl.isEmpty()) page.put("Referer", mPushPageUrl);
+            if (TextUtils.isEmpty(pushHdrGet(page, "User-Agent"))) {
+                String ua = Setting.getUa();
+                if (!TextUtils.isEmpty(ua)) page.put("User-Agent", ua);
+            }
+            pushHdrAddUnique(sets, page);
+            Map<String, String> none = new LinkedHashMap<>(page);
+            pushHdrRemove(none, "Referer");
+            pushHdrAddUnique(sets, none);
+            PushMultiRes.offerHeaders(stream, sets);
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private static String pushHdrGet(Map<String, String> h, String name) {
+        for (Map.Entry<String, String> e : h.entrySet()) if (e.getKey() != null && e.getKey().equalsIgnoreCase(name)) return e.getValue();
+        return null;
+    }
+
+    private static void pushHdrRemove(Map<String, String> h, String name) {
+        java.util.Iterator<Map.Entry<String, String>> it = h.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry<String, String> e = it.next();
+            if (e.getKey() != null && e.getKey().equalsIgnoreCase(name)) it.remove();
+        }
+    }
+
+    private static void pushHdrAddUnique(List<Map<String, String>> sets, Map<String, String> h) {
+        for (Map<String, String> s : sets) if (s.equals(h)) return;
+        sets.add(h);
+    }
+
     private boolean isAllowedNewWindowUrl(String url, boolean hasGesture) {
         if (TextUtils.isEmpty(url)) return false;
         Uri uri;
@@ -2741,7 +2837,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         // /pop 弹窗路径一律拦(与 v107 同)。
         if (isPopunderPath(uri.getPath())) return false;
         // v61:当前页是跳转页 + 带手势 + 目标非广告 → 放行(发布页人工点按到真实站)。
-        if (hasGesture && !TextUtils.isEmpty(mJumpHost)
+        if (hasGesture && !TextUtils.isEmpty(mJumpHost) && jumpPageVerified(currentHost)
                 && !TextUtils.isEmpty(currentHost) && mJumpHost.equalsIgnoreCase(currentHost)
                 && (TextUtils.isEmpty(targetHost) || !isAd(targetHost))) {
             // v76：记下这次跳转（起跳 host），真实站落地时清 mJumpHost。
@@ -3720,6 +3816,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 return;
             }
             clearBrowserResolveState();
+            offerPushHeaderSets(url);
             cb.onStream(url, headers);
         });
     }
@@ -3741,6 +3838,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 if (!TextUtils.isEmpty(main) && isPushStreamUrl(main) && !mPushAdSrcs.contains(main)) {
                     Map<String, String> h = pushPlayHeaders();
                     clearBrowserResolveState();
+                    offerPushHeaderSets(main);
                     cb.onStream(main, h);
                     return;
                 }
@@ -3748,6 +3846,7 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
                 if (!TextUtils.isEmpty(sniff) && !mPushAdSrcs.contains(sniff) && (mBrowserResolvePageDone || force)) {
                     Map<String, String> h = pushPlayHeaders();
                     clearBrowserResolveState();
+                    offerPushHeaderSets(sniff);
                     cb.onStream(sniff, h);
                 }
             });
@@ -3834,6 +3933,8 @@ public class WebPlayActivity extends BaseActivity implements EpisodeAdapter.OnCl
         }
         // push v43/v25：登记本页站方各档/声明主清单，播放器落地前 PushMultiRes 升级为多画质（不成照原地址）。
         PushMultiRes.offer(stream, mPushHlsDefs, mPushDeclMaster);
+        // push v49/v33：登记候选请求头（原样嗅到 → Referer=当前页 → 不带 Referer），PushMultiRes 取清单时按序试。
+        offerPushHeaderSets(stream);
         VideoActivity.startWithHeaders(this, stream, headers, title, flag, episode, null, mPushPageUrl, mPushProbeLines, pushPic, origin, vid, sid, nid, metaContent, metaYear, metaArea);
     }
 
