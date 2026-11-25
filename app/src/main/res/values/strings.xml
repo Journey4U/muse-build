@@ -427,7 +427,8 @@
 <string name="reset_app_message">This will erase all app data (site configs, history, favorites, all settings, cache and logs), restore the app to its freshly installed state and restart it. Reset now?</string>
 
 <string name="setting_size">Image size</string>
-<string name="setting_search_cap">Results per site</string>
+<string name="setting_search_cap">Pages per site</string>
+<string name="setting_search_cap_page">%d page(s)</string>
 <string name="setting_search_cap_unlimited">Unlimited</string>
 <string name="setting_tab_offset">Offset</string>
 <string name="setting_theme_color">Theme color</string>

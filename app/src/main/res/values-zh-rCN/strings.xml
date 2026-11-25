@@ -314,7 +314,8 @@
     <string name="setting_auto">自动</string>
     <string name="setting_custom">自定义</string>
     <string name="setting_size">图片尺寸</string>
-    <string name="setting_search_cap">每站搜索条数</string>
+    <string name="setting_search_cap">每站搜索页数</string>
+    <string name="setting_search_cap_page">%d 页</string>
     <string name="setting_search_cap_unlimited">不限</string>
     <string name="setting_doh">DoH</string>
     <string name="setting_proxy">Proxy</string>

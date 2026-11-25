@@ -117,19 +117,26 @@ public class Setting {
         Prefers.put("sync_mode", Math.clamp(mode, MIN_SYNC_MODE, MAX_SYNC_MODE));
     }
 
-    /** push v47：每站搜索条数档位 0=20、1=40（默认）、2=80、3=不限（0 表示不限）。 */
-    public static final int[] SEARCH_CAP_VALUES = {20, 40, 80, 0};
+    /** push v50：每站搜索页数档位 0=1页、1=2页（默认）、2=3页、3=4页、4=5页、5=不限（0 表示不限）。
+     *  新存储键 search_pages；首次读取时从 v47 旧键 search_cap（0=20、1=40、2=80、3=不限 条）迁移：
+     *  旧「不限」→ 不限，其余（20/40/80 条）→ 默认 2 页；迁移后写入新键，旧键不再读。 */
+    public static final int[] SEARCH_PAGES_VALUES = {1, 2, 3, 4, 5, 0};
 
     public static int getSearchCapIndex() {
-        return Math.clamp(Prefers.getInt("search_cap", 1), 0, SEARCH_CAP_VALUES.length - 1);
+        int index = Prefers.getInt("search_pages", -1);
+        if (index < 0) {
+            index = Prefers.getInt("search_cap", -1) == 3 ? SEARCH_PAGES_VALUES.length - 1 : 1;
+            Prefers.put("search_pages", index);
+        }
+        return Math.clamp(index, 0, SEARCH_PAGES_VALUES.length - 1);
     }
 
     public static void putSearchCapIndex(int index) {
-        Prefers.put("search_cap", Math.clamp(index, 0, SEARCH_CAP_VALUES.length - 1));
+        Prefers.put("search_pages", Math.clamp(index, 0, SEARCH_PAGES_VALUES.length - 1));
     }
 
-    public static int getSearchCap() {
-        return SEARCH_CAP_VALUES[getSearchCapIndex()];
+    public static int getSearchPages() {
+        return SEARCH_PAGES_VALUES[getSearchCapIndex()];
     }
 
     public static boolean isIncognito() {
