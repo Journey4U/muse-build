@@ -1696,11 +1696,24 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
             PushMultiRes.upgrade(url, result.getHeader(), upgraded -> {
                 if (isHostFinishing() || seq != mWebResolveSeq) return;
                 if (!TextUtils.isEmpty(upgraded) && !upgraded.equals(url)) result.setUrl(upgraded);
+                applyPushHeaders(result, PushMultiRes.chosenHeaders(url));
                 startPlayer(getHistoryKey(), result, useParse, getSite().getTimeout(), startPositionMs, metadata);
             });
             return;
         }
         startPlayer(getHistoryKey(), result, useParse, getSite().getTimeout(), startPositionMs, metadata);
+    }
+
+    /** push v49/v33：PushMultiRes 试出了能取到清单的那套请求头（123av Referer 修法 A）→ 换进 Result，Exo/MPV 都按它请求；没有则不动。 */
+    private static void applyPushHeaders(Result result, Map<String, String> chosen) {
+        if (result == null || chosen == null) return;
+        Map<String, String> cur = result.getHeader();
+        if (cur.isEmpty()) {
+            result.setHeader(new LinkedHashMap<>(chosen));
+        } else {
+            cur.clear();
+            cur.putAll(chosen);
+        }
     }
 
     /** push v45/v27：网页源解出的地址起播前升级多画质（同推送 v43/v25 的 PushMultiRes；失败/非 m3u8 照原地址）。 */
@@ -1714,6 +1727,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         PushMultiRes.upgrade(u, result.getHeader(), upgraded -> {
             if (isHostFinishing() || seq != mWebResolveSeq) return;
             if (!TextUtils.isEmpty(upgraded) && !upgraded.equals(u)) result.setUrl(upgraded);
+            applyPushHeaders(result, PushMultiRes.chosenHeaders(u));
             startPlayer(getHistoryKey(), result, useParse, getSite().getTimeout(), startPositionMs, metadata);
         });
     }

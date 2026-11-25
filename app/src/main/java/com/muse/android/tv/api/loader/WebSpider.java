@@ -4022,6 +4022,11 @@ public class WebSpider extends Spider {
             if (TextUtils.isEmpty(html)) return "";
             Matcher am = Pattern.compile("location\\.(?:href|assign|replace)\\s*(?:=|\\()([^;\\n]{4,400})").matcher(html);
             String localized = "";
+            String plain = "";
+            // FIX-A：站方三元按「当前语言 === 默认语言」选分支；页面当前语言≠默认语言时，用户看的是本地化页，取本地化分支
+            String pageLoc = firstMatchGroup(html, "[{,\\s]locale\\s*:\\s*['\"]([A-Za-z-]{2,8})['\"]");
+            String fbLoc = firstMatchGroup(html, "fallbackLocale\\s*:\\s*['\"]([A-Za-z-]{2,8})['\"]");
+            boolean preferLocalized = !TextUtils.isEmpty(pageLoc) && !TextUtils.isEmpty(fbLoc) && !pageLoc.equals(fbLoc);
             while (am.find()) {
                 String expr = am.group(1);
                 Matcher tm = Pattern.compile("`([^`]{4,200})`").matcher(expr);
@@ -4033,6 +4038,7 @@ public class WebSpider extends Spider {
                     if (!head.toLowerCase(Locale.ROOT).endsWith("/search/")) continue;
                     if (!head.contains("${")) {
                         String tpl = abs(head + "{kw}");
+                        if (preferLocalized && am.group(1).contains("fallbackLocale")) { if (TextUtils.isEmpty(plain)) plain = tpl; continue; }
                         log("搜索端点发现(脚本模板) " + tpl);
                         return tpl;
                     }
@@ -4046,8 +4052,12 @@ public class WebSpider extends Spider {
                 }
             }
             if (!TextUtils.isEmpty(localized)) {
-                log("搜索端点发现(脚本模板) " + localized);
+                log("搜索端点发现(脚本模板) " + localized + (preferLocalized ? "（页面语言 " + pageLoc + " ≠ 默认 " + fbLoc + "，取本地化分支）" : ""));
                 return localized;
+            }
+            if (!TextUtils.isEmpty(plain)) {
+                log("搜索端点发现(脚本模板) " + plain);
+                return plain;
             }
         } catch (Throwable ignored) {
         }
@@ -9215,6 +9225,8 @@ public class WebSpider extends Spider {
         if (TextUtils.isEmpty(html)) return new JSONArray();
         String pattern = detailPatternOf(html);
         JSONArray arr = extractItemsByPattern(html, pattern, limit);
+        // push v49/v33（MissAV 搜索修法 E，只记日志）：抽出条数远少于本页模式命中数时记一行「影片」日志，不改结果、不触发重推。
+        if (arr.length() > 0) logSparseExtract(html, pattern, arr.length(), limit);
         if (arr.length() == 0) {
             // r344：pattern 自愈 —— detailPattern 是实例字段，单次请求内多个页面（翻页候选探测、
             // 渲染兜底）共用同一实例时，第一个页面把 pattern「焊死」，后续条目形态不同的页全被抽空
@@ -9245,6 +9257,22 @@ public class WebSpider extends Spider {
             if (arr.length() > 0) log("genericItems 宽松兜底命中 " + arr.length() + " 条");
         }
         return arr;
+    }
+
+    /** push v49/v33（修法 E）：本页模式命中的不同地址数（按 href 去重，MissAV 每卡 3 个同址锚不重复计）与抽出条数对比；
+     *  命中 ≥4 个不同地址、抽出不到一半、且不是被 limit 截住时，记一行「影片」日志（命中数/抽出数/站）。只记日志。 */
+    private void logSparseExtract(String html, String pattern, int got, int limit) {
+        try {
+            if (limit > 0 && got >= limit) return;
+            Set<String> hrefs = new HashSet<>();
+            Matcher ph = Pattern.compile("<a[^>]+href=\"(" + pattern + ")\"[^>]*>").matcher(html);
+            while (ph.find() && hrefs.size() < 1000) hrefs.add(ph.group(1));
+            int hits = hrefs.size();
+            if (hits >= 4 && got * 2 < hits) {
+                DebugLogStore.add(LogCategory.MEDIA, "web", label + " 条目抽出偏少 命中=" + hits + " 抽出=" + got + " 站=" + label + " pattern=" + pattern, false);
+            }
+        } catch (Throwable ignored) {
+        }
     }
 
     /** r344：genericItems 主路径按指定 pattern 抽条目（首抽与自愈重试共用同一段逻辑）。 */
@@ -9327,7 +9355,7 @@ public class WebSpider extends Spider {
             if (TextUtils.isEmpty(title)) title = firstMatchGroup(seg, "^<a[^>]*>\\s*<(?:strong|b)[^>]*>\\s*([^<]{1,40})</(?:strong|b)>");
             // r257：alt 只能排在 h 之后 —— seg 会跨到下一张卡片的 img，先看 alt 会把「下一部片名」当本条标题
             // （本地用 gaze.red 真实卡片验证时实际踩到：铁拳教育 → 家业）
-            if (TextUtils.isEmpty(title)) title = firstMatchGroup(seg, "<img[^>]+alt=\"([^\"]{1,80})\"");
+            if (TextUtils.isEmpty(title)) title = firstMatchGroup(seg, "<img[^>]+alt=\"([^\"]{1,300})\"");
             if (TextUtils.isEmpty(title)) // r412：title 属性上限 80 -> 150。lu9936 实测：265520 标题 78 字（能取到），
             // 265519 标题 120 字（超 80 取不到）-> 落到 h 系列 -> 取到下一张卡片的标题（错位一格）。
             title = firstMatchGroup(seg, "title=\"([^\"]{1,150})\"");
@@ -9775,6 +9803,41 @@ public class WebSpider extends Spider {
         // r388（AGENTS.md 第十八节）：**中文 slug 模式优先判断**。
         // 启用条件（20 份夹具全量验证）：maxCn >= 5 且显著强于两套旧模式（各 >1.5 倍）。
         // 实测只有 47o_models.html 命中（数字 2 / slug 21 / 中文slug 115），其余 19 份全 0 → 零误伤。
+        // FIX-B：**番号形末段同目录合并** —— MissAV 系影片地址 /[dmN/][cn/]<字母>-<数字>[-后缀]，
+        //   numericPattern 保留字母字面量 → 每个番号前缀/后缀各成一个模式（ssis- / ssis-…-uncensored-leak / fc2-ppv- …），
+        //   只抽中最高频那一小撮（12 张出 1~6 张）；中文 slug（女优头像卡）还会反超。按「同一目录 + 末段是 字母开头、含连字符、含数字」
+        //   合并计数，显著强于单一模式（>1.5 倍）且不同地址 ≥4 个才启用。结构认，不认站名。
+        LinkedHashMap<String, Integer> codeCnt = new LinkedHashMap<>();
+        LinkedHashMap<String, Set<String>> codeDistinct = new LinkedHashMap<>();
+        Matcher km = Pattern.compile("href=\"(/[^\"'?#\\s]{2,100})\"").matcher(html);
+        while (km.find()) {
+            String path = km.group(1);
+            if (path.contains("%") || NON_CONTENT_PATH.matcher(path).find()) continue;
+            String p2 = path.endsWith("/") ? path.substring(0, path.length() - 1) : path;
+            int sl = p2.lastIndexOf('/');
+            if (sl < 0) continue;
+            String last = p2.substring(sl + 1);
+            if (!last.matches("[A-Za-z][A-Za-z0-9]*-[A-Za-z0-9_-]*\\d[A-Za-z0-9_-]*")) continue;
+            String dir = p2.substring(0, sl + 1);
+            String dp = numericPattern(dir);
+            if (dp == null) dp = Pattern.quote(dir);
+            String key = dp + "[A-Za-z][A-Za-z0-9]*-[A-Za-z0-9_-]*\\d[A-Za-z0-9_-]*/?";
+            Integer c = codeCnt.get(key);
+            codeCnt.put(key, c == null ? 1 : c + 1);
+            codeDistinct.computeIfAbsent(key, k -> new HashSet<>()).add(p2);
+        }
+        String bestCode = "";
+        int maxCode = 0;
+        for (Map.Entry<String, Integer> e : codeCnt.entrySet()) {
+            if (e.getValue() > maxCode && codeDistinct.get(e.getKey()).size() >= 4) {
+                maxCode = e.getValue();
+                bestCode = e.getKey();
+            }
+        }
+        if (maxCode >= 5 && maxCode * 2 > max * 3 && maxCode * 2 > maxCn * 3 && maxCode * 2 > maxSlug * 3) {
+            log("detailPattern 番号形同目录合并 合并=" + maxCode + " 数字=" + max + " slug=" + maxSlug + " 中文=" + maxCn + " → " + bestCode);
+            return bestCode;
+        }
         if (maxCn >= 5 && maxCn * 3 / 2 > max && maxCn * 3 / 2 > maxSlug) {
             log("detailPattern 中文slug 模式 数字=" + max + " slug=" + maxSlug + " 中文=" + maxCn);
             return bestCn;

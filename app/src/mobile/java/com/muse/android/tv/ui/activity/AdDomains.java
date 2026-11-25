@@ -13,6 +13,8 @@ public final class AdDomains {
         "\nmagsrv.com\nforkedspare.com\n"
         + "trafficjunky.net\ntrafficjunky.com\ntoplineads.com\ndzhjmp.com\nmayzaent.com\ngreentrafsa.com\ngasipedibexide.com\ndoppiocdn.com\nstrpst.com\nxxxjmp.com\n"
         + "fozekikikiminu.com\nsnaptrckr.fun\nes344.com\nrallytrck.website\nstoragexhd.com\nerosaiapp.to\n"
+        // push v49/v33：123av 全屏透明弹窗广告的两个去向（app.js popItems）
+        + "attacheatableoverlabor.com\nethnicexpressions.org\n"
     };
     private static final Set<String> SET = new HashSet<>();
     static {

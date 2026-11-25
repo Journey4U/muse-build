@@ -691,7 +691,9 @@ public class PlayerManager implements ParseCallback {
             final PlaySpec target = spec;
             PushMultiRes.upgrade(url, headers, upgraded -> {
                 if (target == null || target != spec) return;
-                spec.setHeaders(headers);
+                // push v49/v33：PushMultiRes 试头选中的那套（有登记候选时）换掉原头
+                Map<String, String> chosen = PushMultiRes.chosenHeaders(url);
+                spec.setHeaders(chosen != null ? chosen : headers);
                 spec.setUrl(TextUtils.isEmpty(upgraded) ? url : upgraded);
                 startCurrent(pendingStartPositionMs);
                 pendingStartPositionMs = C.TIME_UNSET;
