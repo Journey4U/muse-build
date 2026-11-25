@@ -4168,6 +4168,33 @@ public class WebSpider extends Spider {
     }
 
     /**
+     * push v50（Liu 2026-11-25 长段文字搜索）：把关键词填进搜索模板的 {kw}。
+     * URLEncoder 把空格编成「+」——「+」只在问号之后的查询串里表示空格；在路径段里（MissAV /search/{kw}、
+     * 苹果CMS /vodsearch/{kw}----------1---.html、脚本路径型模板）是字面加号，站方会去搜「A+B」。
+     * 所以 {kw} 位于问号之前时把「+」换成 %20（关键词里真正的加号已被编成 %2B，不受影响）；问号之后照旧。
+     * 不改关键词本身、不去空格。
+     */
+    static String fillKw(String tpl, String key) {
+        if (tpl == null) return null;
+        String enc;
+        try {
+            enc = URLEncoder.encode(key == null ? "" : key, "UTF-8");
+        } catch (Exception e) {
+            enc = key == null ? "" : key;
+        }
+        String pathEnc = enc.replace("+", "%20");
+        int q = tpl.indexOf('?');
+        StringBuilder sb = new StringBuilder();
+        int from = 0, at;
+        while ((at = tpl.indexOf("{kw}", from)) >= 0) {
+            sb.append(tpl, from, at).append(q < 0 || at < q ? pathEnc : enc);
+            from = at + 4;
+        }
+        sb.append(tpl.substring(from));
+        return sb.toString();
+    }
+
+    /**
      * r355：给搜索 URL 带上页码（已替换好 {kw} 的成品 URL）。
      * query 型（含 ?）→ 追加 &page=N；maccms rewrite 路径型 → 把 /vodsearch/{kw}----------1---.html
      * 里的那个 1 换成页码（nnyy 实测分页位就在这个横线序列中间）。不认识的形态原样返回。
@@ -4803,6 +4830,7 @@ public class WebSpider extends Spider {
             String id = ids.get(0);
             String url = resolveDetailUrl(id);
             String html = get(url);
+            int detailCode = lastFetchCode;   // push v50（mrds 修法 B 前半）：详情页状态码
             // r285：detail 阶段也要过 Cap —— 真机 12:34 日志里 player 阶段求解后拿到 513133 字真实页，
             // 而 detail 阶段没求解，只拿到「访问验证」空壳 → 被判页面不可用 → 标题/简介全空。
             if (isErrorPage(html) || (html != null && html.contains("cap-widget"))) {
@@ -4829,6 +4857,7 @@ public class WebSpider extends Spider {
                     if (!retryBad && retry.length() > (html == null ? 0 : html.length())) {
                         log("detail cap 已通过，取到真实详情页 " + retry.length() + " 字");
                         html = retry;
+                        detailCode = 200;
                         rememberPage(url, html);   // r375：cap 链路抓取不终 get()，LAST_PAGE 从未记录
                                                          // → r374 的 429 降级拿不到缓存（真机 17:15 三次 429 无重放日志）
                     } else {
@@ -4851,8 +4880,10 @@ public class WebSpider extends Spider {
                     && (id.contains("/vod/play/id/") || id.contains("/vodplay/") || id.contains("/index.php/vod/play/"));
             if (idIsPlay && (TextUtils.isEmpty(html) || html.length() < 800 || isErrorPage(html))) {
                 String alt = get(abs(id));
+                int altCode = lastFetchCode;
                 if (!TextUtils.isEmpty(alt) && alt.length() >= 800 && !isErrorPage(alt)) {
                     html = alt;
+                    detailCode = altCode;
                     url = abs(id);
                     log("detail 路由不可用 → 回退 play 页 " + alt.length() + " 字（播放入口同步换为 play 页）");
                 }
@@ -4897,6 +4928,12 @@ public class WebSpider extends Spider {
             // 标题/封面用列表缓存补，简介直接留空，绝不显示「Web server is returning…」这种垃圾。
             if (vod != null) {
                 boolean bad = isErrorPage(html);
+                // push v50（mrds 修法 B 前半）：详情取到死页（标题级死页判断命中或 HTTP ≥400）时，
+                //   404 页的标题/简介不上屏：片名、封面用搜索结果带来的列表缓存，简介清空。地址解析不动。
+                if (!bad && (isDeadPage(html) || detailCode >= 400)) {
+                    bad = true;
+                    log("详情取到死页（HTTP " + detailCode + "）" + abs(url) + " → 片名/封面用搜索结果，简介清空");
+                }
                 String name = vod.optString("vod_name");
                 if (bad) {
                     vod.put("vod_content", "");
@@ -5262,13 +5299,20 @@ public class WebSpider extends Spider {
      * source、或带 data-video_* / data-src-m3u8 等播放器信号的元素。每块用已有 findPlayUrl
      * （全文扫 m3u8 + 还原转义）取第一个直链；集名优先用节点标题尾部编号，否则第 N 集。
      */
+    /** push v50（mrds 修法 A）：播放器节点信号 —— dplayer/xgplayer 容器（class 值后不跟「-」）或带 data-video_* 的节点。
+     *  pagePlaylistEpisodes 切块与 collectionEpisodes 的「有播放器」门共用这一个判断，不各写一套。 */
+    private static final Pattern PLAYER_NODE = Pattern.compile("<(?:div|section|span)[^>]*(?:class=[\"'][^\"']*(?:dplayer|xgplayer)(?!-)|data-video_[a-z]+=)", Pattern.CASE_INSENSITIVE);
+
+    private static boolean hasPlayerNode(String html) {
+        return !TextUtils.isEmpty(html) && PLAYER_NODE.matcher(html).find();
+    }
+
     private void pagePlaylistEpisodes(String html, LinkedHashMap<String, List<String[]>> grouped, LinkedHashMap<String, String> lineName) {
         try {
             if (TextUtils.isEmpty(html)) return;
             // 通用播放器节点切块信号：dplayer/xgplayer 容器、或带 data-video_* 的自定义播放器。
             // class 值用「后不跟 -」负向前瞻精确匹配，避免误中 dplayer-loading / dplayer-play-icon 等。
-            Pattern node = Pattern.compile("<(?:div|section|span)[^>]*(?:class=[\"'][^\"']*(?:dplayer|xgplayer)(?!-)|data-video_[a-z]+=)", Pattern.CASE_INSENSITIVE);
-            Matcher nm = node.matcher(html);
+            Matcher nm = PLAYER_NODE.matcher(html);
             java.util.List<Integer> starts = new java.util.ArrayList<>();
             while (nm.find()) starts.add(nm.start());
             java.util.List<String[]> out = new java.util.ArrayList<>();
@@ -5515,12 +5559,16 @@ public class WebSpider extends Spider {
                 log("合集选集 " + ceps.size() + " 集（" + abs(id) + "）");
             }
         }
+        // push v50（mrds 修法 A）：页内有播放器节点（与合集门同一个判断 hasPlayerNode）时先交给 dplayer 抽真线路，
+        //   再轮到 JSON-LD —— mrds 的 VideoObject.embedUrl 是文章页地址本身而不是媒体，先用它会把单片变成「直链=本页」。
+        boolean playerFirst = grouped.isEmpty() && hasPlayerNode(html);
+        if (playerFirst) pagePlaylistEpisodes(html, grouped, lineName);
         // r362：JSON-LD 直链优先于「本页嗅探」—— 嗅探只有 WebView 才跑得起来（~20s），
         // JSON-LD 是页面里现成的 m3u8，纯 HTTP 直接拿。先试它，失败才落到下面的嗅探兜底。
         jsonLdFallback(vod, html, grouped, lineName);
         // r4xx（通用化）：页内多播放器节点全部转成选集（昏黄影视 rules.md §9 通用经验），
         //   不认具体站点/class，覆盖 dplayer/xgplayer/video/source 等任意播放器形态。
-        if (grouped.isEmpty()) pagePlaylistEpisodes(html, grouped, lineName);
+        if (grouped.isEmpty() && !playerFirst) pagePlaylistEpisodes(html, grouped, lineName);
         if (grouped.isEmpty()) {
             // r249：抽不到真实播放路由就给「本页播放」一条线路，把详情页交给壳内 WebView 嗅探。
             // A 站播放地址在 eval(function(p,a,c,k,e,d){...}) 里运行时生成，纯 HTTP 拿不到 m3u8，
@@ -6045,7 +6093,7 @@ public class WebSpider extends Spider {
                     if (list.length() > 0 && searchSaysNoResult(body)) list = new JSONArray();
                     log("搜索尝试(POST) " + ep.split("\\|", -1)[1] + " -> " + list.length() + " 条");
                 } else if (list.length() == 0 && !TextUtils.isEmpty(ep)) {
-                    String u = applySearchPage(ep.replace("{kw}", kw), page);
+                    String u = applySearchPage(fillKw(ep, key), page);   // push v50：路径段里空格编 %20
                     String mPageTpl = page > 1 ? SEARCH_PAGE_TPL.get(root + "|" + key) : null;
                     if (!TextUtils.isEmpty(mPageTpl)) {
                         u = mPageTpl.replace("{pg}", String.valueOf(page));   // push v45：站方分页链接规律优先
@@ -6111,7 +6159,7 @@ public class WebSpider extends Spider {
                         if (list.length() > 0) break;
                         continue;
                     }
-                    String u = tpl.replace("{kw}", kw);
+                    String u = fillKw(tpl, key);   // push v50：路径段里空格编 %20，问号后照旧
                     if (!u.startsWith("http")) u = abs(u);
                     // query 型模板带分页；push v45：路径型（/search/{kw}，MissAV 实证翻页是 ?page=N）也带——
                     // maccms 横线序列型照 applySearchPage 换页码位，其余追加站方分页参数（第 1 页认出的，认不出用 page）。
@@ -6338,7 +6386,7 @@ public class WebSpider extends Spider {
             } catch (Throwable e) {
                 dec = h.toLowerCase(Locale.ROOT);
             }
-            if (!samePath(h, searchUrl) && (kl.isEmpty() || !dec.contains(kl))) continue;
+            if (!samePath(h, searchUrl) && (kl.isEmpty() || (!dec.contains(kl) && !dec.replace('+', ' ').contains(kl)))) continue;
             String t = pageSlot(h);
             if (!TextUtils.isEmpty(t)) return t;
         }
@@ -9217,8 +9265,12 @@ public class WebSpider extends Spider {
      *  r489：补 post-near（上一篇/下一篇导航）与 post-near-span —— 吃瓜榜单文章页正文末尾
      *  的「上一篇/下一篇」链接 href 也是 /archives/\d+/，会被 collectPageEpisodes 误当正文选集。 */
     private static final Pattern NAV_DROPDOWN = Pattern.compile(
-            "class=\"[^\"]*(?:dropdown-menu|dropdown-item|dropdown-toggle|nav-item|post-near)[^\"]*\"",
+            "class=\"[^\"]*(?:dropdown-menu|dropdown-item|dropdown-toggle|nav-item|post-near|menu-item|navbar|(?<![\\w-])menu(?![\\w-]))[^\"]*\"",
             Pattern.CASE_INSENSITIVE);
+
+    /** push v50（mrds 修法 A）：站方自标广告链接。 */
+    private static final Pattern AD_MARKED_LINK = Pattern.compile(
+            "rel=[\"'][^\"']*\\bsponsored\\b|data-event=[\"']ad_click[\"']", Pattern.CASE_INSENSITIVE);
 
     private JSONArray genericItems(String html, int limit) {
         html = normalizeHref(html);
@@ -10139,7 +10191,10 @@ public class WebSpider extends Spider {
     private List<String[]> collectionEpisodes(String html, String pageUrl) {
         if (TextUtils.isEmpty(html)) return null;
         boolean hasPlayer = html.contains("ql-video") || html.contains("player-container")
-                || html.contains("eval(function(p,a,c,k,e,d)");
+                || html.contains("eval(function(p,a,c,k,e,d)")
+                // push v50（mrds 修法 A）：页内有 dplayer/xgplayer/data-video_* 播放器节点 = 单片播放页，
+                //   不判合集，交给 pagePlaylistEpisodes 抽真线路（mrds /archives/N/ 实证：菜单 11 链接曾被当合集）。
+                || hasPlayerNode(html);
         if (hasPlayer) return null;
         // r418：**先判图集再判链接** —— 顺序反了会把图集页的推荐区链接当「选集」。
         // aisee9w11 实证（沙箱复刻）：detail-138213 是 202 张 img3 的图集页（comicpage 容器），
@@ -10172,6 +10227,8 @@ public class WebSpider extends Spider {
         if (TextUtils.isEmpty(v)) v = firstMatch(url, "/vodplay/(\\d+)");
         if (TextUtils.isEmpty(v)) v = firstMatch(url, "/(\\d{3,})\\.html");
         if (TextUtils.isEmpty(v)) v = firstMatch(url, "[?&]id=(\\d{3,})");
+        // push v50（mrds 修法 A）：路径最后一段 3 位以上纯数字（/archives/203155/）。
+        if (TextUtils.isEmpty(v)) v = firstMatch(url, "/(\\d{3,})/?(?:[?#]|$)");
         return TextUtils.isEmpty(v) ? "" : v;
     }
 
@@ -10319,6 +10376,8 @@ public class WebSpider extends Spider {
                 // 不排除就会混进 TOP10 选集里。
                 if (NAV_DROPDOWN.matcher(html.substring(Math.max(0, m.start() - 400),
                         Math.min(html.length(), m.end() + 80))).find()) continue;
+                // push v50（mrds 修法 A）：站方自己标成广告的链接（rel="sponsored" / data-event="ad_click"）不当选集。
+                if (AD_MARKED_LINK.matcher(m.group(0)).find()) continue;
                 if (!seen.add(href)) continue;
                 String name = names.get(href);
                 eps.add(new String[]{name == null ? "" : name, abs(href)});

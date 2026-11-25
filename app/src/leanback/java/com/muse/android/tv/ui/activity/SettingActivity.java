@@ -109,9 +109,12 @@ public class SettingActivity extends BaseActivity implements ConfigListener, Sit
         setWebViewportText();
     }
 
-    // push v47：每站搜索条数（20/40/80/不限，默认 40）；遥控器 OK 键循环切换，照「图片尺寸」项做法
+    // push v47 起；push v50 改为每站搜索页数（1/2/3/4/5 页/不限，默认 2 页）；遥控器 OK 键循环切换，照「图片尺寸」项做法
     private String[] getSearchCapItems() {
-        return new String[]{"20", "40", "80", ResUtil.getString(R.string.setting_search_cap_unlimited)};
+        int[] values = Setting.SEARCH_PAGES_VALUES;
+        String[] items = new String[values.length];
+        for (int i = 0; i < values.length; i++) items[i] = values[i] <= 0 ? ResUtil.getString(R.string.setting_search_cap_unlimited) : ResUtil.getString(R.string.setting_search_cap_page, values[i]);
+        return items;
     }
 
     private void setSearchCapText() {
@@ -119,7 +122,7 @@ public class SettingActivity extends BaseActivity implements ConfigListener, Sit
     }
 
     private void setSearchCap(View view) {
-        Setting.putSearchCapIndex((Setting.getSearchCapIndex() + 1) % Setting.SEARCH_CAP_VALUES.length);
+        Setting.putSearchCapIndex((Setting.getSearchCapIndex() + 1) % Setting.SEARCH_PAGES_VALUES.length);
         setSearchCapText();
     }
 
