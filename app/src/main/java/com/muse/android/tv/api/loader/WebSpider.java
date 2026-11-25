@@ -4168,6 +4168,33 @@ public class WebSpider extends Spider {
     }
 
     /**
+     * push v50（Liu 2026-11-25 长段文字搜索）：把关键词填进搜索模板的 {kw}。
+     * URLEncoder 把空格编成「+」——「+」只在问号之后的查询串里表示空格；在路径段里（MissAV /search/{kw}、
+     * 苹果CMS /vodsearch/{kw}----------1---.html、脚本路径型模板）是字面加号，站方会去搜「A+B」。
+     * 所以 {kw} 位于问号之前时把「+」换成 %20（关键词里真正的加号已被编成 %2B，不受影响）；问号之后照旧。
+     * 不改关键词本身、不去空格。
+     */
+    static String fillKw(String tpl, String key) {
+        if (tpl == null) return null;
+        String enc;
+        try {
+            enc = URLEncoder.encode(key == null ? "" : key, "UTF-8");
+        } catch (Exception e) {
+            enc = key == null ? "" : key;
+        }
+        String pathEnc = enc.replace("+", "%20");
+        int q = tpl.indexOf('?');
+        StringBuilder sb = new StringBuilder();
+        int from = 0, at;
+        while ((at = tpl.indexOf("{kw}", from)) >= 0) {
+            sb.append(tpl, from, at).append(q < 0 || at < q ? pathEnc : enc);
+            from = at + 4;
+        }
+        sb.append(tpl.substring(from));
+        return sb.toString();
+    }
+
+    /**
      * r355：给搜索 URL 带上页码（已替换好 {kw} 的成品 URL）。
      * query 型（含 ?）→ 追加 &page=N；maccms rewrite 路径型 → 把 /vodsearch/{kw}----------1---.html
      * 里的那个 1 换成页码（nnyy 实测分页位就在这个横线序列中间）。不认识的形态原样返回。
@@ -6045,7 +6072,7 @@ public class WebSpider extends Spider {
                     if (list.length() > 0 && searchSaysNoResult(body)) list = new JSONArray();
                     log("搜索尝试(POST) " + ep.split("\\|", -1)[1] + " -> " + list.length() + " 条");
                 } else if (list.length() == 0 && !TextUtils.isEmpty(ep)) {
-                    String u = applySearchPage(ep.replace("{kw}", kw), page);
+                    String u = applySearchPage(fillKw(ep, key), page);   // push v50：路径段里空格编 %20
                     String mPageTpl = page > 1 ? SEARCH_PAGE_TPL.get(root + "|" + key) : null;
                     if (!TextUtils.isEmpty(mPageTpl)) {
                         u = mPageTpl.replace("{pg}", String.valueOf(page));   // push v45：站方分页链接规律优先
@@ -6111,7 +6138,7 @@ public class WebSpider extends Spider {
                         if (list.length() > 0) break;
                         continue;
                     }
-                    String u = tpl.replace("{kw}", kw);
+                    String u = fillKw(tpl, key);   // push v50：路径段里空格编 %20，问号后照旧
                     if (!u.startsWith("http")) u = abs(u);
                     // query 型模板带分页；push v45：路径型（/search/{kw}，MissAV 实证翻页是 ?page=N）也带——
                     // maccms 横线序列型照 applySearchPage 换页码位，其余追加站方分页参数（第 1 页认出的，认不出用 page）。
@@ -6338,7 +6365,7 @@ public class WebSpider extends Spider {
             } catch (Throwable e) {
                 dec = h.toLowerCase(Locale.ROOT);
             }
-            if (!samePath(h, searchUrl) && (kl.isEmpty() || !dec.contains(kl))) continue;
+            if (!samePath(h, searchUrl) && (kl.isEmpty() || (!dec.contains(kl) && !dec.replace('+', ' ').contains(kl)))) continue;
             String t = pageSlot(h);
             if (!TextUtils.isEmpty(t)) return t;
         }
