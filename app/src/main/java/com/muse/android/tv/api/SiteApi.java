@@ -264,11 +264,12 @@ public class SiteApi {
     public static Result searchContent(@NonNull Site site, @NonNull String keyword, boolean quick, @NonNull String page) throws Exception {
         // push v47：每站搜索条数上限（设置项，默认 40）——所有源类型统一在这里截断/收口，「不限」原样返回
         if (SearchCap.exhausted(site, keyword, quick, page)) return SearchCap.closed();
-        return SearchCap.apply(site, keyword, quick, page, searchContentRaw(site, keyword, quick, page));
+        // push v50：长段文字搜索——原样搜 0 条时壳子换词补搜（番号/《》片名 → 空格拆最长段），全部源类型，见 SearchRetry
+        return SearchCap.apply(site, keyword, quick, page, SearchRetry.run(site, keyword, quick, page));
     }
 
     @NonNull
-    private static Result searchContentRaw(@NonNull Site site, @NonNull String keyword, boolean quick, @NonNull String page) throws Exception {
+    static Result searchContentRaw(@NonNull Site site, @NonNull String keyword, boolean quick, @NonNull String page) throws Exception {
         SpiderDebug.log("search", "site=%s,keyword=%s,quick=%s,page=%s", site.getName(), keyword, quick, page);
         boolean hasPage = !page.equals("1");
         if (site.isWebSource()) {
