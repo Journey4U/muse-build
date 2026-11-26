@@ -320,7 +320,12 @@ public final class LocalComics {
         JSONObject record = NovelProgress.find(bookId(path));
         if (record == null) return null;
         JSONObject page = progressAll().optJSONObject(path);
-        if (page != null) record.put("page", page.optInt("page", 0));
+        if (page != null) {
+            try {
+                record.put("page", page.optInt("page", 0));
+            } catch (Exception ignored) {
+            }
+        }
         return record;
     }
 
