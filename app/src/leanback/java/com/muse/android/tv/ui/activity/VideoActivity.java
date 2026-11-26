@@ -1051,7 +1051,6 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         if (built.size() < 2) return -1;
         vod.getFlags().clear();
         vod.getFlags().addAll(built);
-        mBrowserLinesApplied = true;
         StringBuilder from = new StringBuilder();
         for (Flag f : built) {
             if (from.length() > 0) from.append(",");
