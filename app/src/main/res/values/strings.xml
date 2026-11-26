@@ -253,6 +253,7 @@
 <string name="error_play_parse">Unable to parse url</string>
 <string name="error_play_prev">It\'s the first episode!</string>
 <string name="error_play_timeout">Timed out</string>
+<string name="error_play_no_video">Video cannot be shown (tried switching decoder and player)</string>
 <string name="error_play_url">Unable to load url</string>
 <string name="error_play_variant">Failed to switch quality</string>
 <string name="error_video_effect_decode">Video settings require hardware video decoding</string>

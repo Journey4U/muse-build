@@ -28,6 +28,26 @@ public final class PlayerEngineFactory {
         };
     }
 
+    /** v54 有声无画恢复：本片临时换核（不持久化）。override 为空或该片用不了时照常规则。 */
+    public static PlayerEngine create(int decode, PlaySpec spec, PlayerEngine.Type override, Player.Listener listener) {
+        return create(decode, resolve(spec, override), listener);
+    }
+
+    public static boolean matches(PlayerEngine engine, PlaySpec spec, PlayerEngine.Type override) {
+        return engine != null && engine.getType() == resolve(spec, override) && !engine.needsRebuild();
+    }
+
+    /** v54：该片能否用指定核——DRM/smb 只能 Exo；MPV 须库可用。 */
+    public static boolean canUse(PlaySpec spec, PlayerEngine.Type type) {
+        if (spec == null || type == null) return false;
+        if (type == MPV) return !requiresExo(spec) && MpvPlayerEngine.isAvailable();
+        return true;
+    }
+
+    private static PlayerEngine.Type resolve(PlaySpec spec, PlayerEngine.Type override) {
+        return override != null && canUse(spec, override) ? override : resolve(spec);
+    }
+
     public static boolean matches(PlayerEngine engine, PlaySpec spec) {
         return engine != null && engine.getType() == resolve(spec) && !engine.needsRebuild();
     }
