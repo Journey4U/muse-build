@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="vod" type="id" />
+    <item name="live" type="id" />
+    <item name="browser" type="id" />
+    <item name="bookshelf" type="id" />
+    <item name="comic" type="id" />
+    <item name="setting" type="id" />
+</resources>

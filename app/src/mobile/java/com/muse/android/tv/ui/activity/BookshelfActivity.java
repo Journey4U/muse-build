@@ -15,7 +15,7 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.widget.Toolbar;
-import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewbinding.ViewBinding;
 
@@ -23,12 +23,16 @@ import com.muse.android.tv.App;
 import com.muse.android.tv.R;
 import com.muse.android.tv.bean.Keep;
 import com.muse.android.tv.databinding.ActivityBookshelfBinding;
+import com.muse.android.tv.databinding.AdapterComicBinding;
 import com.muse.android.tv.databinding.AdapterBookshelfBinding;
 import com.muse.android.tv.databinding.AdapterBookshelfHeaderBinding;
 import com.muse.android.tv.ui.base.BaseActivity;
+import com.muse.android.tv.ui.comic.LocalComics;
+import com.muse.android.tv.ui.comic.ComicImageLoader;
 import com.muse.android.tv.ui.novel.LocalBooks;
 import com.muse.android.tv.ui.novel.NovelProgress;
 import com.muse.android.tv.ui.novel.NovelReaderActivity;
+import com.muse.android.tv.ui.activity.ImageActivity;
 import com.muse.android.tv.utils.FileChooser;
 import com.muse.android.tv.utils.Notify;
 import com.muse.android.tv.utils.Task;
@@ -52,6 +56,7 @@ public class BookshelfActivity extends BaseActivity {
     private static final int KIND_RECENT = 0;
     private static final int KIND_LOCAL = 1;
     private static final int KIND_KEPT = 2;
+    private static final int KIND_COMIC = 3;
 
     private ActivityBookshelfBinding mBinding;
     private ShelfAdapter mAdapter;
@@ -87,7 +92,15 @@ public class BookshelfActivity extends BaseActivity {
     @Override
     protected void initView(Bundle savedInstanceState) {
         setSupportActionBar(mBinding.toolbar);
-        mBinding.recycler.setLayoutManager(new LinearLayoutManager(this));
+        // 漫画封面格子与小说列表同页：漫画格占 1 列、其他行占整行（竖屏 2 列、横屏 3 列）
+        GridLayoutManager manager = new GridLayoutManager(this, getResources().getConfiguration().orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE ? 3 : 2);
+        manager.setSpanSizeLookup(new GridLayoutManager.SpanSizeLookup() {
+            @Override
+            public int getSpanSize(int position) {
+                return mAdapter != null && mAdapter.isComicRow(position) ? 1 : manager.getSpanCount();
+            }
+        });
+        mBinding.recycler.setLayoutManager(manager);
         mBinding.recycler.setAdapter(mAdapter = new ShelfAdapter());
         loadData();
     }
@@ -103,6 +116,12 @@ public class BookshelfActivity extends BaseActivity {
         rows.add(Row.header(getString(R.string.shelf_local)));
         if (locals.isEmpty()) rows.add(Row.hint(getString(R.string.shelf_empty_local)));
         for (JSONObject book : locals) rows.add(Row.local(book));
+        // 本地漫画栏：有漫画才显示（与底栏/电视功能区「漫画」同一份数据 LocalComics.comics()）
+        List<JSONObject> comics = LocalComics.comics();
+        if (!comics.isEmpty()) {
+            rows.add(Row.header(getString(R.string.shelf_comic)));
+            for (JSONObject comic : comics) rows.add(Row.comic(comic));
+        }
         Set<String> shelved = NovelProgress.shelfKeys();
         List<Keep> kept = new ArrayList<>();
         for (Keep item : Keep.getVod()) if (shelved.contains(item.getKey())) kept.add(item);
@@ -110,6 +129,48 @@ public class BookshelfActivity extends BaseActivity {
         if (kept.isEmpty()) rows.add(Row.hint(getString(R.string.shelf_empty_kept)));
         for (Keep item : kept) rows.add(Row.kept(item));
         mAdapter.setRows(rows);
+    }
+
+    private final ActivityResultLauncher<Intent> comicLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+        if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null && result.getData().getData() != null && result.getData().getData().getPath() != null) {
+            File picked = new File(result.getData().getData().getPath());
+            if (picked.isDirectory()) {
+                onComicFolderPicked(picked);
+                return;
+            }
+        }
+        FileChooser.getUri(result, this::onComicFilePicked);
+    });
+
+    /** 漫画导入：单文件只认 cbz/zip；文件夹按「一部」整部导入（子文件夹=一话、根下图=第一话、包内图按目录分话）。 */
+    private void onComicFilePicked(Uri uri) {
+        if (uri == null || uri.getPath() == null) return;
+        File file = new File(uri.getPath());
+        if (!LocalComics.isArchive(file.getName())) {
+            Notify.show(getString(R.string.comic_import_empty));
+            return;
+        }
+        importComic(file);
+    }
+
+    private void onComicFolderPicked(File dir) {
+        importComic(dir);
+    }
+
+    private void importComic(File file) {
+        Notify.show(getString(R.string.shelf_importing));
+        Task.execute(() -> {
+            int chapters = LocalComics.importComic(file);
+            App.post(() -> {
+                if (chapters < 0) Notify.show(getString(R.string.comic_import_fail));
+                else if (chapters == 0) Notify.show(getString(R.string.comic_import_empty));
+                else {
+                    JSONObject comic = LocalComics.find(file.getAbsolutePath());
+                    Notify.show(getString(R.string.comic_import_ok, comic == null ? file.getName() : comic.optString("title"), chapters));
+                    loadData();
+                }
+            });
+        });
     }
 
     private void onFilePicked(Uri uri) {
@@ -185,11 +246,14 @@ public class BookshelfActivity extends BaseActivity {
     }
 
     private void onRowClick(Row row) {
-        if (row.kind == KIND_LOCAL) openLocal(row.book);
+        if (row.kind == KIND_COMIC) ImageActivity.openLocalComic(this, row.book.optString("path"));
+        else if (row.kind == KIND_LOCAL) openLocal(row.book);
         else if (row.kind == KIND_KEPT) VideoActivity.start(this, row.keep.getSiteKey(), row.keep.getVodId(), row.keep.getVodName(), row.keep.getVodPic());
         else if (row.kind == KIND_RECENT) {
             String bookId = row.record.optString("bookId");
-            if (bookId.startsWith("local:")) {
+            if (bookId.startsWith(LocalComics.BOOK_ID_PREFIX)) {
+                ImageActivity.openLocalComic(this, bookId.substring(LocalComics.BOOK_ID_PREFIX.length()));
+            } else if (bookId.startsWith("local:")) {
                 JSONObject book = LocalBooks.find(bookId.substring("local:".length()));
                 if (book != null) openLocal(book);
                 else Notify.show(getString(R.string.shelf_book_gone));
@@ -200,7 +264,12 @@ public class BookshelfActivity extends BaseActivity {
     }
 
     private void onRowLongClick(Row row) {
-        if (row.kind == KIND_LOCAL) {
+        if (row.kind == KIND_COMIC) {
+            confirm(getString(R.string.shelf_remove_book), getString(R.string.comic_remove_msg), () -> {
+                LocalComics.remove(row.book.optString("path"));
+                loadData();
+            });
+        } else if (row.kind == KIND_LOCAL) {
             String path = row.book.optString("path");
             confirm(getString(R.string.shelf_remove_book), getString(R.string.shelf_remove_local_msg), () -> {
                 LocalBooks.remove(path);
@@ -235,10 +304,19 @@ public class BookshelfActivity extends BaseActivity {
         return true;
     }
 
+    /** 导入口：选小说或漫画（漫画选文件夹或 CBZ/ZIP，同一 FileChooser 流程）。 */
+    private void showImportDialog() {
+        new MaterialAlertDialogBuilder(this).setTitle(R.string.shelf_import_choose)
+                .setItems(new CharSequence[]{getString(R.string.shelf_import_novel), getString(R.string.shelf_import_comic)}, (dialog, which) -> {
+                    if (which == 0) FileChooser.from(launcher).showInternalFolder();
+                    else FileChooser.from(comicLauncher).showInternalFolder();
+                }).show();
+    }
+
     @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         if (item.getItemId() == android.R.id.home) onBackInvoked();
-        else if (item.getItemId() == R.id.import_book) FileChooser.from(launcher).showInternalFolder();
+        else if (item.getItemId() == R.id.import_book) showImportDialog();
         return super.onOptionsItemSelected(item);
     }
 
@@ -252,6 +330,7 @@ public class BookshelfActivity extends BaseActivity {
         static final int TYPE_HEADER = 0;
         static final int TYPE_ROW = 1;
         static final int TYPE_HINT = 2;
+        static final int TYPE_COMIC = 3;
 
         int type;
         int kind;
@@ -290,6 +369,14 @@ public class BookshelfActivity extends BaseActivity {
             return row;
         }
 
+        static Row comic(JSONObject comic) {
+            Row row = new Row();
+            row.type = TYPE_ROW;
+            row.kind = KIND_COMIC;
+            row.book = comic;
+            return row;
+        }
+
         static Row kept(Keep keep) {
             Row row = new Row();
             row.type = TYPE_ROW;
@@ -309,9 +396,13 @@ public class BookshelfActivity extends BaseActivity {
             notifyDataSetChanged();
         }
 
+        boolean isComicRow(int position) {
+            return position >= 0 && position < rows.size() && rows.get(position).kind == KIND_COMIC;
+        }
+
         @Override
         public int getItemViewType(int position) {
-            return rows.get(position).type;
+            return rows.get(position).kind == KIND_COMIC ? Row.TYPE_COMIC : rows.get(position).type;
         }
 
         @NonNull
@@ -319,6 +410,7 @@ public class BookshelfActivity extends BaseActivity {
         public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
             LayoutInflater inflater = LayoutInflater.from(parent.getContext());
             if (viewType == Row.TYPE_HEADER) return new HeaderHolder(AdapterBookshelfHeaderBinding.inflate(inflater, parent, false));
+            if (viewType == Row.TYPE_COMIC) return new ComicHolder(AdapterComicBinding.inflate(inflater, parent, false));
             return new RowHolder(AdapterBookshelfBinding.inflate(inflater, parent, false));
         }
 
@@ -327,6 +419,17 @@ public class BookshelfActivity extends BaseActivity {
             Row row = rows.get(position);
             if (holder instanceof HeaderHolder) {
                 ((HeaderHolder) holder).binding.text.setText(row.text);
+                return;
+            }
+            if (holder instanceof ComicHolder comicHolder) {
+                comicHolder.binding.title.setText(row.book.optString("title"));
+                comicHolder.binding.sub.setText(LocalComics.progressText(BookshelfActivity.this, row.book));
+                ComicImageLoader.load(comicHolder.binding.cover, row.book.optString("cover"));
+                holder.itemView.setOnClickListener(v -> onRowClick(row));
+                holder.itemView.setOnLongClickListener(v -> {
+                    onRowLongClick(row);
+                    return true;
+                });
                 return;
             }
             RowHolder rowHolder = (RowHolder) holder;
@@ -347,12 +450,14 @@ public class BookshelfActivity extends BaseActivity {
         }
 
         private String titleOf(Row row) {
+            if (row.kind == KIND_COMIC) return row.book.optString("title");
             if (row.kind == KIND_LOCAL) return row.book.optString("title");
             if (row.kind == KIND_KEPT) return row.keep.getVodName();
             return row.record.optString("title");
         }
 
         private String subOf(Row row) {
+            if (row.kind == KIND_COMIC) return LocalComics.progressText(BookshelfActivity.this, row.book);
             if (row.kind == KIND_LOCAL) {
                 JSONObject record = NovelProgress.find("local:" + row.book.optString("path"));
                 int chapters = row.book.optJSONArray("chapters") == null ? 0 : row.book.optJSONArray("chapters").length();
@@ -368,6 +473,15 @@ public class BookshelfActivity extends BaseActivity {
         @Override
         public int getItemCount() {
             return rows.size();
+        }
+    }
+
+    private static class ComicHolder extends RecyclerView.ViewHolder {
+        final AdapterComicBinding binding;
+
+        ComicHolder(AdapterComicBinding binding) {
+            super(binding.getRoot());
+            this.binding = binding;
         }
     }
 

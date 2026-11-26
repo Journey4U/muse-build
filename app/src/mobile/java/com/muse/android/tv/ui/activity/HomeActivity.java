@@ -6,7 +6,6 @@ import android.content.Intent;
 import android.content.res.Configuration;
 import android.os.Bundle;
 import android.text.TextUtils;
-import android.view.MenuItem;
 import android.view.View;
 
 import androidx.annotation.NonNull;
@@ -38,6 +37,8 @@ import com.muse.android.tv.server.Server;
 import com.muse.android.tv.service.PlaybackService;
 import com.muse.android.tv.ui.base.BaseActivity;
 import com.muse.android.tv.ui.base.BaseFragment;
+import com.muse.android.tv.ui.comic.LocalComics;
+import com.muse.android.tv.ui.custom.CustomNavBar;
 import com.muse.android.tv.ui.custom.FragmentStateManager;
 import com.muse.android.tv.ui.fragment.SettingDanmakuFragment;
 import com.muse.android.tv.ui.fragment.SettingDecodeFragment;
@@ -51,12 +52,11 @@ import com.muse.android.tv.utils.PermissionUtil;
 import com.muse.android.tv.utils.UrlUtil;
 import com.muse.android.tv.utils.Util;
 import com.github.catvod.net.OkHttp;
-import com.google.android.material.navigation.NavigationBarView;
 
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 
-public class HomeActivity extends BaseActivity implements NavigationBarView.OnItemSelectedListener {
+public class HomeActivity extends BaseActivity implements CustomNavBar.OnItemSelectedListener {
 
     private FragmentStateManager mManager;
     private ActivityHomeBinding mBinding;
@@ -110,6 +110,7 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
             sWebAutoKey = null;
             sPendingSiteDialog = false;
         }
+        initNavigation();
         mBinding.navigation.setOnItemSelectedListener(this);
         PermissionUtil.requestNotify(this);
         initFragment(savedInstanceState);
@@ -119,7 +120,7 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
 
     @Override
     protected void initEvent() {
-        mBinding.navigation.findViewById(R.id.live).setOnLongClickListener(this::addShortcut);
+        mBinding.navigation.getItemView(R.id.live).setOnLongClickListener(this::addShortcut);
     }
 
     private void checkAction(Intent intent) {
@@ -186,19 +187,35 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
         });
     }
 
+    /** 自定义底栏的格子（顺序同原菜单，漫画紧跟书架；全部初始隐藏，由 setNavigation 按配置点亮）。 */
+    private void initNavigation() {
+        mBinding.navigation.addItem(R.id.vod, R.drawable.ic_nav_vod, R.string.nav_vod);
+        mBinding.navigation.addItem(R.id.live, R.drawable.ic_nav_live, R.string.nav_live);
+        mBinding.navigation.addItem(R.id.browser, R.drawable.ic_nav_browser, R.string.nav_browser);
+        mBinding.navigation.addItem(R.id.bookshelf, R.drawable.ic_action_bookshelf, R.string.shelf_title);
+        mBinding.navigation.addItem(R.id.comic, R.drawable.ic_nav_comic, R.string.nav_comic);
+        mBinding.navigation.addItem(R.id.setting, R.drawable.ic_nav_setting, R.string.nav_setting);
+    }
+
     private void setNavigation() {
-        mBinding.navigation.getMenu().findItem(R.id.vod).setVisible(true);
-        mBinding.navigation.getMenu().findItem(R.id.setting).setVisible(true);
-        mBinding.navigation.getMenu().findItem(R.id.live).setVisible(LiveConfig.hasUrl());
-        mBinding.navigation.getMenu().findItem(R.id.bookshelf).setVisible(true);
+        mBinding.navigation.setItemVisible(R.id.vod, true);
+        mBinding.navigation.setItemVisible(R.id.setting, true);
+        mBinding.navigation.setItemVisible(R.id.live, LiveConfig.hasUrl());
+        mBinding.navigation.setItemVisible(R.id.bookshelf, true);
+        refreshComicItem();
         refreshBrowserItem();
+    }
+
+    /** 漫画格：书架里导入了本地漫画才显示，删完自动隐藏（与书架「本地漫画」栏同一份数据 LocalComics）。 */
+    private void refreshComicItem() {
+        mBinding.navigation.setItemVisible(R.id.comic, LocalComics.hasComics());
     }
 
     /** 浏览器入口只在当前站点能推出主页时亮；推不出就藏起来。 */
     private void refreshBrowserItem() {
         Site site = VodConfig.get().getHome();
         String url = site == null ? null : VideoActivity.siteHomePageUrl(site);
-        mBinding.navigation.getMenu().findItem(R.id.browser).setVisible(!TextUtils.isEmpty(url));
+        mBinding.navigation.setItemVisible(R.id.browser, !TextUtils.isEmpty(url));
     }
 
     /** 进当前站点的主页（网页播放那套主页推导）；推不出就提示，不进空白页。 */
@@ -225,6 +242,8 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
         super.onResume();
         // push v48：长时间不操作回来，内存里的点播配置已被清空而界面还在 → 自动重载（加载完照常刷新主页）。
         ConfigGuard.reloadIfEmpty("回到前台", null);
+        // 书架里导入/删除漫画后回到主页：刷新漫画格显隐（底栏已点亮时才刷，未加载配置前不单独露出）
+        if (mBinding.navigation.isItemVisible(R.id.vod)) refreshComicItem();
         if (!sPendingSiteDialog) return;
         sPendingSiteDialog = false;
         change(0);
@@ -237,6 +256,11 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
 
     private boolean openBookshelf() {
         BookshelfActivity.start(this);
+        return false;
+    }
+
+    private boolean openComics() {
+        ComicShelfActivity.start(this);
         return false;
     }
 
@@ -286,13 +310,14 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
     }
 
     @Override
-    public boolean onNavigationItemSelected(@NonNull MenuItem item) {
+    public boolean onItemSelected(int id) {
         mExitTime = 0;
-        if (item.getItemId() == R.id.setting) return mManager.change(1);
-        if (item.getItemId() == R.id.vod) return mManager.change(0);
-        if (item.getItemId() == R.id.live) return openLive();
-        if (item.getItemId() == R.id.browser) return openBrowser();
-        if (item.getItemId() == R.id.bookshelf) return openBookshelf();
+        if (id == R.id.setting) return mManager.change(1);
+        if (id == R.id.vod) return mManager.change(0);
+        if (id == R.id.live) return openLive();
+        if (id == R.id.browser) return openBrowser();
+        if (id == R.id.bookshelf) return openBookshelf();
+        if (id == R.id.comic) return openComics();
         return false;
     }
 
@@ -311,7 +336,7 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
 
     @Override
     protected void onBackInvoked() {
-        if (!mBinding.navigation.getMenu().findItem(R.id.vod).isVisible()) {
+        if (!mBinding.navigation.isItemVisible(R.id.vod)) {
             mExitTime = 0;
             setNavigation();
         } else if (mManager.isVisible(4) || mManager.isVisible(5)) {
