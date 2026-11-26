@@ -1,6 +1,39 @@
 <resources>
 
-    <style name="Theme.Base" parent="Theme.Material3.DynamicColors.DayNight.NoActionBar">
+    <!-- 固定 Material3 深色父主题 + 显式一套颜色：不再跟系统桌面取色（Material You）与系统深色模式翻转 -->
+    <style name="Theme.Base" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">@color/muse_m3_primary</item>
+        <item name="colorOnPrimary">@color/muse_m3_on_primary</item>
+        <item name="colorPrimaryContainer">@color/muse_m3_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/muse_m3_on_primary_container</item>
+        <item name="colorPrimaryInverse">@color/muse_m3_inverse_primary</item>
+        <item name="colorSecondary">@color/muse_m3_secondary</item>
+        <item name="colorOnSecondary">@color/muse_m3_on_secondary</item>
+        <item name="colorSecondaryContainer">@color/muse_m3_secondary_container</item>
+        <item name="colorOnSecondaryContainer">@color/muse_m3_on_secondary_container</item>
+        <item name="colorTertiary">@color/muse_m3_tertiary</item>
+        <item name="colorOnTertiary">@color/muse_m3_on_tertiary</item>
+        <item name="colorTertiaryContainer">@color/muse_m3_tertiary_container</item>
+        <item name="colorOnTertiaryContainer">@color/muse_m3_on_tertiary_container</item>
+        <item name="android:colorBackground">@color/muse_m3_background</item>
+        <item name="colorOnBackground">@color/muse_m3_on_background</item>
+        <item name="colorSurface">@color/muse_m3_surface</item>
+        <item name="colorOnSurface">@color/muse_m3_on_surface</item>
+        <item name="colorSurfaceVariant">@color/muse_m3_surface_variant</item>
+        <item name="colorOnSurfaceVariant">@color/muse_m3_on_surface_variant</item>
+        <item name="colorSurfaceContainerLowest">@color/muse_m3_surface_lowest</item>
+        <item name="colorSurfaceContainerLow">@color/muse_m3_surface_low</item>
+        <item name="colorSurfaceContainer">@color/muse_m3_surface_container</item>
+        <item name="colorSurfaceContainerHigh">@color/muse_m3_surface_high</item>
+        <item name="colorSurfaceContainerHighest">@color/muse_m3_surface_highest</item>
+        <item name="colorSurfaceInverse">@color/muse_m3_inverse_surface</item>
+        <item name="colorOnSurfaceInverse">@color/muse_m3_inverse_on_surface</item>
+        <item name="colorOutline">@color/muse_m3_outline</item>
+        <item name="colorOutlineVariant">@color/muse_m3_outline_variant</item>
+        <item name="colorError">@color/muse_m3_error</item>
+        <item name="colorOnError">@color/muse_m3_on_error</item>
+        <item name="colorErrorContainer">@color/muse_m3_error_container</item>
+        <item name="colorOnErrorContainer">@color/muse_m3_on_error_container</item>
         <item name="android:statusBarColor">@color/transparent</item>
         <item name="android:navigationBarColor">@color/transparent</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
@@ -12,6 +45,7 @@
         <item name="museShapeItem">@drawable/shape_item</item>
         <item name="museShapeItemRound">@drawable/shape_item_round</item>
         <item name="museShapeTypeChip">@drawable/shape_type_chip</item>
+        <item name="museShapeVodList">@drawable/shape_vod_list</item>
     </style>
 
     <!-- 浅色壁纸（羊皮纸 1/2 号、亮的自定义壁纸）：墨褐正文、次要 #8A735C、选中赤陶；灰条改卡片色+细描边 -->
@@ -23,6 +57,18 @@
         <item name="museShapeItem">@drawable/shape_item_light</item>
         <item name="museShapeItemRound">@drawable/shape_item_round_light</item>
         <item name="museShapeTypeChip">@drawable/shape_type_chip_light</item>
+        <item name="museShapeVodList">@drawable/shape_vod_list_light</item>
+    </style>
+
+    <!-- 主题 2 护眼绿（壁纸 2 号，Liu 2026-11-27 选 A 豆沙绿）：叠在 Light 之上，只换卡片/字色，赤陶强调不变 -->
+    <style name="ThemeOverlay.Muse.Green" parent="">
+        <item name="museToneText">@color/muse_green_ink</item>
+        <item name="museToneTextSub">@color/muse_green_sub</item>
+        <item name="museItemText">@color/selector_text_green</item>
+        <item name="museShapeItem">@drawable/shape_item_green</item>
+        <item name="museShapeItemRound">@drawable/shape_item_round_green</item>
+        <item name="museShapeTypeChip">@drawable/shape_type_chip_green</item>
+        <item name="museShapeVodList">@drawable/shape_vod_list_green</item>
     </style>
 
     <!-- 弹窗/浮层恢复原配色（弹窗自带不透明底，不跟壁纸走） -->
@@ -34,6 +80,7 @@
         <item name="museShapeItem">@drawable/shape_item</item>
         <item name="museShapeItemRound">@drawable/shape_item_round</item>
         <item name="museShapeTypeChip">@drawable/shape_type_chip</item>
+        <item name="museShapeVodList">@drawable/shape_vod_list</item>
     </style>
 
     <!-- 壁纸页顶栏：菜单文字（如「导入书籍」）、溢出/返回图标跟壁纸深浅走 -->
