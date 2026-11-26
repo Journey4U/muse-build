@@ -956,7 +956,9 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         if (vod == null) return -1;
         // 探针海报落地提到标题早退之前——海报不依赖标题，标题为空时也要落图。
         String browserPic = getIntent().getStringExtra("browserPic");
-        if (browserPic != null && !browserPic.isEmpty() && (vod.getPic() == null || vod.getPic().isEmpty())) vod.setPic(browserPic);
+        // v54：推送详情是写死的纸飞机默认图（SiteApi 推送分支），海报永不为空——推送时探针抓到的网站海报优先盖掉默认图；
+        // 其他入口仍只在影片海报为空时补。
+        if (browserPic != null && !browserPic.isEmpty() && (vod.getPic() == null || vod.getPic().isEmpty() || SiteApi.PUSH.equals(getKey()))) vod.setPic(browserPic);
         String title = getIntent().getStringExtra("browserTitle");
         if (title == null || title.isEmpty()) return -1;
         vod.setName(title);
@@ -1022,11 +1024,51 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     }
 
     /** push v2：全部线路落地——每条线一面旗，当前线路置顶；当前集（探针 cur 标优先、无标时按集号对位兜底）挂已嗅到的直达流，其余集留空 url、记 pageUrl，未解析，点开时走 HTTP 解析。无当前集时表照摆、流挂当前线首集、不预选，返回 -2（见 applyBrowserMeta）；表未摆上才返回 -1 走旧路径。 */
+    /**
+     * v54 KVS 档位线路落地：每档一面旗（线路名=档名），每面一个「正片」、地址直接是该档 mp4（不留空、不走解析），
+     * 第一面是默认档（WebPlayActivity 已排好）。换档走现有换线：同名「正片」保留进度，从当前进度接着播。
+     * 每集仍记播放页地址，过期签名的报错恢复照旧可用。返回当前集序号 0。
+     */
+    private int applyKvsLines(Vod vod, JSONArray kvs) throws Exception {
+        String page = getIntent().getStringExtra("browserPage");
+        List<Flag> built = new ArrayList<>();
+        for (int i = 0; i < kvs.length(); i++) {
+            JSONObject line = kvs.optJSONObject(i);
+            if (line == null) continue;
+            String name = line.optString("name");
+            String url = line.optString("url");
+            if (name.isEmpty() || url.isEmpty()) continue;
+            Flag flagObj = built.isEmpty() ? vod.getFlags().get(0) : new Flag();
+            flagObj.setFlag(name);
+            Episode created = Episode.create("正片", url);
+            if (page != null && !page.isEmpty()) created.setPageUrl(page);
+            flagObj.getEpisodes().clear();
+            flagObj.getEpisodes().add(created);
+            if (built.isEmpty()) flagObj.setPosition(0);
+            flagObj.trans();
+            built.add(flagObj);
+        }
+        if (built.size() < 2) return -1;
+        vod.getFlags().clear();
+        vod.getFlags().addAll(built);
+        mBrowserLinesApplied = true;
+        StringBuilder from = new StringBuilder();
+        for (Flag f : built) {
+            if (from.length() > 0) from.append(",");
+            from.append(f.getFlag());
+        }
+        vod.setPlayFrom(from.toString());
+        return 0;
+    }
+
     private int applyBrowserLines(Vod vod, String episodeName) {
         String json = getIntent().getStringExtra("browserLines");
         if (json == null || json.isEmpty() || vod.getFlags().isEmpty()) return -1;
         try {
             JSONObject root = new JSONObject(json);
+            // v54：推送带了 KVS 档位线路就按档摆线，不再看探针线路表
+            JSONArray kvsLines = root.optJSONArray("kvsLines");
+            if (kvsLines != null && kvsLines.length() > 1) return applyKvsLines(vod, kvsLines);
             JSONArray lines = root.optJSONArray("lines");
             if (lines == null || lines.length() == 0) return -1;
             String stream = vod.getFlags().get(0).getEpisodes().isEmpty() ? "" : vod.getFlags().get(0).getEpisodes().get(0).getUrl();
