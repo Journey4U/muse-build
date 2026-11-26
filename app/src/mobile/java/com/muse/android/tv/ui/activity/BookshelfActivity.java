@@ -26,6 +26,7 @@ import com.muse.android.tv.databinding.ActivityBookshelfBinding;
 import com.muse.android.tv.databinding.AdapterComicBinding;
 import com.muse.android.tv.databinding.AdapterBookshelfBinding;
 import com.muse.android.tv.databinding.AdapterBookshelfHeaderBinding;
+import com.muse.android.tv.databinding.AdapterBookshelfHintBinding;
 import com.muse.android.tv.ui.base.BaseActivity;
 import com.muse.android.tv.ui.comic.LocalComics;
 import com.muse.android.tv.ui.comic.ComicImageLoader;
@@ -36,6 +37,7 @@ import com.muse.android.tv.ui.activity.ImageActivity;
 import com.muse.android.tv.utils.FileChooser;
 import com.muse.android.tv.utils.Notify;
 import com.muse.android.tv.utils.Task;
+import com.github.catvod.utils.Prefers;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import org.json.JSONObject;
@@ -43,13 +45,18 @@ import org.json.JSONObject;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 /**
- * 小说书架（手机版）：最近阅读（阅读器进度记录）+ 本地书（TXT / EPUB 导入）+ 收藏的小说（Keep 视图）。
+ * 小说书架（手机版）：收藏的小说（置顶）+ 最近阅读（阅读器进度记录）+ 本地书（TXT / EPUB 导入）+ 本地漫画。
+ * 书架改版：小说条目为胶囊格子（竖屏 2 列 / 横屏 3 列，与漫画封面格同列数），书名放不下跑马灯循环，
+ * 胶囊底部整本阅读进度条；本地书按最近阅读时间排序；栏目标题带数量、点按折叠/展开（Prefers 记住）。
  */
 public class BookshelfActivity extends BaseActivity {
 
@@ -57,6 +64,12 @@ public class BookshelfActivity extends BaseActivity {
     private static final int KIND_LOCAL = 1;
     private static final int KIND_KEPT = 2;
     private static final int KIND_COMIC = 3;
+
+    private static final String FOLD_KEY = "shelf_fold_";
+    private static final String SEC_KEPT = "kept";
+    private static final String SEC_RECENT = "recent";
+    private static final String SEC_LOCAL = "local";
+    private static final String SEC_COMIC = "comic";
 
     private ActivityBookshelfBinding mBinding;
     private ShelfAdapter mAdapter;
@@ -92,12 +105,12 @@ public class BookshelfActivity extends BaseActivity {
     @Override
     protected void initView(Bundle savedInstanceState) {
         setSupportActionBar(mBinding.toolbar);
-        // 漫画封面格子与小说列表同页：漫画格占 1 列、其他行占整行（竖屏 2 列、横屏 3 列）
+        // 小说胶囊格与漫画封面格同页：格子各占 1 列、栏目标题/提示行占整行（竖屏 2 列、横屏 3 列，列宽按屏宽平分）
         GridLayoutManager manager = new GridLayoutManager(this, getResources().getConfiguration().orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE ? 3 : 2);
         manager.setSpanSizeLookup(new GridLayoutManager.SpanSizeLookup() {
             @Override
             public int getSpanSize(int position) {
-                return mAdapter != null && mAdapter.isComicRow(position) ? 1 : manager.getSpanCount();
+                return mAdapter != null && mAdapter.isCellRow(position) ? 1 : manager.getSpanCount();
             }
         });
         mBinding.recycler.setLayoutManager(manager);
@@ -108,27 +121,99 @@ public class BookshelfActivity extends BaseActivity {
     private void loadData() {
         List<Row> rows = new ArrayList<>();
         List<JSONObject> recent = NovelProgress.all();
-        if (!recent.isEmpty()) {
-            rows.add(Row.header(getString(R.string.shelf_recent)));
-            for (JSONObject record : recent) rows.add(Row.recent(record));
-        }
-        List<JSONObject> locals = LocalBooks.books();
-        rows.add(Row.header(getString(R.string.shelf_local)));
-        if (locals.isEmpty()) rows.add(Row.hint(getString(R.string.shelf_empty_local)));
-        for (JSONObject book : locals) rows.add(Row.local(book));
-        // 本地漫画栏：有漫画才显示（与底栏/电视功能区「漫画」同一份数据 LocalComics.comics()）
-        List<JSONObject> comics = LocalComics.comics();
-        if (!comics.isEmpty()) {
-            rows.add(Row.header(getString(R.string.shelf_comic)));
-            for (JSONObject comic : comics) rows.add(Row.comic(comic));
-        }
+        Map<String, JSONObject> records = new HashMap<>();
+        for (JSONObject record : recent) records.put(record.optString("bookId"), record);
+        // 1) 收藏的小说（置顶）
         Set<String> shelved = NovelProgress.shelfKeys();
         List<Keep> kept = new ArrayList<>();
         for (Keep item : Keep.getVod()) if (shelved.contains(item.getKey())) kept.add(item);
-        rows.add(Row.header(getString(R.string.shelf_kept)));
-        if (kept.isEmpty()) rows.add(Row.hint(getString(R.string.shelf_empty_kept)));
-        for (Keep item : kept) rows.add(Row.kept(item));
+        addHeader(rows, SEC_KEPT, getString(R.string.shelf_kept), kept.size());
+        if (!isFolded(SEC_KEPT)) {
+            if (kept.isEmpty()) rows.add(Row.hint(getString(R.string.shelf_empty_kept)));
+            for (Keep item : kept) rows.add(Row.kept(item));
+        }
+        // 2) 最近阅读（有记录才显示）
+        if (!recent.isEmpty()) {
+            addHeader(rows, SEC_RECENT, getString(R.string.shelf_recent), recent.size());
+            if (!isFolded(SEC_RECENT)) for (JSONObject record : recent) rows.add(Row.recent(record));
+        }
+        // 3) 本地书（读过的按最近阅读时间在前）
+        List<JSONObject> locals = sortByRecent(LocalBooks.books(), records);
+        addHeader(rows, SEC_LOCAL, getString(R.string.shelf_local), locals.size());
+        if (!isFolded(SEC_LOCAL)) {
+            if (locals.isEmpty()) rows.add(Row.hint(getString(R.string.shelf_empty_local)));
+            for (JSONObject book : locals) rows.add(Row.local(book));
+        }
+        // 4) 本地漫画：有漫画才显示（与底栏/电视功能区「漫画」同一份数据 LocalComics.comics()）
+        List<JSONObject> comics = LocalComics.comics();
+        if (!comics.isEmpty()) {
+            addHeader(rows, SEC_COMIC, getString(R.string.shelf_comic), comics.size());
+            if (!isFolded(SEC_COMIC)) for (JSONObject comic : comics) rows.add(Row.comic(comic));
+        }
         mAdapter.setRows(rows);
+    }
+
+    private void addHeader(List<Row> rows, String section, String title, int count) {
+        rows.add(Row.header(getString(R.string.shelf_header_count, title, count), section));
+    }
+
+    private boolean isFolded(String section) {
+        return Prefers.getBoolean(FOLD_KEY + section, false);
+    }
+
+    private void toggleSection(String section) {
+        Prefers.put(FOLD_KEY + section, !isFolded(section));
+        loadData();
+    }
+
+    /** 本地书排序：有阅读记录的按记录时间倒序在前；没读过（或旧记录无时间）的按导入顺序在后。 */
+    private static List<JSONObject> sortByRecent(List<JSONObject> books, Map<String, JSONObject> records) {
+        List<JSONObject> read = new ArrayList<>();
+        List<JSONObject> rest = new ArrayList<>();
+        Map<JSONObject, Long> times = new HashMap<>();
+        for (JSONObject book : books) {
+            JSONObject record = records.get("local:" + book.optString("path"));
+            long time = record == null ? 0 : record.optLong("time", 0);
+            if (time > 0) {
+                times.put(book, time);
+                read.add(book);
+            } else {
+                rest.add(book);
+            }
+        }
+        Collections.sort(read, (a, b) -> Long.compare(times.get(b), times.get(a)));
+        read.addAll(rest);
+        return read;
+    }
+
+    /** 整本阅读进度 0–100；没读过或总章数未知返回 -1（进度条不显示、格子高度不变）。 */
+    private static int bookPercent(JSONObject record, int total) {
+        if (record == null || total <= 0) return -1;
+        int chapter = Math.max(0, Math.min(record.optInt("chapter", 0), total - 1));
+        int percent = Math.max(0, Math.min(100, record.optInt("percent", 0)));
+        return Math.max(0, Math.min(100, Math.round((chapter + percent / 100f) * 100f / total)));
+    }
+
+    private static int localChapters(JSONObject book) {
+        return book == null || book.optJSONArray("chapters") == null ? 0 : book.optJSONArray("chapters").length();
+    }
+
+    private int percentOf(Row row) {
+        if (row.kind == KIND_LOCAL) return bookPercent(NovelProgress.find("local:" + row.book.optString("path")), localChapters(row.book));
+        if (row.kind == KIND_KEPT) {
+            JSONObject record = NovelProgress.find(row.keep.getKey());
+            return bookPercent(record, record == null ? 0 : record.optInt("total", 0));
+        }
+        if (row.kind == KIND_RECENT) {
+            String bookId = row.record.optString("bookId");
+            if (bookId.startsWith(LocalComics.BOOK_ID_PREFIX)) {
+                JSONObject comic = LocalComics.find(bookId.substring(LocalComics.BOOK_ID_PREFIX.length()));
+                return bookPercent(row.record, comic == null ? 0 : comic.optInt("chapters", 0));
+            }
+            if (bookId.startsWith("local:")) return bookPercent(row.record, localChapters(LocalBooks.find(bookId.substring("local:".length()))));
+            return bookPercent(row.record, row.record.optInt("total", 0));
+        }
+        return -1;
     }
 
     private final ActivityResultLauncher<Intent> comicLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
@@ -335,20 +420,24 @@ public class BookshelfActivity extends BaseActivity {
         int type;
         int kind;
         String text;
+        String section;
         JSONObject book;
         JSONObject record;
         Keep keep;
 
-        static Row header(String text) {
+        static Row header(String text, String section) {
             Row row = new Row();
             row.type = TYPE_HEADER;
+            row.kind = -1;
             row.text = text;
+            row.section = section;
             return row;
         }
 
         static Row hint(String text) {
             Row row = new Row();
             row.type = TYPE_HINT;
+            row.kind = -1;
             row.text = text;
             return row;
         }
@@ -396,8 +485,9 @@ public class BookshelfActivity extends BaseActivity {
             notifyDataSetChanged();
         }
 
-        boolean isComicRow(int position) {
-            return position >= 0 && position < rows.size() && rows.get(position).kind == KIND_COMIC;
+        /** 格子行（小说胶囊、漫画封面）；栏目标题与提示行占整行。 */
+        boolean isCellRow(int position) {
+            return position >= 0 && position < rows.size() && rows.get(position).type == Row.TYPE_ROW;
         }
 
         @Override
@@ -411,14 +501,23 @@ public class BookshelfActivity extends BaseActivity {
             LayoutInflater inflater = LayoutInflater.from(parent.getContext());
             if (viewType == Row.TYPE_HEADER) return new HeaderHolder(AdapterBookshelfHeaderBinding.inflate(inflater, parent, false));
             if (viewType == Row.TYPE_COMIC) return new ComicHolder(AdapterComicBinding.inflate(inflater, parent, false));
+            if (viewType == Row.TYPE_HINT) return new HintHolder(AdapterBookshelfHintBinding.inflate(inflater, parent, false));
             return new RowHolder(AdapterBookshelfBinding.inflate(inflater, parent, false));
         }
 
         @Override
         public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
             Row row = rows.get(position);
-            if (holder instanceof HeaderHolder) {
-                ((HeaderHolder) holder).binding.text.setText(row.text);
+            if (holder instanceof HeaderHolder headerHolder) {
+                boolean folded = isFolded(row.section);
+                headerHolder.binding.text.setText(row.text);
+                headerHolder.binding.arrow.setRotation(folded ? -90f : 0f);
+                headerHolder.binding.arrow.setContentDescription(getString(folded ? R.string.shelf_expand : R.string.shelf_collapse));
+                holder.itemView.setOnClickListener(v -> toggleSection(row.section));
+                return;
+            }
+            if (holder instanceof HintHolder hintHolder) {
+                hintHolder.binding.text.setText(row.text);
                 return;
             }
             if (holder instanceof ComicHolder comicHolder) {
@@ -433,15 +532,13 @@ public class BookshelfActivity extends BaseActivity {
                 return;
             }
             RowHolder rowHolder = (RowHolder) holder;
-            if (row.type == Row.TYPE_HINT) {
-                rowHolder.binding.title.setText(row.text);
-                rowHolder.binding.sub.setText("");
-                rowHolder.itemView.setOnClickListener(null);
-                rowHolder.itemView.setOnLongClickListener(null);
-                return;
-            }
             rowHolder.binding.title.setText(titleOf(row));
+            // 跑马灯：放不下才循环滚动，放得下不动（singleLine + marquee 需 selected）
+            rowHolder.binding.title.setSelected(true);
             rowHolder.binding.sub.setText(subOf(row));
+            int percent = percentOf(row);
+            rowHolder.binding.progress.setVisibility(percent < 0 ? View.INVISIBLE : View.VISIBLE);
+            rowHolder.binding.progress.setProgress(Math.max(0, percent));
             rowHolder.itemView.setOnClickListener(v -> onRowClick(row));
             rowHolder.itemView.setOnLongClickListener(v -> {
                 onRowLongClick(row);
@@ -480,6 +577,15 @@ public class BookshelfActivity extends BaseActivity {
         final AdapterComicBinding binding;
 
         ComicHolder(AdapterComicBinding binding) {
+            super(binding.getRoot());
+            this.binding = binding;
+        }
+    }
+
+    private static class HintHolder extends RecyclerView.ViewHolder {
+        final AdapterBookshelfHintBinding binding;
+
+        HintHolder(AdapterBookshelfHintBinding binding) {
             super(binding.getRoot());
             this.binding = binding;
         }

@@ -41,6 +41,11 @@ public final class NovelProgress {
     }
 
     public static void save(String bookId, String title, String pic, String site, int chapter, String chapterName, int percent) {
+        save(bookId, title, pic, site, chapter, chapterName, percent, 0);
+    }
+
+    /** total = 全书章数（书架进度条算整本进度用；蜘蛛书只有阅读器知道章数，故由阅读器写入；0 = 不记）。 */
+    public static void save(String bookId, String title, String pic, String site, int chapter, String chapterName, int percent, int total) {
         if (bookId == null || bookId.isEmpty()) return;
         try {
             JSONObject all = readRecords();
@@ -52,6 +57,7 @@ public final class NovelProgress {
             item.put("chapterName", chapterName == null ? "" : chapterName);
             item.put("percent", Math.max(0, Math.min(100, percent)));
             item.put("time", System.currentTimeMillis());
+            if (total > 0) item.put("total", total);
             all.put(bookId, item);
             prefs().edit().putString(KEY_RECORDS, all.toString()).apply();
         } catch (Exception ignored) {

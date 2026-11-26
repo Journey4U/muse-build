@@ -680,7 +680,7 @@ public class NovelReaderActivity extends BaseActivity implements NovelSettingsDi
         }
         NovelProgress.save(bookId(), TextUtils.isEmpty(vodName) ? bookTitle : vodName, vodPic,
                 localPath.isEmpty() ? siteName : getString(R.string.shelf_local_tag),
-                index, names.get(index), mBinding.seekBar.getProgress());
+                index, names.get(index), mBinding.seekBar.getProgress(), names.size());
     }
 
     /** 本地书章节：按索引偏移从源文件切出正文（后台读、主线程渲染），与回源 request 同构。 */
