@@ -49,7 +49,7 @@
                     android:layout_height="wrap_content"
                     android:focusable="false"
                     android:text="@string/app_name"
-                    android:textColor="?attr/museToneText"
+                    android:textColor="?attr/museTvTitleText"
                     android:textSize="24sp" />
 
             </LinearLayout>
@@ -62,7 +62,7 @@
                 android:layout_marginRight="6dp"
                 android:layout_marginBottom="2dp"
                 android:background="@drawable/ic_home_lock"
-                android:backgroundTint="?attr/museToneText"
+                android:backgroundTint="?attr/museTvTitleText"
                 android:focusable="false"
                 android:visibility="gone" />
 
@@ -79,7 +79,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center|right"
-                android:textColor="?attr/museToneText"
+                android:textColor="?attr/museTvTitleText"
                 android:textSize="24sp" />
 
         </LinearLayout>

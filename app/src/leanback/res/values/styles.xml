@@ -21,13 +21,16 @@
         <item name="museSelVodOval">@drawable/selector_vod_oval</item>
         <item name="museSelVideo">@drawable/selector_video</item>
         <item name="museShapeVodList">@drawable/shape_vod_list</item>
+        <item name="museTvTitleText">@color/white</item>
+        <item name="museTvNameBar">@drawable/shape_vod_name</item>
+        <item name="museTvNameText">@color/white</item>
     </style>
 
     <!-- 浅色壁纸（羊皮纸 1/2 号、亮的自定义壁纸）：墨褐正文、选中赤陶、卡片色+细描边、焦点框赤陶 3dp -->
     <style name="ThemeOverlay.Muse.Light" parent="">
         <item name="museToneLight">true</item>
         <item name="museToneText">@color/muse_tone_ink</item>
-        <item name="museToneTextSub">@color/muse_tone_sub</item>
+        <item name="museToneTextSub">@color/muse_tv_sub_deep</item>
         <item name="museItemText">@color/text_light</item>
         <item name="museToneSite">@color/muse_tone_site</item>
         <item name="museToneRemark">@color/muse_tone_accent</item>
@@ -39,6 +42,9 @@
         <item name="museSelVodOval">@drawable/selector_vod_oval_light</item>
         <item name="museSelVideo">@drawable/selector_video_light</item>
         <item name="museShapeVodList">@drawable/shape_vod_list_light</item>
+        <item name="museTvTitleText">@color/muse_tv_ink_deep</item>
+        <item name="museTvNameBar">@drawable/shape_vod_name_light</item>
+        <item name="museTvNameText">@color/muse_tone_ink</item>
     </style>
 
     <!-- 弹窗/浮层恢复原配色（弹窗自带不透明底，不跟壁纸走） -->
@@ -57,6 +63,9 @@
         <item name="museSelVodOval">@drawable/selector_vod_oval</item>
         <item name="museSelVideo">@drawable/selector_video</item>
         <item name="museShapeVodList">@drawable/shape_vod_list</item>
+        <item name="museTvTitleText">@color/white</item>
+        <item name="museTvNameBar">@drawable/shape_vod_name</item>
+        <item name="museTvNameText">@color/white</item>
     </style>
 
     <style name="Theme.Splash" parent="Theme.SplashScreen">

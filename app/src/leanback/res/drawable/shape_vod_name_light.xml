@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 电视浅色主题：海报片名条改羊皮纸卡片底（约 90% 不透明），配墨褐字；圆角与原 shape_vod_name 相同 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+
+    <corners
+        android:bottomLeftRadius="8dp"
+        android:bottomRightRadius="8dp" />
+
+    <solid android:color="@color/muse_tv_name_bar" />
+
+</shape>

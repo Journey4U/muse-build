@@ -19,10 +19,12 @@ public class CustomTypeView extends MaterialTextView {
 
     public CustomTypeView(@NonNull Context context) {
         super(context);
+        ToneBold.apply(this);
     }
 
     public CustomTypeView(@NonNull Context context, @Nullable AttributeSet attrs) {
         super(context, attrs);
+        ToneBold.apply(this);
     }
 
     public void setListener(Listener listener) {

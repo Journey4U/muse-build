@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 电视浅色主题对比度修复（推送电视 v43 / vesper 电视 v57）：只在 ThemeOverlay.Muse.Light 里引用，深色 3 号不用 -->
+<resources>
+    <!-- 更深的墨褐：站名/时钟/行标题/分类胶囊字，羊皮纸上约 11:1 -->
+    <color name="muse_tv_ink_deep">#3A281C</color>
+    <!-- 次要文字深一档（原 #8A735C 约 3.6:1 → 约 5.2:1） -->
+    <color name="muse_tv_sub_deep">#6E5A46</color>
+    <!-- 分类胶囊未选中态：加深的实心底 + 深一档描边 -->
+    <color name="muse_tv_chip">#E6D8BC</color>
+    <color name="muse_tv_chip_stroke">#C9B48F</color>
+    <!-- 海报片名条：羊皮纸卡片色 #FAF4E6，约 90% 不透明 -->
+    <color name="muse_tv_name_bar">#E6FAF4E6</color>
+</resources>

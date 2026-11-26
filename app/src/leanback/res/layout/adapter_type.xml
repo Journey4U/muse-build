@@ -8,6 +8,6 @@
     android:background="?attr/museSelItemRound"
     android:focusable="true"
     android:focusableInTouchMode="true"
-    android:textColor="?attr/museToneText"
+    android:textColor="?attr/museTvTitleText"
     android:textSize="16sp"
     tools:text="電影" />

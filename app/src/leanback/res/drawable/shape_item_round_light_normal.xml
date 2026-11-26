@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 换装第 2 步：浅色壁纸下电视的卡片/焦点（卡片色 #FAF4E6 + 细描边 #DECFB2；焦点框赤陶 3dp） -->
+<!-- 换装第 2 步：浅色壁纸下电视的卡片/焦点；电视对比度修复：未选中态加深为实心 #E6D8BC + 1dp 描边 #C9B48F -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
-    <solid android:color="@color/muse_tone_card" />
+    <solid android:color="@color/muse_tv_chip" />
     <corners android:radius="20dp" />
     <padding
         android:bottom="6dp"
@@ -11,5 +11,5 @@
         android:top="6dp" />
     <stroke
         android:width="1dp"
-        android:color="@color/muse_tone_stroke" />
+        android:color="@color/muse_tv_chip_stroke" />
 </shape>
