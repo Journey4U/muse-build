@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 换装第 2 步：浅色壁纸下的卡片底（选中赤陶、平时卡片色） -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:color="@color/muse_tone_accent" android:state_selected="true" />
+    <item android:color="@color/muse_tone_card" />
+</selector>

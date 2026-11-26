@@ -7,11 +7,12 @@
     android:orientation="vertical">
 
     <com.google.android.material.appbar.MaterialToolbar
+        android:theme="@style/ThemeOverlay.Muse.Toolbar"
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
         app:menu="@menu/menu_search"
-        app:navigationIconTint="@android:color/white">
+        app:navigationIconTint="?attr/museToneText">
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/keyword"
@@ -25,8 +26,8 @@
             android:maxLength="500"
             android:singleLine="true"
             android:textAppearance="@style/ToolbarTextAppearance"
-            android:textColor="@color/white"
-            android:textColorHint="@color/white"
+            android:textColor="?attr/museToneText"
+            android:textColorHint="?attr/museToneTextSub"
             android:textCursorDrawable="@drawable/shape_cursor" />
 
     </com.google.android.material.appbar.MaterialToolbar>
@@ -50,7 +51,7 @@
                 android:layout_marginEnd="16dp"
                 android:layout_marginBottom="16dp"
                 android:text="@string/search_record"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp" />
 
             <androidx.recyclerview.widget.RecyclerView
@@ -76,7 +77,7 @@
                 android:layout_marginEnd="16dp"
                 android:layout_marginBottom="16dp"
                 android:text="@string/search_hot"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp" />
 
             <androidx.recyclerview.widget.RecyclerView

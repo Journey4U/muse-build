@@ -4,6 +4,43 @@
         <item name="android:statusBarColor">@color/transparent</item>
         <item name="android:navigationBarColor">@color/transparent</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <!-- 换装第 2 步：跟壁纸走的颜色属性，默认 = 原样（深色壁纸/不叠壁纸的页面不变） -->
+        <item name="museToneLight">false</item>
+        <item name="museToneText">@color/white</item>
+        <item name="museToneTextSub">@color/muse_tone_white_sub</item>
+        <item name="museItemText">@color/selector_text</item>
+        <item name="museShapeItem">@drawable/shape_item</item>
+        <item name="museShapeItemRound">@drawable/shape_item_round</item>
+        <item name="museShapeTypeChip">@drawable/shape_type_chip</item>
+    </style>
+
+    <!-- 浅色壁纸（羊皮纸 1/2 号、亮的自定义壁纸）：墨褐正文、次要 #8A735C、选中赤陶；灰条改卡片色+细描边 -->
+    <style name="ThemeOverlay.Muse.Light" parent="">
+        <item name="museToneLight">true</item>
+        <item name="museToneText">@color/muse_tone_ink</item>
+        <item name="museToneTextSub">@color/muse_tone_sub</item>
+        <item name="museItemText">@color/selector_text_light</item>
+        <item name="museShapeItem">@drawable/shape_item_light</item>
+        <item name="museShapeItemRound">@drawable/shape_item_round_light</item>
+        <item name="museShapeTypeChip">@drawable/shape_type_chip_light</item>
+    </style>
+
+    <!-- 弹窗/浮层恢复原配色（弹窗自带不透明底，不跟壁纸走） -->
+    <style name="ThemeOverlay.Muse.Reset" parent="">
+        <item name="museToneLight">false</item>
+        <item name="museToneText">@color/white</item>
+        <item name="museToneTextSub">@color/muse_tone_white_sub</item>
+        <item name="museItemText">@color/selector_text</item>
+        <item name="museShapeItem">@drawable/shape_item</item>
+        <item name="museShapeItemRound">@drawable/shape_item_round</item>
+        <item name="museShapeTypeChip">@drawable/shape_type_chip</item>
+    </style>
+
+    <!-- 壁纸页顶栏：菜单文字（如「导入书籍」）、溢出/返回图标跟壁纸深浅走 -->
+    <style name="ThemeOverlay.Muse.Toolbar" parent="">
+        <item name="actionMenuTextColor">?attr/museToneText</item>
+        <item name="android:actionMenuTextColor">?attr/museToneText</item>
+        <item name="colorControlNormal">?attr/museToneText</item>
     </style>
 
     <style name="Theme.Splash" parent="Theme.SplashScreen">
@@ -30,8 +67,8 @@
 
     <style name="ToolbarTextAppearance" parent="TextAppearance.Material3.TitleLarge">
         <item name="android:textSize">20sp</item>
-        <item name="android:textColor">@color/white</item>
-        <item name="titleTextColor">@color/white</item>
+        <item name="android:textColor">?attr/museToneText</item>
+        <item name="titleTextColor">?attr/museToneText</item>
     </style>
 
 

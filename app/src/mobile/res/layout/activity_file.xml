@@ -8,11 +8,12 @@
     android:orientation="vertical">
 
     <com.google.android.material.appbar.MaterialToolbar
+        android:theme="@style/ThemeOverlay.Muse.Toolbar"
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
         app:contentInsetEnd="16dp"
-        app:navigationIconTint="@android:color/white">
+        app:navigationIconTint="?attr/museToneText">
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/title"

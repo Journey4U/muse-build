@@ -26,6 +26,7 @@ import com.muse.android.tv.databinding.ViewWallBinding;
 import com.muse.android.tv.event.ConfigEvent;
 import com.muse.android.tv.event.RefreshEvent;
 import com.muse.android.tv.setting.Setting;
+import com.muse.android.tv.utils.ThemeTone;
 import com.github.catvod.utils.Path;
 
 import org.greenrobot.eventbus.EventBus;
@@ -71,6 +72,7 @@ public class CustomWallView extends FrameLayout implements DefaultLifecycleObser
         stop();
         load();
         theme();
+        ThemeTone.notifyChanged(getContext());
     }
 
     private void stop() {

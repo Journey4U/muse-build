@@ -2367,7 +2367,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         view.setText(Sniffer.buildClickable(resId > 0 ? getString(resId, text) : text, this::clickableSpan), TextView.BufferType.SPANNABLE);
         view.setVisibility(text.isEmpty() ? View.GONE : View.VISIBLE);
         if (view == mBinding.content) setContentVisible();
-        view.setLinkTextColor(Color.WHITE);
+        view.setLinkTextColor(view.getCurrentTextColor());
         CustomMovement.bind(view);
     }
 

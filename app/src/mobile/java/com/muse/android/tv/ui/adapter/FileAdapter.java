@@ -1,13 +1,17 @@
 package com.muse.android.tv.ui.adapter;
 
+import android.content.res.ColorStateList;
 import android.view.LayoutInflater;
 import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
+import androidx.core.content.ContextCompat;
+import androidx.core.widget.ImageViewCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.muse.android.tv.R;
 import com.muse.android.tv.databinding.AdapterFileBinding;
+import com.muse.android.tv.utils.ThemeTone;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -51,6 +55,8 @@ public class FileAdapter extends RecyclerView.Adapter<FileAdapter.ViewHolder> {
         holder.binding.name.setText(file.getName());
         holder.binding.getRoot().setOnClickListener(v -> listener.onItemClick(file));
         holder.binding.image.setImageResource(file.isDirectory() ? R.drawable.ic_folder : R.drawable.ic_file);
+        boolean toneInk = !file.isDirectory() && ThemeTone.isLight(holder.binding.image.getContext());
+        ImageViewCompat.setImageTintList(holder.binding.image, toneInk ? ColorStateList.valueOf(ContextCompat.getColor(holder.binding.image.getContext(), R.color.muse_tone_ink)) : null);
     }
 
     public class ViewHolder extends RecyclerView.ViewHolder {
