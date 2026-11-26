@@ -22,7 +22,7 @@
         android:layout_marginTop="4dp"
         android:ellipsize="end"
         android:maxLines="1"
-        android:textColor="@android:color/white"
+        android:textColor="?attr/museToneText"
         android:textSize="14sp" />
 
     <TextView
@@ -31,7 +31,7 @@
         android:layout_height="wrap_content"
         android:ellipsize="end"
         android:maxLines="1"
-        android:textColor="#99FFFFFF"
+        android:textColor="?attr/museToneTextSub"
         android:textSize="12sp" />
 
 </LinearLayout>

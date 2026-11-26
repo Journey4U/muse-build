@@ -5,9 +5,9 @@
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:gravity="center"
-    android:background="@drawable/selector_item_round"
+    android:background="?attr/museSelItemRound"
     android:focusable="true"
     android:focusableInTouchMode="true"
-    android:textColor="@color/white"
+    android:textColor="?attr/museToneText"
     android:textSize="16sp"
     tools:text="電影" />

@@ -5,11 +5,11 @@
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:layout_margin="6dp"
-    android:background="@drawable/selector_item_round"
+    android:background="?attr/museSelItemRound"
     android:ellipsize="marquee"
     android:focusable="true"
     android:focusableInTouchMode="true"
     android:singleLine="true"
-    android:textColor="@color/white"
+    android:textColor="?attr/museToneText"
     android:textSize="16sp"
     tools:text="推薦" />

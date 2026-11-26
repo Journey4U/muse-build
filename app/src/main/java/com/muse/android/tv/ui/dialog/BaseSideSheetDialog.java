@@ -15,6 +15,7 @@ import androidx.appcompat.app.AppCompatDialogFragment;
 import androidx.viewbinding.ViewBinding;
 
 import com.muse.android.tv.utils.Util;
+import com.muse.android.tv.utils.ThemeTone;
 import com.google.android.material.sidesheet.SideSheetDialog;
 
 public abstract class BaseSideSheetDialog extends AppCompatDialogFragment {
@@ -27,6 +28,7 @@ public abstract class BaseSideSheetDialog extends AppCompatDialogFragment {
     @Override
     public Dialog onCreateDialog(Bundle savedInstanceState) {
         SideSheetDialog dialog = new SideSheetDialog(requireContext());
+        ThemeTone.reset(dialog.getContext());
         dialog.getBehavior().setDraggable(false);
         Window window = dialog.getWindow();
         if (window == null) return dialog;

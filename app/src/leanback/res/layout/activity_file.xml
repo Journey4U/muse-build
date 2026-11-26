@@ -28,10 +28,10 @@
             android:layout_marginStart="24dp"
             android:layout_marginEnd="24dp"
             android:layout_marginBottom="24dp"
-            android:background="@drawable/selector_button"
+            android:background="?attr/museSelButton"
             android:focusable="true"
             android:text="@string/shelf_choose_folder"
-            android:textColor="@color/white"
+            android:textColor="?attr/museToneText"
             android:textSize="16sp"
             android:visibility="gone" />
 

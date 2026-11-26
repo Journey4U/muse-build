@@ -5,6 +5,6 @@
     android:layout_height="wrap_content"
     android:paddingTop="20dp"
     android:paddingBottom="6dp"
-    android:textColor="@color/white"
+    android:textColor="?attr/museToneText"
     android:textSize="18sp"
     android:textStyle="bold" />
