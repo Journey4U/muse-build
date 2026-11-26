@@ -19,9 +19,12 @@ public class QRCode {
     private static final float MODULE_RADIUS_RATIO = 0.45f;
 
     public static Bitmap getBitmap(String content, int size, int margin) {
+        return getBitmap(content, size, margin, Color.WHITE, Color.BLACK);
+    }
+
+    /** 浅色壁纸页用：深色点 + 白底定位环，衬在白卡片上保证手机扫得出。 */
+    public static Bitmap getBitmap(String content, int size, int margin, int foreground, int finderBackground) {
         try {
-            int foreground = Color.WHITE;
-            int finderBackground = Color.BLACK;
             BitMatrix matrix = encode(content, size, margin);
             int quietZone = detectQuietZone(matrix);
             int finderSize = detectFinderPx(matrix, quietZone);

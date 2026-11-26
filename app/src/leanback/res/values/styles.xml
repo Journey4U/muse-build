@@ -47,6 +47,22 @@
         <item name="museTvNameText">@color/muse_tone_ink</item>
     </style>
 
+    <!-- 主题 2 护眼绿（壁纸 2 号，Liu 2026-11-27 选 A 豆沙绿）：叠在 Light 之上，只换卡片/字色；赤陶强调与焦点框不变 -->
+    <style name="ThemeOverlay.Muse.Green" parent="">
+        <item name="museToneText">@color/muse_green_ink</item>
+        <item name="museToneTextSub">@color/muse_tvg_sub_deep</item>
+        <item name="museItemText">@color/text_green</item>
+        <item name="museToneSite">@color/muse_green_site</item>
+        <item name="museSelItem">@drawable/selector_item_green</item>
+        <item name="museSelItemRound">@drawable/selector_item_round_green</item>
+        <item name="museSelButton">@drawable/selector_button_green</item>
+        <item name="museSelKeyboard">@drawable/selector_keyboard_green</item>
+        <item name="museShapeVodList">@drawable/shape_vod_list_green</item>
+        <item name="museTvTitleText">@color/muse_tvg_ink_deep</item>
+        <item name="museTvNameBar">@drawable/shape_vod_name_green</item>
+        <item name="museTvNameText">@color/muse_green_ink</item>
+    </style>
+
     <!-- 弹窗/浮层恢复原配色（弹窗自带不透明底，不跟壁纸走） -->
     <style name="ThemeOverlay.Muse.Reset" parent="">
         <item name="museToneLight">false</item>
