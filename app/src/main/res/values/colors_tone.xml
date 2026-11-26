@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 换装第 2 步：浅色壁纸（羊皮纸 1/2 号）下的一套颜色，集中在此一处。 -->
+<resources>
+    <color name="muse_tone_ink">#4A3527</color>
+    <color name="muse_tone_sub">#8A735C</color>
+    <color name="muse_tone_accent">#B5603C</color>
+    <color name="muse_tone_card">#FAF4E6</color>
+    <color name="muse_tone_card_active">#EFE2C8</color>
+    <color name="muse_tone_stroke">#DECFB2</color>
+    <color name="muse_tone_site">#5B7A3A</color>
+    <color name="muse_tone_white_sub">#99FFFFFF</color>
+</resources>

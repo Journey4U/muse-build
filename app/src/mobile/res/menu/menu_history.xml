@@ -5,12 +5,14 @@
     <item
         android:id="@+id/sync"
         android:icon="@drawable/ic_action_sync"
+        app:iconTint="?attr/museToneText"
         android:title="@string/menu_sync"
         app:showAsAction="always" />
 
     <item
         android:id="@+id/delete"
         android:icon="@drawable/ic_action_delete"
+        app:iconTint="?attr/museToneText"
         android:title="@string/menu_delete"
         app:showAsAction="always" />
 

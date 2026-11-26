@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 换装第 2 步：shape_item_round 的浅色壁纸版（卡片色 #FAF4E6 + 细描边 #DECFB2，选中赤陶） -->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="?attr/colorControlHighlight">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/selector_item_light" />
+            <stroke
+                android:width="1dp"
+                android:color="@color/muse_tone_stroke" />
+            <corners android:radius="28dp" />
+            <padding
+                android:bottom="6dp"
+                android:left="12dp"
+                android:right="12dp"
+                android:top="6dp" />
+        </shape>
+    </item>
+    <item android:id="@android:id/mask">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/white" />
+            <corners android:radius="28dp" />
+        </shape>
+    </item>
+</ripple>

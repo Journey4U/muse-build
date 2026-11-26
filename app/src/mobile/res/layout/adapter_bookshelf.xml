@@ -14,7 +14,7 @@
         android:layout_height="wrap_content"
         android:ellipsize="end"
         android:maxLines="1"
-        android:textColor="@android:color/white"
+        android:textColor="?attr/museToneText"
         android:textSize="16sp" />
 
     <TextView
@@ -24,7 +24,7 @@
         android:layout_marginTop="2dp"
         android:ellipsize="end"
         android:maxLines="1"
-        android:textColor="#99FFFFFF"
+        android:textColor="?attr/museToneTextSub"
         android:textSize="12sp" />
 
 </androidx.appcompat.widget.LinearLayoutCompat>

@@ -6,8 +6,8 @@
     android:layout_height="wrap_content"
     android:layout_marginStart="4dp"
     android:layout_marginEnd="4dp"
-    android:background="@drawable/shape_type_chip"
+    android:background="?attr/museShapeTypeChip"
     android:gravity="center"
-    android:textColor="@color/selector_text"
+    android:textColor="?attr/museItemText"
     android:textSize="14sp"
     tools:text="電影" />

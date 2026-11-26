@@ -7,10 +7,11 @@
     android:orientation="vertical">
 
     <com.google.android.material.appbar.MaterialToolbar
+        android:theme="@style/ThemeOverlay.Muse.Toolbar"
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
-        app:navigationIconTint="@android:color/white"
+        app:navigationIconTint="?attr/museToneText"
         app:title="@string/shelf_title"
         app:titleTextAppearance="@style/ToolbarTextAppearance" />
 

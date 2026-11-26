@@ -16,6 +16,7 @@ import androidx.annotation.Nullable;
 import androidx.viewbinding.ViewBinding;
 
 import com.muse.android.tv.utils.Util;
+import com.muse.android.tv.utils.ThemeTone;
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
@@ -35,6 +36,7 @@ public abstract class BaseBottomSheetDialog extends BottomSheetDialogFragment {
     @Override
     public Dialog onCreateDialog(Bundle savedInstanceState) {
         BottomSheetDialog dialog = (BottomSheetDialog) super.onCreateDialog(savedInstanceState);
+        ThemeTone.reset(dialog.getContext());
         dialog.setOnShowListener(d -> setSheet(dialog));
         Window window = dialog.getWindow();
         if (window == null) return dialog;
