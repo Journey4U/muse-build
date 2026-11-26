@@ -4,7 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="460dp"
     android:layout_height="160dp"
-    android:background="@drawable/selector_item"
+    android:background="?attr/museSelItem"
     android:focusable="true"
     android:focusableInTouchMode="true"
     android:gravity="center"
@@ -18,7 +18,7 @@
         android:ellipsize="end"
         android:gravity="center"
         android:maxLines="1"
-        android:textColor="@color/white"
+        android:textColor="?attr/museToneText"
         android:textSize="26sp"
         android:textStyle="bold"
         tools:text="麦田影视" />
@@ -28,7 +28,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"
         android:text="@string/web_home_enter"
-        android:textColor="@color/white"
+        android:textColor="?attr/museToneText"
         android:textSize="20sp" />
 
 </androidx.appcompat.widget.LinearLayoutCompat>

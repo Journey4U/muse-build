@@ -17,7 +17,7 @@
             android:id="@+id/engine"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="@drawable/selector_item"
+            android:background="?attr/museSelItem"
             android:focusable="true"
             android:focusableInTouchMode="true"
             android:orientation="horizontal">
@@ -27,7 +27,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="16dp"
                 android:text="@string/player_engine"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp" />
 
             <com.google.android.material.textview.MaterialTextView
@@ -35,7 +35,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="end"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp"
                 tools:text="EXO" />
 
@@ -46,7 +46,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:background="@drawable/selector_item"
+            android:background="?attr/museSelItem"
             android:focusable="true"
             android:focusableInTouchMode="true"
             android:orientation="horizontal">
@@ -56,7 +56,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="16dp"
                 android:text="@string/player_decode_setting"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp" />
 
         </androidx.appcompat.widget.LinearLayoutCompat>
@@ -66,7 +66,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:background="@drawable/selector_item"
+            android:background="?attr/museSelItem"
             android:focusable="true"
             android:focusableInTouchMode="true"
             android:orientation="horizontal">
@@ -76,7 +76,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="16dp"
                 android:text="@string/player_adblock"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp" />
 
             <com.google.android.material.textview.MaterialTextView
@@ -84,7 +84,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="end"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp"
                 tools:text="關" />
 
@@ -95,7 +95,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:background="@drawable/selector_item"
+            android:background="?attr/museSelItem"
             android:focusable="true"
             android:focusableInTouchMode="true"
             android:orientation="horizontal">
@@ -105,7 +105,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="16dp"
                 android:text="@string/player_libass"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp" />
 
             <com.google.android.material.textview.MaterialTextView
@@ -113,7 +113,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="end"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp"
                 tools:text="開" />
 
@@ -124,7 +124,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:background="@drawable/selector_item"
+            android:background="?attr/museSelItem"
             android:focusable="true"
             android:focusableInTouchMode="true"
             android:orientation="horizontal">
@@ -134,7 +134,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="16dp"
                 android:text="@string/player_mpv_conf"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp" />
 
         </androidx.appcompat.widget.LinearLayoutCompat>
@@ -144,7 +144,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:background="@drawable/selector_item"
+            android:background="?attr/museSelItem"
             android:focusable="true"
             android:focusableInTouchMode="true"
             android:orientation="horizontal">
@@ -154,7 +154,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="16dp"
                 android:text="@string/player_mpv_gpu_next"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp" />
 
             <com.google.android.material.textview.MaterialTextView
@@ -162,7 +162,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="end"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp"
                 tools:text="Off" />
 
@@ -173,7 +173,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:background="@drawable/selector_item"
+            android:background="?attr/museSelItem"
             android:focusable="true"
             android:focusableInTouchMode="true"
             android:orientation="horizontal">
@@ -183,7 +183,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="16dp"
                 android:text="@string/player_mpv_vulkan"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp" />
 
             <com.google.android.material.textview.MaterialTextView
@@ -191,7 +191,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="end"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp"
                 tools:text="Off" />
 
@@ -202,7 +202,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:background="@drawable/selector_item"
+            android:background="?attr/museSelItem"
             android:focusable="true"
             android:focusableInTouchMode="true"
             android:orientation="horizontal">
@@ -212,7 +212,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="16dp"
                 android:text="@string/player_render"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp" />
 
             <com.google.android.material.textview.MaterialTextView
@@ -220,7 +220,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="end"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp"
                 tools:text="Surface" />
 
@@ -231,7 +231,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:background="@drawable/selector_item"
+            android:background="?attr/museSelItem"
             android:focusable="true"
             android:focusableInTouchMode="true"
             android:orientation="horizontal">
@@ -241,7 +241,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="16dp"
                 android:text="@string/player_scale"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp" />
 
             <com.google.android.material.textview.MaterialTextView
@@ -249,7 +249,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="end"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp"
                 tools:text="16:9" />
 
@@ -260,7 +260,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:background="@drawable/selector_item"
+            android:background="?attr/museSelItem"
             android:focusable="true"
             android:focusableInTouchMode="true"
             android:orientation="horizontal">
@@ -270,7 +270,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="16dp"
                 android:text="@string/player_background"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp" />
 
             <com.google.android.material.textview.MaterialTextView
@@ -278,7 +278,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="end"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp"
                 tools:text="關" />
 
@@ -289,7 +289,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:background="@drawable/selector_item"
+            android:background="?attr/museSelItem"
             android:focusable="true"
             android:focusableInTouchMode="true"
             android:orientation="horizontal">
@@ -299,7 +299,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="16dp"
                 android:text="@string/player_buffer"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp" />
 
             <com.google.android.material.textview.MaterialTextView
@@ -308,7 +308,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:gravity="end"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp"
                 tools:text="1" />
 
@@ -317,7 +317,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="4dp"
                 android:text="@string/times"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp" />
 
         </androidx.appcompat.widget.LinearLayoutCompat>
@@ -327,7 +327,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:background="@drawable/selector_item"
+            android:background="?attr/museSelItem"
             android:focusable="true"
             android:focusableInTouchMode="true"
             android:orientation="horizontal">
@@ -337,7 +337,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="16dp"
                 android:text="@string/player_preload_setting"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp" />
 
         </androidx.appcompat.widget.LinearLayoutCompat>
@@ -347,7 +347,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:background="@drawable/selector_item"
+            android:background="?attr/museSelItem"
             android:focusable="true"
             android:focusableInTouchMode="true"
             android:orientation="horizontal">
@@ -357,7 +357,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="16dp"
                 android:text="@string/player_ua"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp" />
 
         </androidx.appcompat.widget.LinearLayoutCompat>
@@ -367,7 +367,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:background="@drawable/selector_item"
+            android:background="?attr/museSelItem"
             android:focusable="true"
             android:focusableInTouchMode="true"
             android:orientation="horizontal">
@@ -377,7 +377,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="16dp"
                 android:text="@string/setting_net_info"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp" />
 
             <com.google.android.material.textview.MaterialTextView
@@ -385,7 +385,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="end"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp"
                 tools:text="Off" />
 
@@ -396,7 +396,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:background="@drawable/selector_item"
+            android:background="?attr/museSelItem"
             android:focusable="true"
             android:focusableInTouchMode="true"
             android:orientation="horizontal">
@@ -406,7 +406,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="16dp"
                 android:text="@string/setting_media_info"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp" />
 
             <com.google.android.material.textview.MaterialTextView
@@ -414,7 +414,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="end"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp"
                 tools:text="Off" />
 
@@ -425,7 +425,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:background="@drawable/selector_item"
+            android:background="?attr/museSelItem"
             android:focusable="true"
             android:focusableInTouchMode="true"
             android:orientation="horizontal">
@@ -435,7 +435,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="16dp"
                 android:text="@string/setting_auto_play"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp" />
 
             <com.google.android.material.textview.MaterialTextView
@@ -443,7 +443,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="end"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp"
                 tools:text="Off" />
 

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 换装第 2 步：文字/控件颜色跟壁纸深浅走。默认值（各端 Theme.Base）= 原样；浅色壁纸时 ThemeOverlay.Muse.Light 覆盖。 -->
+<resources>
+    <attr name="museToneLight" format="boolean" />
+    <attr name="museToneText" format="color|reference" />
+    <attr name="museToneTextSub" format="color|reference" />
+    <attr name="museToneSite" format="color|reference" />
+    <attr name="museToneRemark" format="color|reference" />
+    <attr name="museItemText" format="color|reference" />
+    <attr name="museShapeItem" format="reference" />
+    <attr name="museShapeItemRound" format="reference" />
+    <attr name="museShapeTypeChip" format="reference" />
+    <attr name="museSelItem" format="reference" />
+    <attr name="museSelItemRound" format="reference" />
+    <attr name="museSelChip" format="reference" />
+    <attr name="museSelChipRound" format="reference" />
+    <attr name="museSelButton" format="reference" />
+    <attr name="museSelKeyboard" format="reference" />
+    <attr name="museSelVod" format="reference" />
+    <attr name="museSelVodOval" format="reference" />
+    <attr name="museSelVideo" format="reference" />
+    <attr name="museShapeVodList" format="reference" />
+</resources>

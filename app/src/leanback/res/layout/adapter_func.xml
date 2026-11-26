@@ -3,7 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="100dp"
     android:layout_height="100dp"
-    android:background="@drawable/selector_item"
+    android:background="?attr/museSelItem"
     android:focusable="true"
     android:focusableInTouchMode="true"
     android:gravity="center"
@@ -20,7 +20,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
-        android:textColor="@color/white"
+        android:textColor="?attr/museToneText"
         android:textSize="18sp"
         tools:text="點播" />
 

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 换装第 2 步：浅色壁纸下电视的卡片/焦点（卡片色 #FAF4E6 + 细描边 #DECFB2；焦点框赤陶 3dp） -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <stroke
+        android:width="3dp"
+        android:color="@color/muse_tone_accent" />
+</shape>

@@ -22,10 +22,11 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="@string/home_history"
-            android:textColor="@color/white"
+            android:textColor="?attr/museToneText"
             android:textSize="24sp" />
 
         <ImageView
+            app:tint="?attr/museToneText"
             android:id="@+id/delete"
             android:layout_width="32dp"
             android:layout_height="32dp"

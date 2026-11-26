@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -24,7 +25,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="16dp"
                 android:layout_weight="1"
-                android:background="@drawable/selector_item"
+                android:background="?attr/museSelItem"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
                 android:orientation="horizontal">
@@ -35,7 +36,7 @@
                     android:layout_marginEnd="16dp"
                     android:layout_weight="0.3"
                     android:text="@string/setting_vod"
-                    android:textColor="@color/white"
+                    android:textColor="?attr/museToneText"
                     android:textSize="18sp" />
 
                 <com.google.android.material.textview.MaterialTextView
@@ -46,7 +47,7 @@
                     android:ellipsize="middle"
                     android:gravity="end"
                     android:singleLine="true"
-                    android:textColor="@color/white"
+                    android:textColor="?attr/museToneText"
                     android:textSize="18sp"
                     tools:ignore="NestedWeights"
                     tools:text="https://" />
@@ -54,21 +55,23 @@
             </androidx.appcompat.widget.LinearLayoutCompat>
 
             <androidx.appcompat.widget.AppCompatImageView
+                app:tint="?attr/museToneText"
                 android:id="@+id/vodHome"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="16dp"
-                android:background="@drawable/selector_item"
+                android:background="?attr/museSelItem"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
                 android:padding="8dp"
                 android:src="@drawable/ic_setting_home" />
 
             <androidx.appcompat.widget.AppCompatImageView
+                app:tint="?attr/museToneText"
                 android:id="@+id/vodHistory"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:background="@drawable/selector_item"
+                android:background="?attr/museSelItem"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
                 android:padding="8dp"
@@ -89,7 +92,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="16dp"
                 android:layout_weight="1"
-                android:background="@drawable/selector_item"
+                android:background="?attr/museSelItem"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
                 android:orientation="horizontal">
@@ -100,7 +103,7 @@
                     android:layout_marginEnd="16dp"
                     android:layout_weight="0.3"
                     android:text="@string/setting_live"
-                    android:textColor="@color/white"
+                    android:textColor="?attr/museToneText"
                     android:textSize="18sp" />
 
                 <com.google.android.material.textview.MaterialTextView
@@ -111,7 +114,7 @@
                     android:ellipsize="middle"
                     android:gravity="end"
                     android:singleLine="true"
-                    android:textColor="@color/white"
+                    android:textColor="?attr/museToneText"
                     android:textSize="18sp"
                     tools:ignore="NestedWeights"
                     tools:text="https://" />
@@ -119,21 +122,23 @@
             </androidx.appcompat.widget.LinearLayoutCompat>
 
             <androidx.appcompat.widget.AppCompatImageView
+                app:tint="?attr/museToneText"
                 android:id="@+id/liveHome"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="16dp"
-                android:background="@drawable/selector_item"
+                android:background="?attr/museSelItem"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
                 android:padding="8dp"
                 android:src="@drawable/ic_setting_home" />
 
             <androidx.appcompat.widget.AppCompatImageView
+                app:tint="?attr/museToneText"
                 android:id="@+id/liveHistory"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:background="@drawable/selector_item"
+                android:background="?attr/museSelItem"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
                 android:padding="8dp"
@@ -154,7 +159,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="16dp"
                 android:layout_weight="1"
-                android:background="@drawable/selector_item"
+                android:background="?attr/museSelItem"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
                 android:orientation="horizontal">
@@ -165,7 +170,7 @@
                     android:layout_marginEnd="16dp"
                     android:layout_weight="0.3"
                     android:text="@string/setting_wall"
-                    android:textColor="@color/white"
+                    android:textColor="?attr/museToneText"
                     android:textSize="18sp" />
 
                 <com.google.android.material.textview.MaterialTextView
@@ -176,7 +181,7 @@
                     android:ellipsize="middle"
                     android:gravity="end"
                     android:singleLine="true"
-                    android:textColor="@color/white"
+                    android:textColor="?attr/museToneText"
                     android:textSize="18sp"
                     tools:ignore="NestedWeights"
                     tools:text="https://" />
@@ -184,21 +189,23 @@
             </androidx.appcompat.widget.LinearLayoutCompat>
 
             <androidx.appcompat.widget.AppCompatImageView
+                app:tint="?attr/museToneText"
                 android:id="@+id/wallDefault"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="16dp"
-                android:background="@drawable/selector_item"
+                android:background="?attr/museSelItem"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
                 android:padding="8dp"
                 android:src="@drawable/ic_setting_home" />
 
             <androidx.appcompat.widget.AppCompatImageView
+                app:tint="?attr/museToneText"
                 android:id="@+id/wallRefresh"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:background="@drawable/selector_item"
+                android:background="?attr/museSelItem"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
                 android:padding="8dp"
@@ -211,7 +218,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:background="@drawable/selector_item"
+            android:background="?attr/museSelItem"
             android:focusable="true"
             android:focusableInTouchMode="true"
             android:orientation="horizontal">
@@ -220,7 +227,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/setting_player"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp" />
 
         </androidx.appcompat.widget.LinearLayoutCompat>
@@ -230,7 +237,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:background="@drawable/selector_item"
+            android:background="?attr/museSelItem"
             android:focusable="true"
             android:focusableInTouchMode="true"
             android:orientation="horizontal">
@@ -239,7 +246,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/setting_danmaku"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp" />
 
         </androidx.appcompat.widget.LinearLayoutCompat>
@@ -249,7 +256,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:background="@drawable/selector_item"
+            android:background="?attr/museSelItem"
             android:focusable="true"
             android:focusableInTouchMode="true"
             android:orientation="horizontal">
@@ -259,7 +266,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="16dp"
                 android:text="@string/setting_incognito"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp" />
 
             <com.google.android.material.textview.MaterialTextView
@@ -267,7 +274,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="end"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp"
                 tools:text="Off" />
 
@@ -278,7 +285,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:background="@drawable/selector_item"
+            android:background="?attr/museSelItem"
             android:focusable="true"
             android:focusableInTouchMode="true"
             android:orientation="horizontal">
@@ -288,7 +295,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="16dp"
                 android:text="@string/setting_doh"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp" />
 
             <com.google.android.material.textview.MaterialTextView
@@ -296,7 +303,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="end"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp"
                 tools:text="Google" />
 
@@ -307,7 +314,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:background="@drawable/selector_item"
+            android:background="?attr/museSelItem"
             android:focusable="true"
             android:focusableInTouchMode="true"
             android:orientation="horizontal">
@@ -317,7 +324,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="16dp"
                 android:text="@string/setting_search_cap"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp" />
 
             <com.google.android.material.textview.MaterialTextView
@@ -325,7 +332,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="end"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp"
                 tools:text="40" />
 
@@ -336,7 +343,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:background="@drawable/selector_item"
+            android:background="?attr/museSelItem"
             android:focusable="true"
             android:focusableInTouchMode="true"
             android:orientation="horizontal">
@@ -346,7 +353,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="16dp"
                 android:text="@string/setting_web_viewport"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp" />
 
             <com.google.android.material.textview.MaterialTextView
@@ -354,7 +361,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="end"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp"
                 tools:text="1600" />
 
@@ -365,7 +372,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:background="@drawable/selector_item"
+            android:background="?attr/museSelItem"
             android:focusable="true"
             android:focusableInTouchMode="true"
             android:nextFocusDown="@id/backup"
@@ -376,7 +383,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="16dp"
                 android:text="@string/setting_size"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp" />
 
             <com.google.android.material.textview.MaterialTextView
@@ -384,7 +391,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="end"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp"
                 tools:text="Medium" />
 
@@ -395,7 +402,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:background="@drawable/selector_item"
+            android:background="?attr/museSelItem"
             android:focusable="true"
             android:focusableInTouchMode="true"
             android:nextFocusDown="@id/webSource"
@@ -406,7 +413,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="16dp"
                 android:text="@string/local_source_title"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp" />
 
             <com.google.android.material.textview.MaterialTextView
@@ -414,7 +421,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="end"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp" />
 
         </androidx.appcompat.widget.LinearLayoutCompat>
@@ -424,7 +431,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:background="@drawable/selector_item"
+            android:background="?attr/museSelItem"
             android:focusable="true"
             android:focusableInTouchMode="true"
             android:nextFocusDown="@id/webSourceBatch"
@@ -435,7 +442,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="16dp"
                 android:text="@string/site_web_source_add"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp" />
 
         </androidx.appcompat.widget.LinearLayoutCompat>
@@ -445,7 +452,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:background="@drawable/selector_item"
+            android:background="?attr/museSelItem"
             android:focusable="true"
             android:focusableInTouchMode="true"
             android:nextFocusDown="@id/backup"
@@ -456,7 +463,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="16dp"
                 android:text="@string/web_source_batch_import"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp" />
 
         </androidx.appcompat.widget.LinearLayoutCompat>
@@ -473,7 +480,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="16dp"
                 android:layout_weight="1"
-                android:background="@drawable/selector_item"
+                android:background="?attr/museSelItem"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
                 android:orientation="horizontal">
@@ -482,7 +489,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/setting_backup"
-                    android:textColor="@color/white"
+                    android:textColor="?attr/museToneText"
                     android:textSize="18sp" />
 
             </androidx.appcompat.widget.LinearLayoutCompat>
@@ -492,7 +499,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:background="@drawable/selector_item"
+                android:background="?attr/museSelItem"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
                 android:orientation="horizontal">
@@ -501,7 +508,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/setting_restore"
-                    android:textColor="@color/white"
+                    android:textColor="?attr/museToneText"
                     android:textSize="18sp" />
 
             </androidx.appcompat.widget.LinearLayoutCompat>
@@ -519,7 +526,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="16dp"
                 android:layout_weight="1"
-                android:background="@drawable/selector_item"
+                android:background="?attr/museSelItem"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
                 android:orientation="horizontal">
@@ -529,7 +536,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="16dp"
                     android:text="@string/setting_cache"
-                    android:textColor="@color/white"
+                    android:textColor="?attr/museToneText"
                     android:textSize="18sp" />
 
                 <com.google.android.material.textview.MaterialTextView
@@ -537,7 +544,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:gravity="end"
-                    android:textColor="@color/white"
+                    android:textColor="?attr/museToneText"
                     android:textSize="18sp"
                     tools:text="1.0 MB" />
 
@@ -548,7 +555,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:background="@drawable/selector_item"
+                android:background="?attr/museSelItem"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
                 android:orientation="horizontal">
@@ -558,7 +565,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="16dp"
                     android:text="@string/setting_version"
-                    android:textColor="@color/white"
+                    android:textColor="?attr/museToneText"
                     android:textSize="18sp" />
 
                 <com.google.android.material.textview.MaterialTextView
@@ -566,7 +573,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:gravity="end"
-                    android:textColor="@color/white"
+                    android:textColor="?attr/museToneText"
                     android:textSize="18sp"
                     tools:text="1.2.1" />
 
@@ -583,7 +590,7 @@
                 android:id="@+id/resetApp"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@drawable/selector_item"
+                android:background="?attr/museSelItem"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
                 android:orientation="horizontal">
@@ -592,7 +599,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/setting_reset_app"
-                    android:textColor="@color/white"
+                    android:textColor="?attr/museToneText"
                     android:textSize="18sp" />
 
             </androidx.appcompat.widget.LinearLayoutCompat>

@@ -2,10 +2,10 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="@drawable/shape_vod_list"
+    android:background="?attr/museShapeVodList"
     android:focusable="true"
     android:focusableInTouchMode="true"
-    android:foreground="@drawable/selector_vod">
+    android:foreground="?attr/museSelVod">
 
     <androidx.appcompat.widget.LinearLayoutCompat
         android:layout_width="match_parent"
@@ -29,7 +29,7 @@
                 android:layout_height="wrap_content"
                 android:ellipsize="end"
                 android:maxLines="1"
-                android:textColor="@color/white"
+                android:textColor="?attr/museToneText"
                 android:textSize="18sp" />
 
             <com.google.android.material.textview.MaterialTextView
@@ -39,7 +39,7 @@
                 android:layout_marginTop="4dp"
                 android:ellipsize="end"
                 android:maxLines="1"
-                android:textColor="#99FFFFFF"
+                android:textColor="?attr/museToneTextSub"
                 android:textSize="14sp" />
 
         </androidx.appcompat.widget.LinearLayoutCompat>

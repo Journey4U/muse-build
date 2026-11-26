@@ -1,13 +1,18 @@
 package com.muse.android.tv.ui.presenter;
 
+import android.content.res.ColorStateList;
 import android.view.LayoutInflater;
 import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
+import androidx.core.content.ContextCompat;
+import androidx.core.widget.ImageViewCompat;
 import androidx.leanback.widget.Presenter;
 
+import com.muse.android.tv.R;
 import com.muse.android.tv.bean.Func;
 import com.muse.android.tv.databinding.AdapterFuncBinding;
+import com.muse.android.tv.utils.ThemeTone;
 
 public class FuncPresenter extends Presenter {
 
@@ -36,6 +41,9 @@ public class FuncPresenter extends Presenter {
         if (item.getId() > 0) holder.binding.getRoot().setId(item.getId());
         holder.binding.text.setText(item.getText());
         holder.binding.icon.setImageResource(item.getDrawable());
+        // 换装第 2 步：浅色壁纸下功能区图标（原为浅色线条）着墨褐，深色壁纸保持原色
+        boolean toneInk = ThemeTone.isLight(holder.binding.icon.getContext());
+        ImageViewCompat.setImageTintList(holder.binding.icon, toneInk ? ColorStateList.valueOf(ContextCompat.getColor(holder.binding.icon.getContext(), R.color.muse_tone_ink)) : null);
         if (item.getNextFocusLeft() > 0) holder.binding.getRoot().setNextFocusLeftId(item.getNextFocusLeft());
         if (item.getNextFocusRight() > 0) holder.binding.getRoot().setNextFocusRightId(item.getNextFocusRight());
         setOnClickListener(holder, view -> listener.onItemClick(item));

@@ -94,6 +94,7 @@ import com.muse.android.tv.utils.KeyUtil;
 import com.muse.android.tv.utils.Notify;
 import com.muse.android.tv.utils.PartUtil;
 import com.muse.android.tv.utils.ResUtil;
+import com.muse.android.tv.utils.ThemeTone;
 import com.muse.android.tv.utils.Sniffer;
 import com.muse.android.tv.utils.Traffic;
 import com.muse.android.tv.utils.UrlUtil;
@@ -2109,7 +2110,7 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         if (TextUtils.isEmpty(text) && !TextUtils.isEmpty(view.getText())) return;
         view.setText(Sniffer.buildClickable(resId > 0 ? getString(resId, text) : text, this::clickableSpan), TextView.BufferType.SPANNABLE);
         view.setVisibility(text.isEmpty() ? View.GONE : View.VISIBLE);
-        view.setLinkTextColor(MDColor.YELLOW_500);
+        view.setLinkTextColor(ThemeTone.isLight(this) ? ResUtil.getColor(R.color.muse_tone_accent) : MDColor.YELLOW_500);
         CustomMovement.bind(view);
     }
 
@@ -2225,7 +2226,7 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     }
 
     private void exitFullscreen() {
-        mBinding.video.setForeground(ResUtil.getDrawable(R.drawable.selector_video));
+        mBinding.video.setForeground(ResUtil.getDrawable(ThemeTone.isLight(this) ? R.drawable.selector_video_light : R.drawable.selector_video));
         mBinding.video.setLayoutParams(mFrameParams);
         getFocus1().requestFocus();
         mKeyDown.setFull(false);

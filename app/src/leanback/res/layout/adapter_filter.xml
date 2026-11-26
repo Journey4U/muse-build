@@ -4,9 +4,9 @@
     android:id="@+id/text"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-    android:background="@drawable/selector_item_round"
+    android:background="?attr/museSelItemRound"
     android:focusable="true"
     android:focusableInTouchMode="true"
-    android:textColor="@color/text"
+    android:textColor="?attr/museItemText"
     android:textSize="16sp"
     tools:text="全部" />
