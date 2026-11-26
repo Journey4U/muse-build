@@ -59,11 +59,39 @@ public final class ThemeTone {
         return cacheLight;
     }
 
-    /** 浅色壁纸时把浅色一套颜色叠到 Activity 主题上（须在 super.onCreate 之前调用）。 */
+    /** 主题 2 护眼绿：内置壁纸 2 号（豆沙绿）。自定义壁纸不算，仍按亮度判深浅。 */
+    public static boolean isGreen() {
+        return Setting.getWallType() == TYPE_RES && Setting.getWall() == 2;
+    }
+
+    /** 当前壁纸对应的一套颜色：0=深色原样，1=浅色羊皮纸，2=浅色护眼绿。 */
+    public static int tone() {
+        if (!isLight()) return 0;
+        return isGreen() ? 2 : 1;
+    }
+
+    /** 浅色壁纸时把浅色一套颜色叠到 Activity 主题上（须在 super.onCreate 之前调用）；护眼绿再叠绿色一套。 */
     public static boolean apply(Activity activity) {
-        boolean light = isLight();
-        if (light) activity.getTheme().applyStyle(R.style.ThemeOverlay_Muse_Light, true);
-        return light;
+        int tone = tone();
+        reapply(activity, tone);
+        return tone != 0;
+    }
+
+    /** 按创建时记下的 tone 再叠一次（电视 AppCompat 重刷主题后用）。 */
+    public static void reapply(Activity activity, int tone) {
+        if (tone == 0) return;
+        activity.getTheme().applyStyle(R.style.ThemeOverlay_Muse_Light, true);
+        if (tone == 2) activity.getTheme().applyStyle(R.style.ThemeOverlay_Muse_Green, true);
+    }
+
+    /** 所在页面主题里的正文色（羊皮纸墨褐 / 护眼绿深墨绿 / 深色白），供 Java 动态着色。 */
+    public static int inkColor(Context context) {
+        TypedValue value = new TypedValue();
+        if (context != null && context.getTheme().resolveAttribute(R.attr.museToneText, value, true)) {
+            if (value.type >= TypedValue.TYPE_FIRST_COLOR_INT && value.type <= TypedValue.TYPE_LAST_COLOR_INT) return value.data;
+            if (value.resourceId != 0) return androidx.core.content.ContextCompat.getColor(context, value.resourceId);
+        }
+        return 0xFF4A3527;
     }
 
     /** 按所在页面（含弹窗）实际套用的主题判深浅，供 Java 里动态着色用。 */

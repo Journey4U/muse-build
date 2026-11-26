@@ -56,7 +56,7 @@ public class FileAdapter extends RecyclerView.Adapter<FileAdapter.ViewHolder> {
         holder.binding.getRoot().setOnClickListener(v -> listener.onItemClick(file));
         holder.binding.image.setImageResource(file.isDirectory() ? R.drawable.ic_folder : R.drawable.ic_file);
         boolean toneInk = !file.isDirectory() && ThemeTone.isLight(holder.binding.image.getContext());
-        ImageViewCompat.setImageTintList(holder.binding.image, toneInk ? ColorStateList.valueOf(ContextCompat.getColor(holder.binding.image.getContext(), R.color.muse_tone_ink)) : null);
+        ImageViewCompat.setImageTintList(holder.binding.image, toneInk ? ColorStateList.valueOf(ThemeTone.inkColor(holder.binding.image.getContext())) : null);
     }
 
     public class ViewHolder extends RecyclerView.ViewHolder {

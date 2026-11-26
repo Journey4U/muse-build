@@ -20,8 +20,6 @@ import com.muse.android.tv.setting.Setting;
 import com.muse.android.tv.ui.custom.CustomWallView;
 import com.muse.android.tv.utils.ResUtil;
 import com.muse.android.tv.utils.ThemeTone;
-import com.google.android.material.color.DynamicColors;
-import com.google.android.material.color.DynamicColorsOptions;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
@@ -31,6 +29,8 @@ public abstract class BaseActivity extends AppCompatActivity implements ThemeTon
 
     /** 换装第 2 步：本页创建时套用的深浅（true=浅色壁纸那套颜色）。 */
     private boolean mToneLight;
+    /** 0=深色，1=羊皮纸，2=护眼绿；羊皮纸与护眼绿互切也要重建本页。 */
+    private int mTone;
     private boolean mTonePending;
     private boolean mRecreating;
 
@@ -38,9 +38,9 @@ public abstract class BaseActivity extends AppCompatActivity implements ThemeTon
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        mToneLight = customWall() && ThemeTone.isLight();
+        mTone = customWall() ? ThemeTone.tone() : 0;
+        mToneLight = mTone != 0;
         enableEdgeToEdge();
-        enableDynamicColor();
         if (mToneLight) ThemeTone.apply(this);
         super.onCreate(savedInstanceState);
         setContentView(getBinding().getRoot());
@@ -117,11 +117,6 @@ public abstract class BaseActivity extends AppCompatActivity implements ThemeTon
         }
     }
 
-    private void enableDynamicColor() {
-        int color = Setting.getDynamicColor();
-        if (color != 0) DynamicColors.applyToActivityIfAvailable(this, new DynamicColorsOptions.Builder().setContentBasedSource(color).build());
-    }
-
     @Subscribe(threadMode = ThreadMode.MAIN)
     public void onSubscribe(Object o) {
     }
@@ -130,7 +125,7 @@ public abstract class BaseActivity extends AppCompatActivity implements ThemeTon
     @Override
     public void checkTone() {
         if (!customWall() || mRecreating || isFinishing()) return;
-        if (mToneLight == ThemeTone.isLight()) return;
+        if (mTone == ThemeTone.tone()) return;
         if (getLifecycle().getCurrentState().isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) recreate();
         else mTonePending = true;
     }
