@@ -31,13 +31,23 @@ public final class ConfigGuard {
     private static final List<Runnable> PENDING = new ArrayList<>();
     private static boolean sReloading;
     private static long sLastAuto;
+    /** 下一批（Liu 2026-11-26 06:27 批）：本进程里点播配置曾经有过源。新装/新进程头一次加载前为 false——
+     * 那时配置空是正常的（用户刚在设置里填地址或选文件、首次加载还没完），不当「配置被清空」处理，不弹提示、不自动重载。 */
+    private static volatile boolean sEverLoaded;
 
     private ConfigGuard() {
     }
 
+    /** 下一批：VodConfig 解析出非空源表时调用（setSites），记下「本进程曾加载成功过」。 */
+    public static void markLoaded() {
+        sEverLoaded = true;
+    }
+
     /** 内存里的点播配置有源 = 可用。 */
     public static boolean ready() {
-        return !VodConfig.get().getSites().isEmpty();
+        boolean ok = !VodConfig.get().getSites().isEmpty();
+        if (ok) sEverLoaded = true;
+        return ok;
     }
 
     /**
@@ -45,12 +55,15 @@ public final class ConfigGuard {
      * 配置为空、有已保存的配置地址 → 自动重载（主线程调用），成功后在主线程依次执行排队的 then，返回 true（调用方这次先不往下做）。
      * 自动重载已在途 → then 排队，返回 true；别处发起的加载在途 → 不另起，有 then 时提示「正在加载配置」并返回 true。
      * 没有配置地址，或 30 秒内刚自动重载过仍为空 → 返回 false，调用方照原逻辑（原提示）。
+     * 本进程从没加载成功过（新装头一次加载）→ 返回 false，不弹提示、不重载。
      *
      * @param reason 记日志用：哪个入口触发的
      * @param then   重载成功后要继续的原动作（可为 null，如回前台）；调用方须在里面自己判页面是否还活着
      */
     public static synchronized boolean reloadIfEmpty(String reason, @Nullable Runnable then) {
         if (ready()) return false;
+        // 本进程从没加载成功过（新装首次加载、首次填地址/选文件）：完全不插手，调用方照原逻辑。
+        if (!sEverLoaded) return false;
         // 被别处的加载顶掉（BaseConfig 取消/换任务时不回调）→ 自动重载的在途标记超时作废，不让入口永远卡在「正在加载」。
         if (sReloading && System.currentTimeMillis() - sLastAuto >= IN_FLIGHT) {
             finish();

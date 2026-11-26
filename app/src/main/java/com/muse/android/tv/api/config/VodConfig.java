@@ -210,6 +210,8 @@ public class VodConfig extends BaseConfig {
 
     private void setSites(List<Site> sites) {
         this.sites = sites;
+        // 下一批：有源即记「本进程曾加载成功过」——ConfigGuard 只在加载成功过、后来又变空时才自动重载并提示。
+        if (sites != null && !sites.isEmpty()) ConfigGuard.markLoaded();
     }
 
     public List<Parse> getParses() {
