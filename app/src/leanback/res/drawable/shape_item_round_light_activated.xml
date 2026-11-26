@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 换装第 2 步：浅色壁纸下电视的卡片/焦点（卡片色 #FAF4E6 + 细描边 #DECFB2；焦点框赤陶 3dp） -->
+<!-- 换装第 2 步：浅色壁纸下电视的卡片/焦点；电视对比度修复：选中态 = 卡片色 #FAF4E6 + 1dp 赤陶描边（焦点仍为赤陶 3dp），与加深后的未选中态区分 -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
-    <solid android:color="@color/muse_tone_card_active" />
+    <solid android:color="@color/muse_tone_card" />
     <corners android:radius="20dp" />
     <padding
         android:bottom="6dp"
@@ -11,5 +11,5 @@
         android:top="6dp" />
     <stroke
         android:width="1dp"
-        android:color="@color/muse_tone_stroke" />
+        android:color="@color/muse_tone_accent" />
 </shape>

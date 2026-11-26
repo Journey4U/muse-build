@@ -7,6 +7,7 @@ import androidx.annotation.NonNull;
 import androidx.leanback.widget.Presenter;
 
 import com.muse.android.tv.databinding.AdapterHeaderBinding;
+import com.muse.android.tv.ui.custom.ToneBold;
 import com.muse.android.tv.utils.ResUtil;
 
 public class HeaderPresenter extends Presenter {
@@ -14,7 +15,9 @@ public class HeaderPresenter extends Presenter {
     @NonNull
     @Override
     public Presenter.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent) {
-        return new HeaderPresenter.ViewHolder(AdapterHeaderBinding.inflate(LayoutInflater.from(parent.getContext()), parent, false));
+        AdapterHeaderBinding binding = AdapterHeaderBinding.inflate(LayoutInflater.from(parent.getContext()), parent, false);
+        ToneBold.apply(binding.text);
+        return new HeaderPresenter.ViewHolder(binding);
     }
 
     @Override

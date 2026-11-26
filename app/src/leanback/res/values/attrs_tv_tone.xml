@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 电视浅色主题对比度修复：Theme.Base / ThemeOverlay.Muse.Reset 指回原值（白字、black_20 片名条），Light 指新值 -->
+<resources>
+    <attr name="museTvTitleText" format="color|reference" />
+    <attr name="museTvNameBar" format="reference" />
+    <attr name="museTvNameText" format="color|reference" />
+</resources>

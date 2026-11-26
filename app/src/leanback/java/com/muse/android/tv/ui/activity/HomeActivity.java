@@ -46,6 +46,7 @@ import com.muse.android.tv.service.PlaybackService;
 import com.muse.android.tv.ui.adapter.BaseDiffCallback;
 import com.muse.android.tv.ui.base.BaseActivity;
 import com.muse.android.tv.ui.custom.CustomTitleView;
+import com.muse.android.tv.ui.custom.ToneBold;
 import com.muse.android.tv.ui.dialog.SiteDialog;
 import com.muse.android.tv.ui.fragment.FolderFragment;
 import com.muse.android.tv.ui.fragment.HomePageFragment;
@@ -148,6 +149,8 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     @Override
     protected void initView(Bundle savedInstanceState) {
         mClock = Clock.create(mBinding.clock).format("HH:mm:ss MM/dd E");
+        ToneBold.apply(mBinding.title);
+        ToneBold.apply(mBinding.clock);
         // 纯网页源进站主页：新启动（非重建）才重置「已自动进站」记号——App 启动时当前源是纯网页源会自动进站一次。
         if (savedInstanceState == null) {
             sWebAutoKey = null;

@@ -16,6 +16,7 @@ import androidx.lifecycle.Lifecycle;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewbinding.ViewBinding;
 
+import com.muse.android.tv.R;
 import com.muse.android.tv.ui.custom.CustomWallView;
 import com.muse.android.tv.utils.ThemeTone;
 import com.muse.android.tv.utils.Util;
@@ -40,6 +41,7 @@ public abstract class BaseActivity extends AppCompatActivity implements ThemeTon
     protected void onCreate(Bundle savedInstanceState) {
         mToneLight = customWall() && ThemeTone.apply(this);
         super.onCreate(savedInstanceState);
+        reapplyTone();
         setContentView(getBinding().getRoot());
         EventBus.getDefault().register(this);
         initView(savedInstanceState);
@@ -56,6 +58,21 @@ public abstract class BaseActivity extends AppCompatActivity implements ThemeTon
         if (mToneLight == ThemeTone.isLight()) return;
         if (getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.RESUMED)) recreate();
         else mTonePending = true;
+    }
+
+    /**
+     * 电视对比度修复：AppCompat 在 super.onCreate / onStart 里遇到配置差异（夜间模式、语言等）时，
+     * 会 setTheme(主题) 并 applyStyle(主题, true) 重刷一遍，把先前叠上的浅色叠层覆盖回深色那套
+     * （Liu 电视真机照片：羊皮纸壁纸上仍是白字、灰胶囊、白焦点框）。浅色时在这两处之后再叠一次；深色不动。
+     */
+    private void reapplyTone() {
+        if (mToneLight) getTheme().applyStyle(R.style.ThemeOverlay_Muse_Light, true);
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        reapplyTone();
     }
 
     @Override
