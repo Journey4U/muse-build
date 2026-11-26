@@ -16,6 +16,7 @@
 
     <!-- Nav -->
     <string name="nav_browser">Browser</string>
+    <string name="nav_comic">Comics</string>
     <string name="nav_browser_empty">No homepage for this site</string>
     <string name="web_home_enter">Open site homepage</string>
     <string name="web_switch_site">Switch source</string>

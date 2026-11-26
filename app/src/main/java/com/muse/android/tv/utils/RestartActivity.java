@@ -25,7 +25,7 @@ import com.muse.android.tv.ui.activity.HomeActivity;
  *
  * The hand-off is designed to be invisible (a "seamless reset"): the
  * only content is the same built-in wallpaper the home screen shows
- * after a reset (R.drawable.wallpaper_1), with no icon or text, and
+ * after a reset (R.drawable.wallpaper_3), with no icon or text, and
  * the translucent theme lets the still alive settings screen show
  * through while this process starts — never black, never the launcher.
  * The old processes are killed only after this cover has been laid
@@ -39,7 +39,7 @@ public class RestartActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         ImageView cover = new ImageView(this);
-        cover.setImageResource(R.drawable.wallpaper_1);
+        cover.setImageResource(R.drawable.wallpaper_3);
         cover.setScaleType(ImageView.ScaleType.CENTER_CROP);
         cover.setLayoutParams(new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));

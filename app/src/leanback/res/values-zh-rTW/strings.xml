@@ -16,6 +16,7 @@
 
     <!-- Nav -->
     <string name="nav_browser">瀏覽器</string>
+    <string name="nav_comic">漫畫</string>
     <string name="nav_browser_empty">該站點沒有主頁</string>
     <string name="web_home_enter">進站主頁</string>
     <string name="web_switch_site">切源</string>
