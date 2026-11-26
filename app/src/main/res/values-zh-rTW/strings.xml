@@ -385,6 +385,7 @@
     <string name="error_play_url">播放網址載入失敗</string>
     <string name="error_play_flag">暫無線路資料</string>
     <string name="error_play_timeout">連線逾時</string>
+    <string name="error_play_no_video">畫面無法顯示（已自動嘗試切換解碼與播放器）</string>
     <string name="error_audio_effect_unsupported">目前播放方式不支援音質設定</string>
     <string name="error_audio_effect_tunnel">Tunnel 模式下不支援音質設定</string>
     <string name="error_audio_effect_passthrough">音訊直通音軌不支援音質設定</string>
