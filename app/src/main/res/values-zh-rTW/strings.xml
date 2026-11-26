@@ -58,7 +58,7 @@
     <string name="exo_track_role_closed_captions">CC</string>
     <string name="exo_track_bitrate">%1$.2f Mbps</string>
     <string name="exo_item_list">%1$s、%2$s</string>
-    <string name="app_name">影視</string>
+    <string name="app_name">Muse TV</string>
     <string name="live_pass">密碼</string>
     <string name="live_refresh">刷新</string>
     <string name="live_line">來源 <xliff:g name="name">%s</xliff:g></string>
@@ -456,5 +456,45 @@
     <string name="type_search_hint">搜尋分類…</string>
     <string name="view_switch_title">切換視圖</string>
     <string name="config_auto_reloading">源配置已失效，正在重新載入…</string>
-</resources>
 
+    <!-- 书架三语补齐（换装第 1 步：底栏带字后繁体界面不再显示英文） -->
+    <string name="shelf_title">書架</string>
+    <string name="shelf_import">匯入書籍</string>
+    <string name="shelf_recent">最近閱讀</string>
+    <string name="shelf_local">本地書</string>
+    <string name="shelf_kept">收藏的小說</string>
+    <string name="shelf_empty_local">暫無本地書，點右上角「匯入書籍」新增。</string>
+    <string name="shelf_empty_kept">暫無收藏的小說，在閱讀器裡收藏過的小說會出現在這裡。</string>
+    <string name="shelf_remove_book">從書架移除</string>
+    <string name="shelf_remove_local_msg">只移除記錄，不刪除源檔案。</string>
+    <string name="shelf_delete_record">刪除記錄</string>
+    <string name="shelf_importing">正在匯入…</string>
+    <string name="shelf_import_ok">已匯入《%1$s》，共 %2$d 章</string>
+    <string name="shelf_import_fail">匯入失敗，請確認是可讀的 TXT 或 EPUB 檔案（不支援帶 DRM 的 EPUB）。</string>
+    <string name="shelf_txt_only">僅支援 TXT 與 EPUB 格式。</string>
+    <string name="shelf_book_gone">源檔案已不存在。</string>
+    <string name="shelf_read_to">讀至 %1$s · %2$d%%</string>
+    <string name="shelf_chapters">共 %1$d 章</string>
+    <string name="shelf_local_tag">本地書</string>
+    <string name="shelf_choose_folder">選擇目前資料夾</string>
+    <string name="shelf_folder_result">資料夾匯入完成：新增 %1$d 本，略過 %2$d 本，失敗 %3$d 本</string>
+    <string name="shelf_folder_empty">這個資料夾裡沒有 TXT 或 EPUB 檔案。</string>
+
+    <!-- 本地漫画（换装第 1 步） -->
+    <string name="nav_comic">漫畫</string>
+    <string name="shelf_comic">本地漫畫</string>
+    <string name="shelf_import_novel">小說（TXT / EPUB）</string>
+    <string name="shelf_import_comic">匯入漫畫</string>
+    <string name="shelf_import_comic_hint">漫畫（資料夾 / CBZ / ZIP）</string>
+    <string name="shelf_import_choose">匯入類型</string>
+    <string name="comic_import_ok">已匯入漫畫《%1$s》，共 %2$d 話</string>
+    <string name="comic_import_empty">沒有找到圖片：漫畫請選作品資料夾或 CBZ/ZIP 檔案（圖片支援 jpg/png/webp/gif/bmp）。</string>
+    <string name="comic_import_fail">漫畫匯入失敗。</string>
+    <string name="comic_empty">還沒有本地漫畫，可在書架匯入。</string>
+    <string name="comic_remove_msg">只移除書架記錄與閱讀進度，不刪除源檔案。</string>
+    <string name="comic_gone">漫畫檔案已不在原位置。</string>
+    <string name="comic_chapters">共 %1$d 話</string>
+    <string name="comic_read_to">看到 %1$s 第 %2$d 頁</string>
+    <string name="comic_delete_hint">刪除模式：選中漫畫按確認鍵移除，返回鍵退出。</string>
+
+</resources>

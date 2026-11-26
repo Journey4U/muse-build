@@ -29,11 +29,19 @@ import androidx.viewpager2.widget.ViewPager2;
 
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.model.GlideUrl;
+import com.muse.android.tv.App;
+import com.muse.android.tv.ui.comic.ComicImageLoader;
+import com.muse.android.tv.ui.comic.LocalComics;
+import com.muse.android.tv.utils.Notify;
+import com.muse.android.tv.utils.Task;
 import com.bumptech.glide.load.model.LazyHeaders;
 import com.muse.android.tv.R;
 import com.muse.android.tv.databinding.ActivityImageBinding;
 import com.muse.android.tv.ui.base.BaseActivity;
 
+import org.json.JSONObject;
+
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -68,6 +76,9 @@ public class ImageActivity extends BaseActivity {
     private String mVodId = "";
     private String mVodTitle = "";
     private String mVodPic = "";
+    /** 本地漫画（书架/底栏漫画页打开）：作品路径与起始页；空串 = 在线漫画，行为与原来一致。 */
+    private String mComicPath = "";
+    private int mComicPage = 0;
     private List<String> mImages;
     private String mReferer;
     private String mTitle;
@@ -228,6 +239,41 @@ public class ImageActivity extends BaseActivity {
         startForResult(activity, title, picsUrl, header, null, null, 0);
     }
 
+    /** 打开一部本地漫画并续看（书架「本地漫画」栏与底栏漫画页共用这一个入口）：按进度记录的话 + 页定位。 */
+    public static void openLocalComic(Activity activity, String path) {
+        JSONObject record = LocalComics.progress(path);
+        startLocalComic(activity, path, record == null ? 0 : record.optInt("chapter"), record == null ? 0 : record.optInt("page"), null);
+    }
+
+    /** 后台分话后起图片页；after 在起页之后执行（页内切话时用来关掉旧页）。 */
+    public static void startLocalComic(Activity activity, String path, int chapter, int page, Runnable after) {
+        JSONObject comic = LocalComics.find(path);
+        String title = comic == null ? new File(path).getName() : comic.optString("title");
+        Task.execute(() -> {
+            List<LocalComics.Chapter> chapters = LocalComics.chapters(path);
+            App.post(() -> {
+                if (activity.isFinishing() || activity.isDestroyed()) return;
+                if (chapters.isEmpty()) {
+                    Notify.show(R.string.comic_gone);
+                    return;
+                }
+                int index = Math.max(0, Math.min(chapter, chapters.size() - 1));
+                LocalComics.Chapter current = chapters.get(index);
+                ArrayList<String> names = new ArrayList<>();
+                for (LocalComics.Chapter item : chapters) names.add(item.name);
+                Intent intent = new Intent(activity, ImageActivity.class);
+                intent.putExtra("title", title);
+                intent.putExtra("picsUrl", current.picsUrl());
+                intent.putExtra("episodeNames", names);
+                intent.putExtra("episodePosition", index);
+                intent.putExtra("comicPath", path);
+                intent.putExtra("comicPage", Math.max(0, Math.min(page, current.images.size() - 1)));
+                activity.startActivity(intent);
+                if (after != null) after.run();
+            });
+        });
+    }
+
     public static void startForResult(Activity activity, String title, String picsUrl, Map<String, String> header, ArrayList<String> episodeNames, ArrayList<String> episodeIds, int episodePosition) {
         startForResult(activity, title, picsUrl, header, episodeNames, episodeIds, episodePosition, null, null, null, null);
     }
@@ -285,6 +331,9 @@ public class ImageActivity extends BaseActivity {
         if (mReferer == null) mReferer = "";
         if (mTitle == null) mTitle = "";
         if (mEpisodeNames == null) mEpisodeNames = new ArrayList<>();
+        mComicPath = getIntent().getStringExtra("comicPath");
+        if (mComicPath == null) mComicPath = "";
+        mComicPage = getIntent().getIntExtra("comicPage", 0);
         updateTitle();
         mImages = new ArrayList<>();
         if (picsUrl != null && picsUrl.startsWith("pics://")) {
@@ -346,6 +395,12 @@ public class ImageActivity extends BaseActivity {
         mBinding.list.setVisibility(View.VISIBLE);
         mBinding.modeToggle.setText("条漫");
         mBinding.modeToggle.setSelected(true);
+        // 本地漫画续看：跳到进度记录的页（条漫/横翻两个容器同步定位）
+        if (!mComicPath.isEmpty() && mComicPage > 0 && mComicPage < mImages.size()) {
+            mBinding.list.scrollToPosition(mComicPage);
+            mBinding.pager.setCurrentItem(mComicPage, false);
+            updatePageInfo(mComicPage);
+        }
     }
 
     /**
@@ -566,6 +621,11 @@ public class ImageActivity extends BaseActivity {
 
     private void gotoEpisode(int position) {
         if (position < 0 || position >= mEpisodeNames.size() || position == mEpisodePosition) return;
+        // 本地漫画：页内切话 = 按新话从第 1 页起新开一页、关掉旧页（不回传调用页）
+        if (!mComicPath.isEmpty()) {
+            startLocalComic(this, mComicPath, position, 0, this::finish);
+            return;
+        }
         // 目标话是视频直链且带作品上下文（详情页入口）：直接强播该话（序号定位），一跳到位；
         // 否则照旧回传序号给调用页（阅读器入口、纯漫画源）续行分发
         String target = position < mEpisodeIds.size() ? mEpisodeIds.get(position) : "";
@@ -590,6 +650,13 @@ public class ImageActivity extends BaseActivity {
     }
 
     private void loadImage(ImageView view, String url, int position) {
+        // 本地漫画图（file:// 与压缩包条目）走本地加载；在线图照旧 GlideUrl + 请求头
+        if (LocalComics.isLocal(url)) {
+            ComicImageLoader.load(view, url);
+            view.setOnClickListener(v -> toggleControls());
+            applyZoom(view, pageZoom(position));
+            return;
+        }
         LazyHeaders.Builder builder = new LazyHeaders.Builder();
         if (!mUserAgent.isEmpty()) builder.addHeader("User-Agent", mUserAgent);
         if (!mReferer.isEmpty()) builder.addHeader("Referer", mReferer);
@@ -671,6 +738,7 @@ public class ImageActivity extends BaseActivity {
 
     private void updatePageInfo(final int position) {
         mCurrentPosition = position;
+        if (!mComicPath.isEmpty()) LocalComics.saveProgress(mComicPath, mTitle, mImages.isEmpty() ? "" : mImages.get(0), mEpisodePosition, mEpisodePosition < mEpisodeNames.size() ? mEpisodeNames.get(mEpisodePosition) : mTitle, position, mImages.size());
         // #80：页号一变，缩放上下文切到该页的存值（mZoom 与百分比显示同步）
         mZoom = pageZoom(position);
         runOnUiThread(() -> {

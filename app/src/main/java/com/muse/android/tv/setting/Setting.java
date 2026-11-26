@@ -11,7 +11,7 @@ import com.github.catvod.utils.Prefers;
 public class Setting {
 
     private static final int MIN_WALL = 0;
-    private static final int MAX_WALL = 4;
+    private static final int MAX_WALL = 3;
     private static final int MIN_WALL_TYPE = 0;
     private static final int MAX_WALL_TYPE = 2;
     private static final int MIN_SITE_MODE = 0;
@@ -64,7 +64,7 @@ public class Setting {
     }
 
     public static int getWall() {
-        return Math.clamp(Prefers.getInt("wall", 1), MIN_WALL, MAX_WALL);
+        return Math.clamp(Prefers.getInt("wall", 3), MIN_WALL, MAX_WALL);
     }
 
     public static void putWall(int wall) {

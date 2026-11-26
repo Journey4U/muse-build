@@ -8,6 +8,7 @@
     <string name="nav_vod">點播</string>
     <string name="nav_live">直播</string>
     <string name="nav_setting">設定</string>
+    <string name="nav_browser">瀏覽器</string>
     <string name="web_home_enter">進站主頁</string>
     <string name="web_switch_site">切源</string>
     <string name="browser_resolving_episode">正在打開網頁解析「%1$s」的播放地址…</string>
@@ -33,7 +34,7 @@
     <!-- Device -->
     <string name="device_select">選擇裝置</string>
     <string name="device_offline">裝置已離線</string>
-    <string name="device_scan">請掃描影視 QRCode 進行綁定</string>
+    <string name="device_scan">請掃描 Muse TV QRCode 進行綁定</string>
 
     <!-- Control -->
     <string name="control_speed">倍速</string>

@@ -58,7 +58,7 @@
     <string name="exo_track_role_closed_captions">字幕</string>
     <string name="exo_track_bitrate">%1$.2f Mbps</string>
     <string name="exo_item_list">%1$s，%2$s</string>
-    <string name="app_name">影视</string>
+    <string name="app_name">Muse TV</string>
     <string name="live_pass">密码</string>
     <string name="live_refresh">刷新</string>
     <string name="live_line">线路 <xliff:g name="name">%s</xliff:g></string>
@@ -719,12 +719,22 @@
     <string name="shelf_folder_result">文件夹导入完成：新增 %1$d 本，跳过 %2$d 本，失败 %3$d 本</string>
     <string name="shelf_folder_empty">这个文件夹里没有 TXT 或 EPUB 文件。</string>
     <string name="config_auto_reloading">源配置已失效，正在重新加载…</string>
+
+    <!-- 本地漫画（换装第 1 步） -->
+    <string name="nav_comic">漫画</string>
+    <string name="shelf_comic">本地漫画</string>
+    <string name="shelf_import_novel">小说（TXT / EPUB）</string>
+    <string name="shelf_import_comic">导入漫画</string>
+    <string name="shelf_import_comic_hint">漫画（文件夹 / CBZ / ZIP）</string>
+    <string name="shelf_import_choose">导入类型</string>
+    <string name="comic_import_ok">已导入漫画《%1$s》，共 %2$d 话</string>
+    <string name="comic_import_empty">没有找到图片：漫画请选作品文件夹或 CBZ/ZIP 文件（图片支持 jpg/png/webp/gif/bmp）。</string>
+    <string name="comic_import_fail">漫画导入失败。</string>
+    <string name="comic_empty">还没有本地漫画，可在书架导入。</string>
+    <string name="comic_remove_msg">只移除书架记录与阅读进度，不删除源文件。</string>
+    <string name="comic_gone">漫画文件已不在原位置。</string>
+    <string name="comic_chapters">共 %1$d 话</string>
+    <string name="comic_read_to">看到 %1$s 第 %2$d 页</string>
+    <string name="comic_delete_hint">删除模式：选中漫画按确认键移除，返回键退出。</string>
+
 </resources>
-
-
-
-
-
-
-
-

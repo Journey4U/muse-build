@@ -48,4 +48,5 @@
 <color name="white_40">#66FFFFFF</color>
 <color name="white_50">#80FFFFFF</color>
 <color name="white_70">#B3FFFFFF</color>
+    <color name="muse_parchment">#F3E9D2</color>
 </resources>
