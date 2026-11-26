@@ -95,6 +95,8 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     private Clock mClock;
     private long mExitTime;
     private int mCurrentPage;
+    /** 首页功能区「漫画」按钮当前有没有（回到首页时只在有无变化时重建功能行，不扰动焦点）。 */
+    private boolean mFuncHasComic;
 
     /** 纯网页源进站主页（Liu 2026-11-23 方案 A）：已自动进过站的源 key——同一次启动/同一次选中只自动进一次，返回后不再弹。 */
     private static String sWebAutoKey;
@@ -678,6 +680,11 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         super.onResume();
         // push tv v30：长时间不操作回来，内存里的点播配置已被清空而界面还在 → 自动重载（加载完照常刷新首页）。
         ConfigGuard.reloadIfEmpty("回到前台", null);
+        boolean hasComic = com.muse.android.tv.ui.comic.LocalComics.hasComics();
+        if (hasComic != mFuncHasComic) {
+            mFuncHasComic = hasComic;
+            setHomeFunc();
+        }
         mClock.start();
         X();
         // 浏览器顶栏「切源」回来：回首页页并打开切源对话框（与首页按钮/菜单键同一个）。

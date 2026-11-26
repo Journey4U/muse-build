@@ -25,6 +25,7 @@ import com.muse.android.tv.api.config.LiveConfig;
 import com.muse.android.tv.api.config.VodConfig;
 import com.muse.android.tv.bean.Button;
 import com.muse.android.tv.bean.Func;
+import com.muse.android.tv.ui.comic.LocalComics;
 import com.muse.android.tv.bean.History;
 import com.muse.android.tv.bean.Result;
 import com.muse.android.tv.bean.Site;
@@ -169,6 +170,13 @@ public class HomePageFragment extends BaseFragment implements VodPresenter.OnCli
         for (Button button : Button.getButtons()) {
             if (!hasLiveUrl && button.getResId() == R.string.home_live) continue;
             items.add(Func.create(button.getResId()));
+        }
+        // 漫画入口：书架里有本地漫画才出现，紧跟书架项后（与书架「本地漫画」栏同一份数据）。
+        if (LocalComics.hasComics()) {
+            int shelf = -1;
+            for (int i = 0; i < items.size(); i++) if (items.get(i).getResId() == R.string.shelf_title) shelf = i;
+            if (shelf >= 0) items.add(shelf + 1, Func.create(R.string.nav_comic));
+            else items.add(Func.create(R.string.nav_comic));
         }
         // 浏览器入口：只在当前站能推出主页时亮，紧跟书架项后（首页功能行里小说边上）。
         Site home = getHome();
@@ -332,6 +340,7 @@ public class HomePageFragment extends BaseFragment implements VodPresenter.OnCli
         else if (item.getResId() == R.string.home_history_short) startActivity(new Intent(requireActivity(), HistoryActivity.class));
         else if (item.getResId() == R.string.home_keep) KeepActivity.start(requireActivity());
         else if (item.getResId() == R.string.shelf_title) BookshelfActivity.start(requireActivity());
+        else if (item.getResId() == R.string.nav_comic) ComicShelfActivity.start(requireActivity());
         else if (item.getResId() == R.string.nav_browser) openBrowser();
         else if (item.getResId() == R.string.home_push) PushActivity.start(requireActivity());
         else if (item.getResId() == R.string.home_search) SearchActivity.start(requireActivity());

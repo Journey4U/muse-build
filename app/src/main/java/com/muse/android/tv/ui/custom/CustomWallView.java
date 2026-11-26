@@ -39,8 +39,8 @@ import pl.droidsonroids.gif.GifDrawable;
 
 public class CustomWallView extends FrameLayout implements DefaultLifecycleObserver {
 
-    private static final int[] WALL_PAPERS = {0, R.drawable.wallpaper_1, R.drawable.wallpaper_2, R.drawable.wallpaper_3, R.drawable.wallpaper_4};
-    private static final int[] WALL_COLORS = {0, 0xFF40C090, 0xFF4870E0, 0xFF48B0C0, 0xFF404040};
+    private static final int[] WALL_PAPERS = {0, R.drawable.wallpaper_1, R.drawable.wallpaper_2, R.drawable.wallpaper_3};
+    private static final int[] WALL_COLORS = {0, 0xFFF3E9D2, 0xFFEFE6D4, 0xFF2D211C};
     private static final int TYPE_RES = 0;
     private static final int TYPE_GIF = 1;
     private static final int TYPE_VIDEO = 2;
@@ -113,7 +113,7 @@ public class CustomWallView extends FrameLayout implements DefaultLifecycleObser
     private void loadImage() {
         Drawable cache = cache();
         if (cache != null) binding.image.setImageDrawable(cache);
-        else binding.image.setImageResource(R.drawable.wallpaper_1);
+        else binding.image.setImageResource(R.drawable.wallpaper_3);
     }
 
     private void loadVideo(File file) {
@@ -195,12 +195,12 @@ public class CustomWallView extends FrameLayout implements DefaultLifecycleObser
         int type = Setting.getWallType();
         if (isBuiltIn(wall, type)) return WALL_COLORS[wall];
         File file = Path.wallCache();
-        return file.exists() ? paletteColor(file) : WALL_COLORS[1];
+        return file.exists() ? paletteColor(file) : WALL_COLORS[3];
     }
 
     private int paletteColor(File file) {
         Bitmap bitmap = decodeBitmap(file);
-        if (bitmap == null) return WALL_COLORS[1];
+        if (bitmap == null) return WALL_COLORS[3];
         Palette palette = Palette.from(bitmap).maximumColorCount(8).generate();
         bitmap.recycle();
         return swatchColor(palette);
@@ -215,7 +215,7 @@ public class CustomWallView extends FrameLayout implements DefaultLifecycleObser
     private int swatchColor(Palette palette) {
         Palette.Swatch swatch = palette.getVibrantSwatch();
         if (swatch == null) swatch = palette.getDominantSwatch();
-        return swatch != null ? swatch.getRgb() : WALL_COLORS[1];
+        return swatch != null ? swatch.getRgb() : WALL_COLORS[3];
     }
 
     private boolean isBuiltIn(int wall, int type) {
