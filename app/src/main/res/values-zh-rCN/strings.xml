@@ -428,6 +428,7 @@
     <string name="error_play_variant">画质切换失败</string>
     <string name="error_play_flag">暂无线路数据</string>
     <string name="error_play_timeout">连接超时</string>
+    <string name="error_play_no_video">画面无法显示（已自动尝试切换解码与播放器）</string>
     <string name="error_audio_effect_unsupported">当前播放方式不支持音质设置</string>
     <string name="error_audio_effect_tunnel">隧道模式下不支持音质设置</string>
     <string name="error_audio_effect_passthrough">音频直通音轨不支持音质设置</string>

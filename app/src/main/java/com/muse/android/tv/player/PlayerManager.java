@@ -21,6 +21,8 @@ import androidx.media3.mpvplayer.MpvPlayer;
 import androidx.media3.ui.PlayerView;
 import androidx.media3.ui.danmaku.DanmakuConfig;
 
+import com.github.catvod.crawler.DebugLogStore;
+import com.github.catvod.crawler.diagnostics.LogCategory;
 import com.muse.android.tv.App;
 import com.muse.android.tv.Constant;
 import com.muse.android.tv.R;
@@ -58,6 +60,8 @@ public class PlayerManager implements ParseCallback {
     private final Callback callback;
     private PendingPreload pendingPreload;
     private PlayerEngine engine;
+    /** v54：有声无画信号稳定多久才认定（结构信号的去抖，不是按片长判） */
+    private static final long BLANK_CHECK_DELAY_MS = 3000;
     private VideoSize videoSize;
     private ParseJob parseJob;
     /** push v45/v27：网页源起播时由 VideoActivity 记下该片 key——只有这条片子的嗅探结果交播放器前先走 PushMultiRes 多画质升级（播放服务共用，别的页面/别的片不受影响）。 */
@@ -71,6 +75,16 @@ public class PlayerManager implements ParseCallback {
     private boolean initTrack;
     private int retry;
     private int decode;
+    /**
+     * v54 有声无画自动恢复（Liu 2026-11-26 批）：两核都认「有视频轨、但视频轨没选中/被关」这一结构信号（不按时长判），
+     * 稳定后按顺序：①切一次硬/软解续播 ②换另一个核续播（临时、不持久化）③都不行弹提示。每片只走一轮，换片清零。
+     * 0 未触发、1 已切解码、2 已换核、3 已放弃。用户自己在轨道里关掉视频的不算。
+     */
+    private int blankStage;
+    private int blankOrigDecode;
+    private boolean userVideoOff;
+    private PlayerEngine.Type engineOverride;
+    private final Runnable blankCheck = this::checkBlankVideo;
 
     public PlayerManager(Callback callback) {
         this.callback = callback;
@@ -84,7 +98,7 @@ public class PlayerManager implements ParseCallback {
     }
 
     public void release() {
-        App.removeCallbacks(runnable);
+        App.removeCallbacks(runnable, blankCheck);
         if (player != null) player.removeListener(listener);
         if (engine != null) engine.release();
         engine = null;
@@ -278,6 +292,8 @@ public class PlayerManager implements ParseCallback {
 
     public void setEngine(int targetEngine) {
         PlayerSetting.putEngine(targetEngine);
+        // v54：用户手动换核即以用户为准，清掉有声无画恢复的临时换核
+        engineOverride = null;
         if (isEmpty() || PlayerEngineFactory.matches(engine, spec)) return;
         PlaybackSnapshot snapshot = PlaybackSnapshot.capture(player);
         startCurrent(snapshot.positionMs());
@@ -362,6 +378,8 @@ public class PlayerManager implements ParseCallback {
     public void setTrack(Track track) {
         // The MPV player never consumes TrackSelectionParameters overrides;
         // its tracks are selected by native track id through the engine.
+        // v54：用户手动关/开视频轨——关掉的不当有声无画处理
+        if (track != null && track.getType() == C.TRACK_TYPE_VIDEO) userVideoOff = !track.isSelected();
         if (isMpvEngine() && engine.setTrackSelection(track)) return;
         TrackUtil.setTrackSelection(player, track);
     }
@@ -459,6 +477,7 @@ public class PlayerManager implements ParseCallback {
     }
 
     public void stop() {
+        App.removeCallbacks(blankCheck);
         engine.stop();
         stopParse();
         PlayInfoLog.resetLast();
@@ -503,7 +522,7 @@ public class PlayerManager implements ParseCallback {
     }
 
     public void reset() {
-        App.removeCallbacks(runnable);
+        App.removeCallbacks(runnable, blankCheck);
         retry = 0;
     }
 
@@ -576,15 +595,80 @@ public class PlayerManager implements ParseCallback {
         stop();
     }
 
+    private void resetBlank() {
+        App.removeCallbacks(blankCheck);
+        blankStage = 0;
+        userVideoOff = false;
+        engineOverride = null;
+    }
+
+    private boolean isBlankVideo(Tracks tracks) {
+        return !userVideoOff && tracks != null && tracks.containsType(C.TRACK_TYPE_VIDEO) && !tracks.isTypeSelected(C.TRACK_TYPE_VIDEO);
+    }
+
+    /** 轨道表每变一次看一眼：出现信号就（重新）排一次延迟复查，信号消失就撤销——MPV 轨道表是增量刷新的，等稳定再认。 */
+    private void watchBlankVideo(Tracks tracks) {
+        if (spec == null || blankStage >= 3) return;
+        App.removeCallbacks(blankCheck);
+        if (isBlankVideo(tracks)) App.post(blankCheck, BLANK_CHECK_DELAY_MS);
+    }
+
+    private void checkBlankVideo() {
+        if (spec == null || player == null || engine == null || blankStage >= 3) return;
+        int state = player.getPlaybackState();
+        if (state != Player.STATE_READY && state != Player.STATE_BUFFERING) return;
+        Tracks tracks = player.getCurrentTracks();
+        if (!isBlankVideo(tracks)) return;
+        PlayerEngine.Type current = engine.getType();
+        PlayerEngine.Type other = current == PlayerEngine.Type.MPV ? PlayerEngine.Type.EXO : PlayerEngine.Type.MPV;
+        if (blankStage == 0) {
+            logBlankVideo(tracks, "切" + (isHard() ? "软解" : "硬解") + "重试");
+            blankStage = 1;
+            blankOrigDecode = decode;
+            retryDecode(isHard() ? PlayerEngine.SOFT : PlayerEngine.HARD);
+            return;
+        }
+        if (blankStage == 1 && PlayerEngineFactory.canUse(spec, other)) {
+            logBlankVideo(tracks, "换" + (other == PlayerEngine.Type.MPV ? "MPV" : "EXO") + "核重试");
+            blankStage = 2;
+            engineOverride = other;
+            if (decode != blankOrigDecode) setDecode(blankOrigDecode);
+            PlaybackSnapshot snapshot = PlaybackSnapshot.capture(player);
+            startCurrent(snapshot.positionMs());
+            snapshot.restore(player);
+            return;
+        }
+        logBlankVideo(tracks, "已放弃并提示");
+        blankStage = 3;
+        Notify.show(ResUtil.getString(R.string.error_play_no_video));
+    }
+
+    private void logBlankVideo(Tracks tracks, String next) {
+        try {
+            Format f = null;
+            for (Tracks.Group group : tracks.getGroups()) {
+                if (group.getType() == C.TRACK_TYPE_VIDEO && group.length > 0) {
+                    f = group.getTrackFormat(0);
+                    break;
+                }
+            }
+            String codec = f == null ? "?" : (f.sampleMimeType == null ? "" : f.sampleMimeType) + (TextUtils.isEmpty(f.codecs) ? "" : "/" + f.codecs);
+            String size = f == null || f.width <= 0 ? "?" : f.width + "x" + f.height;
+            DebugLogStore.addPlain(LogCategory.PLAY, "playback-info", "有声无画：核=" + engine.getType() + " 解码=" + (isHard() ? "硬解" : "软解") + " 编码=" + codec + " 分辨率=" + size + " 处理=" + next + " 地址=" + spec.getUrl());
+        } catch (Throwable ignored) {
+            // 诊断日志不许影响播放
+        }
+    }
+
     private void ensureEngine(PlaySpec spec) {
-        if (PlayerEngineFactory.matches(engine, spec)) return;
+        if (PlayerEngineFactory.matches(engine, spec, engineOverride)) return;
         PlayerEngine old = engine;
         player.removeListener(listener);
         // MuseTV: release-then-create, matching webhtv's engine switch — the
         // old engine's native context must be fully released before the new
         // engine creates its own.
         old.release();
-        engine = PlayerEngineFactory.create(decode, spec, listener);
+        engine = PlayerEngineFactory.create(decode, spec, engineOverride, listener);
         setPlayer(engine.getPlayer());
     }
 
@@ -600,6 +684,7 @@ public class PlayerManager implements ParseCallback {
     }
 
     public void start(PlaySpec spec, long timeout, long startPositionMs) {
+        resetBlank();
         this.spec = spec;
         parseSourceUrl = null;
         setMediaItem(timeout, startPositionMs);
@@ -611,6 +696,7 @@ public class PlayerManager implements ParseCallback {
 
     public void parse(String key, Result result, boolean useParse, MediaMetadata metadata, long startPositionMs) {
         stopParse();
+        resetBlank();
         pendingStartPositionMs = startPositionMs;
         spec = PlaySpec.fromParse(result, key, metadata);
         parseSourceUrl = result.getRealUrl();
@@ -772,9 +858,13 @@ public class PlayerManager implements ParseCallback {
 
         @Override
         public void onTracksChanged(@NonNull Tracks tracks) {
+            watchBlankVideo(tracks);
             if (tracks.isEmpty() || initTrack) return;
             initTrack = true;
-            TrackUtil.setTrackSelection(player, Track.find(getKey()));
+            List<Track> saved = Track.find(getKey());
+            // v54：该片存过「关视频」的轨道偏好，是用户自己关的，不当有声无画
+            for (Track t : saved) if (t.getType() == C.TRACK_TYPE_VIDEO && !t.isSelected()) userVideoOff = true;
+            TrackUtil.setTrackSelection(player, saved);
             callback.onTracksChanged();
         }
 
