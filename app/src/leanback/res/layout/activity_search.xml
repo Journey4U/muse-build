@@ -29,7 +29,8 @@
                 android:focusable="true"
                 android:focusableInTouchMode="true"
                 android:nextFocusDown="@id/keyboard"
-                android:src="@drawable/ic_search_mic" />
+                android:src="@drawable/ic_search_mic"
+                app:tint="?attr/museToneText" />
 
             <com.muse.android.tv.ui.custom.CustomSearchView
                 android:id="@+id/keyword"

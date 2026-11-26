@@ -209,7 +209,8 @@
             android:text="@string/detail_desc"
             android:textColor="?attr/museToneText"
             android:textSize="16sp"
-            app:drawableStartCompat="@drawable/ic_detail_desc" />
+            app:drawableStartCompat="@drawable/ic_detail_desc"
+            app:drawableTint="?attr/museToneText" />
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/keep"
@@ -227,7 +228,8 @@
             android:text="@string/keep"
             android:textColor="?attr/museToneText"
             android:textSize="16sp"
-            app:drawableStartCompat="@drawable/ic_detail_keep_off" />
+            app:drawableStartCompat="@drawable/ic_detail_keep_off"
+            app:drawableTint="?attr/museToneText" />
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/change"
@@ -245,7 +247,8 @@
             android:text="@string/play_change"
             android:textColor="?attr/museToneText"
             android:textSize="16sp"
-            app:drawableStartCompat="@drawable/ic_detail_change" />
+            app:drawableStartCompat="@drawable/ic_detail_change"
+            app:drawableTint="?attr/museToneText" />
 
     </androidx.appcompat.widget.LinearLayoutCompat>
 
