@@ -38,6 +38,7 @@ import com.muse.android.tv.ui.activity.CollectActivity;
 import com.muse.android.tv.ui.activity.HistoryActivity;
 import com.muse.android.tv.ui.activity.HomeActivity;
 import com.muse.android.tv.ui.activity.BookshelfActivity;
+import com.muse.android.tv.ui.activity.ComicShelfActivity;
 import com.muse.android.tv.ui.activity.KeepActivity;
 import com.muse.android.tv.ui.activity.LiveActivity;
 import com.muse.android.tv.ui.activity.PushActivity;
