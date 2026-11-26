@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 主题 2 护眼绿（Liu 2026-11-27 选 A 豆沙绿）：壁纸 2 号底 #C7EDCC 上的一套颜色；赤陶强调 muse_tone_accent 不变 -->
+<resources>
+    <color name="muse_green_bg">#C7EDCC</color>
+    <!-- 正文深墨绿：壁纸上约 7.7:1，卡片上约 8.5:1 -->
+    <color name="muse_green_ink">#2E4A33</color>
+    <!-- 次要字：壁纸上约 5.7:1 -->
+    <color name="muse_green_sub">#3E5E45</color>
+    <color name="muse_green_card">#E2F3E3</color>
+    <color name="muse_green_card_active">#C2E3C7</color>
+    <color name="muse_green_stroke">#A9D0B0</color>
+    <color name="muse_green_site">#3E6630</color>
+</resources>
