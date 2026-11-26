@@ -2,6 +2,7 @@ package com.muse.android.tv.ui.activity;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -16,6 +17,7 @@ import com.muse.android.tv.ui.base.BaseActivity;
 import com.muse.android.tv.utils.QRCode;
 import com.muse.android.tv.utils.ResUtil;
 import com.muse.android.tv.utils.Sniffer;
+import com.muse.android.tv.utils.ThemeTone;
 import com.muse.android.tv.utils.Util;
 
 public class PushActivity extends BaseActivity {
@@ -43,7 +45,17 @@ public class PushActivity extends BaseActivity {
 
     @Override
     protected void initView(Bundle savedInstanceState) {
-        mBinding.code.setImageBitmap(QRCode.getBitmap(Server.get().getAddress(getTab()), 250, 1));
+        if (ThemeTone.isLight(this)) {
+            // 浅色壁纸（羊皮纸/护眼绿）：去掉整页灰蒙层，「复制」用浅卡片，二维码改深点衬白卡（白点压浅底手机扫不出）
+            boolean green = ThemeTone.isGreen();
+            mBinding.getRoot().setBackgroundColor(Color.TRANSPARENT);
+            mBinding.clip.setBackgroundResource(green ? R.drawable.shape_button_green_normal : R.drawable.shape_button_light_normal);
+            mBinding.code.setBackgroundResource(R.drawable.shape_qr_card);
+            int ink = ThemeTone.inkColor(this);
+            mBinding.code.setImageBitmap(QRCode.getBitmap(Server.get().getAddress(getTab()), 250, 1, ink, Color.WHITE));
+        } else {
+            mBinding.code.setImageBitmap(QRCode.getBitmap(Server.get().getAddress(getTab()), 250, 1));
+        }
         mBinding.info.setText(ResUtil.getString(R.string.push_info, Server.get().getAddress()));
     }
 

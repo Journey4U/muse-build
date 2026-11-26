@@ -43,7 +43,7 @@ public class FuncPresenter extends Presenter {
         holder.binding.icon.setImageResource(item.getDrawable());
         // 换装第 2 步：浅色壁纸下功能区图标（原为浅色线条）着墨褐，深色壁纸保持原色
         boolean toneInk = ThemeTone.isLight(holder.binding.icon.getContext());
-        ImageViewCompat.setImageTintList(holder.binding.icon, toneInk ? ColorStateList.valueOf(ContextCompat.getColor(holder.binding.icon.getContext(), R.color.muse_tone_ink)) : null);
+        ImageViewCompat.setImageTintList(holder.binding.icon, toneInk ? ColorStateList.valueOf(ThemeTone.inkColor(holder.binding.icon.getContext())) : null);
         if (item.getNextFocusLeft() > 0) holder.binding.getRoot().setNextFocusLeftId(item.getNextFocusLeft());
         if (item.getNextFocusRight() > 0) holder.binding.getRoot().setNextFocusRightId(item.getNextFocusRight());
         setOnClickListener(holder, view -> listener.onItemClick(item));

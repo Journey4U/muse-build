@@ -141,7 +141,8 @@ public class CustomMic extends AppCompatImageView {
             setColorFilter(MDColor.RED_500, PorterDuff.Mode.SRC_IN);
         } else {
             clearAnimation();
-            setColorFilter(MDColor.WHITE, PorterDuff.Mode.SRC_IN);
+            // 停听后清掉滤镜，让布局里跟壁纸走的 tint（浅色墨褐/护眼绿深墨绿、深色白）生效
+            clearColorFilter();
         }
     }
 

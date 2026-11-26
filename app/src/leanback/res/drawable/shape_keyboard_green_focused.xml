@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 主题 2 护眼绿：由 shape_keyboard_light_focused 换绿色板 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/muse_green_card" />
+    <corners android:radius="4dp" />
+    <stroke
+        android:width="3dp"
+        android:color="@color/muse_tone_accent" />
+</shape>

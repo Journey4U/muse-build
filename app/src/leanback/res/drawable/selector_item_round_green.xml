@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 主题 2 护眼绿：由 selector_item_round_light 换绿色板 -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@drawable/shape_item_round_green_focused" android:state_focused="true" />
+    <item android:drawable="@drawable/shape_item_round_green_activated" android:state_selected="true" />
+    <item android:drawable="@drawable/shape_item_round_green_normal" />
+</selector>

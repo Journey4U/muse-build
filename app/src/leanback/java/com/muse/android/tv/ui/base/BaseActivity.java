@@ -32,6 +32,8 @@ public abstract class BaseActivity extends AppCompatActivity implements ThemeTon
     /** 换装第 2 步：本页创建时套用的深浅（true=浅色壁纸那套颜色与赤陶焦点框）。 */
     private static final String KEY_TONE_FOCUS = "muse_tone_focus";
     private boolean mToneLight;
+    /** 0=深色，1=羊皮纸，2=护眼绿；羊皮纸与护眼绿互切也要重建本页。 */
+    private int mTone;
     private boolean mTonePending;
     private boolean mRecreating;
 
@@ -39,7 +41,9 @@ public abstract class BaseActivity extends AppCompatActivity implements ThemeTon
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        mToneLight = customWall() && ThemeTone.apply(this);
+        mTone = customWall() ? ThemeTone.tone() : 0;
+        if (mTone != 0) ThemeTone.reapply(this, mTone);
+        mToneLight = mTone != 0;
         super.onCreate(savedInstanceState);
         reapplyTone();
         setContentView(getBinding().getRoot());
@@ -55,7 +59,7 @@ public abstract class BaseActivity extends AppCompatActivity implements ThemeTon
     @Override
     public void checkTone() {
         if (!customWall() || mRecreating || isFinishing()) return;
-        if (mToneLight == ThemeTone.isLight()) return;
+        if (mTone == ThemeTone.tone()) return;
         if (getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.RESUMED)) recreate();
         else mTonePending = true;
     }
@@ -66,7 +70,7 @@ public abstract class BaseActivity extends AppCompatActivity implements ThemeTon
      * （Liu 电视真机照片：羊皮纸壁纸上仍是白字、灰胶囊、白焦点框）。浅色时在这两处之后再叠一次；深色不动。
      */
     private void reapplyTone() {
-        if (mToneLight) getTheme().applyStyle(R.style.ThemeOverlay_Muse_Light, true);
+        if (mToneLight) ThemeTone.reapply(this, mTone);
     }
 
     @Override

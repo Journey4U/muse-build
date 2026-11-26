@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 主题 2 护眼绿：由 text_light 换绿色板 -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:color="@color/muse_tone_accent" android:state_selected="true" />
+    <item android:color="@color/muse_tone_accent" android:state_checked="true" />
+    <item android:color="@color/muse_green_ink" />
+</selector>
