@@ -135,7 +135,9 @@ public abstract class BaseActivity extends AppCompatActivity implements ThemeTon
         super.onResume();
         if (!mTonePending) return;
         mTonePending = false;
-        checkTone();
+        // onResume 回调执行期间 Lifecycle 仍是 STARTED，不能再走 checkTone() 的 RESUMED 判断（会又记回待办、永不重建）。
+        if (!customWall() || mRecreating || isFinishing()) return;
+        if (mTone != ThemeTone.tone()) recreate();
     }
 
     @Override
