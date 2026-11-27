@@ -1,7 +1,10 @@
-# MuseTV cloud build — leanback / TV (formal signing)
-# Signing: keystore + password come from Actions secrets KEYSTORE_BASE64 / KEYSTORE_PASSWORD / KEY_ALIAS.
-# Master copy of the key files lives in private repo Journey4U/muse branch "signing" (storage only, never built).
-# After Gradle, the APK is zipaligned and re-signed v1/v2/v3 with apksigner; build fails if cert SHA-256 != 0ff9845a...
+# MuseTV cloud build — leanback / TV
+# Signing (works in any fork):
+#   - Secret KEYSTORE_BASE64 set -> formal key from secrets KEYSTORE_BASE64 / KEYSTORE_PASSWORD / KEY_ALIAS.
+#   - Not set -> a throwaway key is generated on the fly, so a fresh fork builds with no setup.
+#   - Optional secret KEY_CERT_SHA256 (cert SHA-256, lowercase hex): build fails if the signed APK's cert differs.
+# After Gradle the APK is zipaligned and re-signed v1/v2/v3 with apksigner (v1 is mandatory).
+# Owner's master key files: private repo Journey4U/muse branch "signing" (storage only, never built).
 
 name: Build MuseTV (leanback release)
 
@@ -30,20 +33,32 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Decode keystore
+      - name: Prepare keystore (formal from secrets, else throwaway)
+        env:
+          KS_B64: ${{ secrets.KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.KEYSTORE_PASSWORD }}
+          KS_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > muse-release.keystore
+          if [ -n "$KS_B64" ]; then
+            echo "$KS_B64" | base64 -d > muse-release.keystore
+            echo "SIGN_MODE=formal" >> "$GITHUB_ENV"
+            A="${KS_ALIAS:-muse}"; P="$KS_PASS"
+            echo "== formal keystore from secrets =="
+          else
+            keytool -genkeypair -keystore muse-release.keystore -alias muse -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass android -keypass android -dname "CN=MuseTV, OU=MuseTV, O=MuseTV, L=Shanghai, ST=Shanghai, C=CN"
+            echo "SIGN_MODE=throwaway" >> "$GITHUB_ENV"
+            A=muse; P=android
+            echo "::warning::No KEYSTORE_BASE64 secret - signing with a throwaway key (APK cannot update one signed with another key)"
+          fi
           ls -la muse-release.keystore
-
-      - name: Write local.properties (SDK + signing)
-        run: |
           {
           echo "sdk.dir=$ANDROID_HOME"
           echo "storeFile=$GITHUB_WORKSPACE/muse-release.keystore"
-          echo "keyAlias=${{ secrets.KEY_ALIAS }}"
-          echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}"
+          echo "keyAlias=$A"
+          echo "storePassword=$P"
           } > local.properties
-          cat local.properties | sed 's/storePassword=.*/storePassword=***/'
+          sed 's/storePassword=.*/storePassword=***/' local.properties
 
       - name: Make gradlew executable
         run: chmod +x ./gradlew
@@ -54,11 +69,13 @@ jobs:
             (echo "== first attempt failed, retrying once ==" && \
              ./gradlew :app:assembleLeanbackRelease --no-daemon -Dorg.gradle.jvmargs="-Xmx5g")
 
-      - name: Re-sign v1/v2/v3 with formal key and verify fingerprint
+      - name: Re-sign v1/v2/v3 and verify
         env:
-          KSP: ${{ secrets.KEYSTORE_PASSWORD }}
-          KA: ${{ secrets.KEY_ALIAS }}
+          KS_PASS: ${{ secrets.KEYSTORE_PASSWORD }}
+          KS_ALIAS: ${{ secrets.KEY_ALIAS }}
+          CERT_SHA256: ${{ secrets.KEY_CERT_SHA256 }}
         run: |
+          if [ "$SIGN_MODE" = "formal" ]; then export KSP="$KS_PASS"; KA="${KS_ALIAS:-muse}"; else export KSP=android; KA=muse; fi
           BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
           echo "build-tools: $BT"
           for f in app/build/outputs/apk/leanback/release/*.apk; do
@@ -69,7 +86,12 @@ jobs:
               --out "$f.signed" "$f.aligned"
             "$BT/apksigner" verify --verbose --min-sdk-version 21 --print-certs "$f.signed" | tee verify.txt
             grep -q "Verified using v1 scheme (JAR signing): true" verify.txt || { echo "v1 missing: $f"; exit 1; }
-            grep -qi "SHA-256 digest: 0ff9845ac73093c10b7c8b26d5dd4e01674d70bea02d99c0b026d540521a116a" verify.txt || { echo "CERT MISMATCH: $f"; exit 1; }
+            if [ -n "$CERT_SHA256" ]; then
+              grep -qi "SHA-256 digest: $CERT_SHA256" verify.txt || { echo "CERT MISMATCH: $f"; exit 1; }
+              echo "cert fingerprint OK"
+            else
+              echo "::notice::KEY_CERT_SHA256 not set - fingerprint check skipped ($SIGN_MODE key)"
+            fi
             mv "$f.signed" "$f"; rm -f "$f.aligned" verify.txt
           done
           rm -f muse-release.keystore
