@@ -1,7 +1,7 @@
-# MuseTV cloud build — GitHub Actions workflow (leanback / TV)
-# Builds :app:assembleLeanbackRelease on a free GitHub runner and uploads the signed APKs.
-# Throwaway keystore for CI signing only; APK is re-signed locally with the formal key.
-# Mirrors build-apk-mobile.yml, leanback flavor instead of mobile.
+# MuseTV cloud build — leanback / TV (formal signing)
+# Signing: keystore + password come from Actions secrets KEYSTORE_BASE64 / KEYSTORE_PASSWORD / KEY_ALIAS.
+# Master copy of the key files lives in private repo Journey4U/muse branch "signing" (storage only, never built).
+# After Gradle, the APK is zipaligned and re-signed v1/v2/v3 with apksigner; build fails if cert SHA-256 != 0ff9845a...
 
 name: Build MuseTV (leanback release)
 
@@ -30,9 +30,9 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Generate throwaway keystore (CI signing only; APK is re-signed locally)
+      - name: Decode keystore
         run: |
-          keytool -genkeypair -keystore muse-release.keystore -alias muse -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=MuseTV, OU=MuseTV, O=MuseTV, L=Shanghai, ST=Shanghai, C=CN"
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > muse-release.keystore
           ls -la muse-release.keystore
 
       - name: Write local.properties (SDK + signing)
@@ -40,8 +40,8 @@ jobs:
           {
           echo "sdk.dir=$ANDROID_HOME"
           echo "storeFile=$GITHUB_WORKSPACE/muse-release.keystore"
-          echo "keyAlias=muse"
-          echo "storePassword=android"
+          echo "keyAlias=${{ secrets.KEY_ALIAS }}"
+          echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}"
           } > local.properties
           cat local.properties | sed 's/storePassword=.*/storePassword=***/'
 
@@ -53,6 +53,26 @@ jobs:
           ./gradlew :app:assembleLeanbackRelease --no-daemon -Dorg.gradle.jvmargs="-Xmx5g" || \
             (echo "== first attempt failed, retrying once ==" && \
              ./gradlew :app:assembleLeanbackRelease --no-daemon -Dorg.gradle.jvmargs="-Xmx5g")
+
+      - name: Re-sign v1/v2/v3 with formal key and verify fingerprint
+        env:
+          KSP: ${{ secrets.KEYSTORE_PASSWORD }}
+          KA: ${{ secrets.KEY_ALIAS }}
+        run: |
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          echo "build-tools: $BT"
+          for f in app/build/outputs/apk/leanback/release/*.apk; do
+            "$BT/zipalign" -p -f 4 "$f" "$f.aligned"
+            "$BT/apksigner" sign --ks muse-release.keystore --ks-key-alias "$KA" \
+              --ks-pass env:KSP --key-pass env:KSP \
+              --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true --v4-signing-enabled false \
+              --out "$f.signed" "$f.aligned"
+            "$BT/apksigner" verify --verbose --min-sdk-version 21 --print-certs "$f.signed" | tee verify.txt
+            grep -q "Verified using v1 scheme (JAR signing): true" verify.txt || { echo "v1 missing: $f"; exit 1; }
+            grep -qi "SHA-256 digest: 0ff9845ac73093c10b7c8b26d5dd4e01674d70bea02d99c0b026d540521a116a" verify.txt || { echo "CERT MISMATCH: $f"; exit 1; }
+            mv "$f.signed" "$f"; rm -f "$f.aligned" verify.txt
+          done
+          rm -f muse-release.keystore
 
       - name: Upload signed APK (release asset)
         env:
