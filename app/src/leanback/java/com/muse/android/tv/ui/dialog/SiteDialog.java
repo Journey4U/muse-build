@@ -3,6 +3,7 @@ package com.muse.android.tv.ui.dialog;
 import android.app.Activity;
 import android.app.Dialog;
 import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -17,6 +18,9 @@ import android.view.WindowManager;
 import android.widget.EditText;
 import android.widget.TextView;
 
+import androidx.activity.result.ActivityResult;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.FragmentActivity;
@@ -32,6 +36,7 @@ import com.muse.android.tv.bean.Site;
 import com.muse.android.tv.databinding.DialogSiteBinding;
 import com.muse.android.tv.impl.Callback;
 import com.muse.android.tv.impl.SiteListener;
+import com.muse.android.tv.ui.activity.FileActivity;
 import com.muse.android.tv.setting.Setting;
 import com.muse.android.tv.ui.adapter.SiteAdapter;
 import com.muse.android.tv.ui.custom.SpaceItemDecoration;
@@ -517,14 +522,34 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
         }, "local-source-delete").start();
     }
 
-    /** v27：单条移动——弹目录树选目的文件夹，搬文件后重载生成新配置（主线 v35 同款逻辑）。 */
+    // 移动选目标：打开文件管理页的选目录模式（根 = 已保存的扫描目录，按钮「移动到此处」），选好后照原逻辑搬文件
+    private List<Site> pendingMoveTargets;
+    private final ActivityResultLauncher<Intent> moveLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), this::onMoveTargetPicked);
+
+    /** v27：单条移动——选目的文件夹，搬文件后重载生成新配置（主线 v35 同款逻辑）。2026-11-28 起选目录走文件管理页（原树形弹窗）。 */
     private void chooseMoveTargetForSelection(List<Site> targets) {
         Context context = getContext();
         if (context == null || targets.isEmpty()) return;
-        FolderTreeDialog.showPicker(context, R.string.site_action_move, R.string.site_move_pick_tip,
-            R.string.site_move_here, 0, (dir, neutral) -> {
-                if (dir != null) moveSelectedToDir(targets, dir.getAbsolutePath());
-            });
+        List<File> roots = new ArrayList<>();
+        for (String scan : LocalSourceHub.getScanDirs()) {
+            if (TextUtils.isEmpty(scan)) continue;
+            File root = new File(scan);
+            if (root.isDirectory() && !roots.contains(root)) roots.add(root);
+        }
+        if (roots.isEmpty()) {
+            Notify.show(R.string.site_folder_pick_empty);
+            return;
+        }
+        pendingMoveTargets = new ArrayList<>(targets);
+        moveLauncher.launch(FileActivity.folderPicker(context, roots, R.string.site_move_here));
+    }
+
+    private void onMoveTargetPicked(ActivityResult result) {
+        List<Site> targets = pendingMoveTargets;
+        pendingMoveTargets = null;
+        File dir = FileActivity.pickedDir(result);
+        if (dir == null || targets == null || targets.isEmpty() || !isAdded()) return;
+        moveSelectedToDir(targets, dir.getAbsolutePath());
     }
 
     private void moveSelectedToDir(List<Site> targets, String targetDir) {

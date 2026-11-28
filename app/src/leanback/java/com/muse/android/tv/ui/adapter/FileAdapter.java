@@ -15,12 +15,15 @@ import com.muse.android.tv.utils.ThemeTone;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class FileAdapter extends RecyclerView.Adapter<FileAdapter.ViewHolder> {
 
     private final OnClickListener mListener;
     private final List<File> mItems;
+    private final Map<String, String> mLabels = new HashMap<>();
 
     public FileAdapter(OnClickListener listener) {
         mListener = listener;
@@ -31,6 +34,12 @@ public class FileAdapter extends RecyclerView.Adapter<FileAdapter.ViewHolder> {
         mItems.clear();
         mItems.addAll(items);
         notifyDataSetChanged();
+    }
+
+    /** 个别条目的显示名（按绝对路径），没有的照常显示文件名。 */
+    public void setLabels(Map<String, String> labels) {
+        mLabels.clear();
+        if (labels != null) mLabels.putAll(labels);
     }
 
     @Override
@@ -47,7 +56,8 @@ public class FileAdapter extends RecyclerView.Adapter<FileAdapter.ViewHolder> {
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         File file = mItems.get(position);
-        holder.binding.name.setText(file.getName());
+        String label = mLabels.get(file.getAbsolutePath());
+        holder.binding.name.setText(label != null ? label : file.getName());
         holder.binding.image.setImageResource(file.isDirectory() ? R.drawable.ic_folder : R.drawable.ic_file);
         // 图标跟主题走：浅色壁纸时文件夹用赤陶强调色、文件用正文墨色；深色壁纸保持原样
         android.content.Context context = holder.binding.image.getContext();

@@ -35,5 +35,7 @@
 
     <string name="detail_episode">选集</string>
 
+    <string name="file_storage_entry">U盘 / SD卡（%1$s）</string>
+
 </resources>
 

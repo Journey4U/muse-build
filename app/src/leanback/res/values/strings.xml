@@ -35,5 +35,7 @@
 
     <string name="detail_episode">Episode</string>
 
+    <string name="file_storage_entry">USB drive / SD card (%1$s)</string>
+
 </resources>
 

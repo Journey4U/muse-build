@@ -6,6 +6,7 @@ import android.view.ViewTreeObserver;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.leanback.widget.BaseGridView;
+import androidx.leanback.widget.HorizontalGridView;
 import androidx.recyclerview.widget.RecyclerView;
 
 /**
@@ -24,6 +25,7 @@ import androidx.recyclerview.widget.RecyclerView;
  *    该格完整可见，ITEM 策略下 setSelectedPosition 不产生滚动，不会再跳一下。
  * 3. 一离开触摸模式（按遥控器键，系统先退出触摸模式再分发按键）立刻恢复原滚动策略，之后与改前完全一致。
  * 真电视没有触摸屏，永远不进触摸模式，第 1 步不会发生，本类不改变任何行为。
+ * 横竖通用（2026-11-28 第二批）：横向网格（首页「历史」横排）按左右边界找第一个完整可见格，竖向按上下边界。
  */
 public final class TouchScrollHelper extends RecyclerView.OnScrollListener implements ViewTreeObserver.OnTouchModeChangeListener, View.OnAttachStateChangeListener {
 
@@ -76,20 +78,23 @@ public final class TouchScrollHelper extends RecyclerView.OnScrollListener imple
         if (grid.getFocusScrollStrategy() != savedStrategy) grid.setFocusScrollStrategy(savedStrategy);
     }
 
-    /** 列表停下后执行一次：找屏幕内第一个完整可见的可获焦格，设为选中。位置无效、列表为空、仍在滚动或布局中时什么都不做。 */
+    /** 列表停下后执行一次：找屏幕内第一个完整可见的可获焦格（竖向看上下、横向看左右），设为选中。位置无效、列表为空、仍在滚动或布局中时什么都不做。 */
     private void settle() {
         if (!active || !grid.isInTouchMode() || !grid.isAttachedToWindow()) return;
         if (grid.getScrollState() != RecyclerView.SCROLL_STATE_IDLE || grid.isComputingLayout()) return;
         RecyclerView.Adapter<?> adapter = grid.getAdapter();
         int count = adapter == null ? 0 : adapter.getItemCount();
         if (count == 0 || grid.getChildCount() == 0) return;
-        int top = grid.getPaddingTop();
-        int bottom = grid.getHeight() - grid.getPaddingBottom();
+        boolean horizontal = grid instanceof HorizontalGridView;
+        int start = horizontal ? grid.getPaddingLeft() : grid.getPaddingTop();
+        int end = horizontal ? grid.getWidth() - grid.getPaddingRight() : grid.getHeight() - grid.getPaddingBottom();
         int target = RecyclerView.NO_POSITION;
         for (int i = 0; i < grid.getChildCount(); i++) {
             View child = grid.getChildAt(i);
             if (child == null || child.getVisibility() != View.VISIBLE || !child.hasFocusable()) continue;
-            if (child.getTop() < top || child.getBottom() > bottom) continue;
+            int childStart = horizontal ? child.getLeft() : child.getTop();
+            int childEnd = horizontal ? child.getRight() : child.getBottom();
+            if (childStart < start || childEnd > end) continue;
             int position = grid.getChildAdapterPosition(child);
             if (position < 0 || position >= count) continue;
             if (target == RecyclerView.NO_POSITION || position < target) target = position;
