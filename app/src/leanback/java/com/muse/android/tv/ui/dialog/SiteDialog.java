@@ -16,6 +16,7 @@ import android.text.TextWatcher;
 import android.util.DisplayMetrics;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.EditText;
@@ -61,6 +62,10 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
     private static final float BASE_H = 376f;
     /** 固定 4 列（废除「源少于 10 个自动单列」与单列/网格切换）。 */
     private static final int COLUMNS = 4;
+    /** 胶囊恢复原版尺寸：高 40dp（字 18sp、勾选框 24dp 在布局里），不随弹窗比例缩放；关键字框与胶囊同高。 */
+    private static final float CHIP_DP = 40f;
+    /** 行距最小 4dp；只有屏幕矮到放不下时才按比例缩胶囊高度兜底（字号不缩）。 */
+    private static final float MIN_GAP_DP = 4f;
 
     private DialogSiteBinding binding;
     private SiteListener listener;
@@ -71,6 +76,13 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
     private int dialogW;
     private int dialogH;
     private float unit;
+    /** 行距（px）：列表高度减去行数×胶囊高，平均分给行与行之间。 */
+    private int rowGap;
+    private ViewTreeObserver touchObserver;
+    private final ViewTreeObserver.OnTouchModeChangeListener touchModeListener = inTouch -> {
+        // 触屏/遥控器切换时重绑一次：触屏下当前源显示白框，遥控器下白框随焦点走，不会出现两个白框。
+        if (adapter != null) adapter.notifyItemRangeChanged(0, adapter.getItemCount());
+    };
     /** 从源区按右键进按钮列时记下的格子，按钮列按左键回到这里。 */
     private int lastPosition = -1;
 
@@ -112,6 +124,10 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
 
     private int u(float base) {
         return Math.max(1, Math.round(base * unit));
+    }
+
+    private int dp(float value) {
+        return Math.max(1, Math.round(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value, getResources().getDisplayMetrics())));
     }
 
     /** 可见行数：只有首页带关键字框放 5 行；搜索页、设置页没有关键字框，放 6 行。 */
@@ -179,16 +195,17 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
         binding.getRoot().setPadding(pad, pad, pad, pad);
         int recyclerH = dialogH - pad * 2;
         if (keyword) {
-            int kh = u(56);
-            int kgap = u(8);
+            // 关键字框与胶囊同高；浮动标签已在布局里关掉（hintEnabled=false），「关键字...」作占位提示，描边样式保留。
+            int kh = dp(CHIP_DP);
+            int kgap = dp(8);
             ViewGroup.MarginLayoutParams klp = (ViewGroup.MarginLayoutParams) binding.keywordLayout.getLayoutParams();
             klp.height = kh;
             klp.bottomMargin = kgap;
             binding.keywordLayout.setLayoutParams(klp);
-            binding.keyword.setTextSize(TypedValue.COMPLEX_UNIT_PX, u(16));
+            binding.keyword.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
             binding.keyword.setMinHeight(0);
             binding.keyword.setMinimumHeight(0);
-            binding.keyword.setPadding(u(16), 0, u(16), 0);
+            binding.keyword.setPadding(dp(16), 0, dp(16), 0);
             ViewGroup.LayoutParams elp = binding.keyword.getLayoutParams();
             elp.height = kh;
             binding.keyword.setLayoutParams(elp);
@@ -197,10 +214,19 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
         ViewGroup.LayoutParams rlp = binding.recycler.getLayoutParams();
         rlp.height = recyclerH;
         binding.recycler.setLayoutParams(rlp);
+        // 胶囊用原版尺寸；行数只看屏幕（首页 5 行，搜索页/设置页 6 行），多出来的高度平均分给行距。
         int rows = getRows();
-        int gapV = u(16);
-        int itemH = Math.max(1, (recyclerH - (rows - 1) * gapV) / rows);
-        adapter.setItemSize(itemH, u(18), u(24), u(12));
+        int chipH = dp(CHIP_DP);
+        int minGap = dp(MIN_GAP_DP);
+        int gapV = (recyclerH - rows * chipH) / (rows - 1);
+        if (gapV < minGap) {
+            gapV = minGap;
+            chipH = Math.max(1, (recyclerH - (rows - 1) * gapV) / rows);
+            adapter.setItemHeight(chipH);
+        } else {
+            adapter.setItemHeight(0);
+        }
+        rowGap = gapV;
         if (action) {
             ViewGroup.MarginLayoutParams alp = (ViewGroup.MarginLayoutParams) binding.action.getLayoutParams();
             alp.setMarginStart(u(16));
@@ -305,7 +331,7 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
         binding.recycler.setAdapter(adapter);
         binding.recycler.setHasFixedSize(true);
         binding.recycler.setItemAnimator(null);
-        binding.recycler.addItemDecoration(new GridGap(COLUMNS, u(16), u(16)));
+        binding.recycler.addItemDecoration(new GridGap(COLUMNS, u(16), rowGap));
         binding.recycler.setLayoutManager(new GridLayoutManager(requireContext(), COLUMNS));
     }
 
@@ -340,6 +366,15 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
             binding.recycler.scrollToPosition(home);
             binding.recycler.requestFocus();
         }
+        touchObserver = binding.getRoot().getViewTreeObserver();
+        if (touchObserver.isAlive()) touchObserver.addOnTouchModeChangeListener(touchModeListener);
+    }
+
+    @Override
+    public void onStop() {
+        if (touchObserver != null && touchObserver.isAlive()) touchObserver.removeOnTouchModeChangeListener(touchModeListener);
+        touchObserver = null;
+        super.onStop();
     }
 
     // ==================== 长按：直接弹删除 / 重命名（不进勾选模式） ====================

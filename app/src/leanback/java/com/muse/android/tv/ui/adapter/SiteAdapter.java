@@ -1,6 +1,5 @@
 package com.muse.android.tv.ui.adapter;
 
-import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -9,6 +8,7 @@ import android.view.ViewGroup;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.muse.android.tv.R;
 import com.muse.android.tv.api.config.VodConfig;
 import com.muse.android.tv.bean.Site;
 import com.muse.android.tv.databinding.AdapterSiteBinding;
@@ -23,9 +23,6 @@ public class SiteAdapter extends RecyclerView.Adapter<SiteAdapter.ViewHolder> {
     private final List<Site> mFiltered;
     private int type;
     private int itemHeight;
-    private float textSize;
-    private int checkSize;
-    private int checkMargin;
     private View.OnKeyListener keyListener;
 
     public SiteAdapter(OnClickListener listener) {
@@ -42,12 +39,9 @@ public class SiteAdapter extends RecyclerView.Adapter<SiteAdapter.ViewHolder> {
         void onItemLongClick(Site item);
     }
 
-    /** 弹窗按比例定死后由弹窗传入的格子尺寸（px）；0 = 用布局默认值。 */
-    public void setItemSize(int itemHeight, float textSize, int checkSize, int checkMargin) {
+    /** 胶囊高度（px）：0 = 用布局原版 40dp；只有屏幕矮到行距不足 4dp 时弹窗才传入缩小值。字号、勾选框不变。 */
+    public void setItemHeight(int itemHeight) {
         this.itemHeight = itemHeight;
-        this.textSize = textSize;
-        this.checkSize = checkSize;
-        this.checkMargin = checkMargin;
     }
 
     public void setKeyListener(View.OnKeyListener keyListener) {
@@ -112,12 +106,6 @@ public class SiteAdapter extends RecyclerView.Adapter<SiteAdapter.ViewHolder> {
             ViewGroup.LayoutParams lp = holder.binding.getRoot().getLayoutParams();
             lp.height = itemHeight;
             holder.binding.getRoot().setLayoutParams(lp);
-            holder.binding.text.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize);
-            ViewGroup.MarginLayoutParams clp = (ViewGroup.MarginLayoutParams) holder.binding.check.getLayoutParams();
-            clp.width = checkSize;
-            clp.height = checkSize;
-            clp.setMarginStart(checkMargin);
-            holder.binding.check.setLayoutParams(clp);
         }
         if (keyListener != null) holder.binding.getRoot().setOnKeyListener(keyListener);
         return holder;
@@ -133,6 +121,9 @@ public class SiteAdapter extends RecyclerView.Adapter<SiteAdapter.ViewHolder> {
         holder.binding.getRoot().setOnLongClickListener(v -> setLongListener(item));
         holder.binding.getRoot().setOnClickListener(v -> setListener(item, position));
         holder.binding.text.setGravity(Gravity.CENTER);
+        // 触屏下打开不抢焦点，当前源直接画白框（与原版焦点框同一张图）；遥控器下白框跟焦点走，避免两个白框。
+        boolean frame = item.isSelected() && holder.binding.getRoot().isInTouchMode();
+        holder.binding.getRoot().setBackgroundResource(frame ? R.drawable.shape_chip_round_focused : R.drawable.selector_chip_round);
     }
 
     private boolean getChecked(Site item) {
