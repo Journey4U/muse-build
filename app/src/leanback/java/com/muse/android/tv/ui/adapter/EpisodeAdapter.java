@@ -20,6 +20,8 @@ public class EpisodeAdapter extends RecyclerView.Adapter<EpisodeAdapter.ViewHold
     private final int maxWidth;
     private int nextFocusDown;
     private int nextFocusUp;
+    // 钉死布局批：当前显示为选中的那一格（切集只刷旧格和新格）
+    private int shown = -1;
 
     public EpisodeAdapter(OnClickListener listener) {
         mListener = listener;
@@ -30,11 +32,28 @@ public class EpisodeAdapter extends RecyclerView.Adapter<EpisodeAdapter.ViewHold
     public void addAll(List<Episode> items) {
         mItems.clear();
         mItems.addAll(items);
+        shown = findSelected();
         notifyDataSetChanged();
+    }
+
+    private int findSelected() {
+        for (int i = 0; i < mItems.size(); i++) if (mItems.get(i).isSelected()) return i;
+        return -1;
+    }
+
+    /** 切集后只刷旧选中格与新选中格，不整行重绑。 */
+    public void refreshSelection() {
+        int now = findSelected();
+        if (now == shown) return;
+        int old = shown;
+        shown = now;
+        if (old >= 0 && old < mItems.size()) notifyItemChanged(old);
+        if (now >= 0) notifyItemChanged(now);
     }
 
     public void clear() {
         mItems.clear();
+        shown = -1;
         notifyDataSetChanged();
     }
 
@@ -63,14 +82,31 @@ public class EpisodeAdapter extends RecyclerView.Adapter<EpisodeAdapter.ViewHold
         return mItems.get(current);
     }
 
+    // 钉死布局批：上下焦点目标只存值；已显示的格子由 applyFocus 直接改，
+    // 回到屏幕上的缓存格子在 onViewAttachedToWindow 补上，不再整行重绑。
     public void setNextFocusDown(int nextFocusDown) {
         this.nextFocusDown = nextFocusDown;
-        notifyDataSetChanged();
     }
 
     public void setNextFocusUp(int nextFocusUp) {
         this.nextFocusUp = nextFocusUp;
-        notifyDataSetChanged();
+    }
+
+    public void applyFocus(RecyclerView view) {
+        for (int i = 0; i < view.getChildCount(); i++) {
+            RecyclerView.ViewHolder holder = view.getChildViewHolder(view.getChildAt(i));
+            if (holder instanceof ViewHolder) setFocus((ViewHolder) holder);
+        }
+    }
+
+    private void setFocus(ViewHolder holder) {
+        holder.binding.text.setNextFocusUpId(nextFocusUp);
+        holder.binding.text.setNextFocusDownId(nextFocusDown);
+    }
+
+    @Override
+    public void onViewAttachedToWindow(@NonNull ViewHolder holder) {
+        setFocus(holder);
     }
 
     @Override
@@ -88,8 +124,8 @@ public class EpisodeAdapter extends RecyclerView.Adapter<EpisodeAdapter.ViewHold
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         Episode item = mItems.get(position);
         holder.binding.text.setMaxWidth(maxWidth);
-        holder.binding.text.setNextFocusUpId(nextFocusUp);
-        holder.binding.text.setNextFocusDownId(nextFocusDown);
+        setFocus(holder);
+        if (item.isSelected()) shown = position;
         holder.binding.text.setSelected(item.isSelected());
         holder.binding.text.setText(item.getDesc().concat(item.getName()));
         holder.binding.getRoot().setOnClickListener(v -> mListener.onItemClick(item));

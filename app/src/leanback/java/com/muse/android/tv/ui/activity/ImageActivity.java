@@ -1,7 +1,9 @@
 package com.muse.android.tv.ui.activity;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.view.KeyEvent;
 import android.view.View;
@@ -9,13 +11,21 @@ import android.view.ViewGroup;
 import android.widget.ImageView;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewbinding.ViewBinding;
 
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.RequestBuilder;
+import com.bumptech.glide.load.DataSource;
+import com.bumptech.glide.load.DecodeFormat;
+import com.bumptech.glide.load.engine.GlideException;
 import com.bumptech.glide.load.model.GlideUrl;
 import com.bumptech.glide.load.model.LazyHeaders;
+import com.bumptech.glide.load.resource.bitmap.DownsampleStrategy;
+import com.bumptech.glide.request.RequestListener;
+import com.bumptech.glide.request.target.Target;
 import com.muse.android.tv.App;
 import com.muse.android.tv.R;
 import com.muse.android.tv.api.SiteApi;
@@ -24,6 +34,7 @@ import com.muse.android.tv.databinding.ActivityImageBinding;
 import com.muse.android.tv.ui.comic.ComicImageLoader;
 import com.muse.android.tv.ui.comic.LocalComics;
 import com.muse.android.tv.utils.Notify;
+import com.muse.android.tv.utils.ResUtil;
 import com.muse.android.tv.ui.base.BaseActivity;
 import com.muse.android.tv.ui.dialog.NovelCatalogDialog;
 import com.muse.android.tv.utils.Task;
@@ -31,6 +42,7 @@ import com.muse.android.tv.utils.Task;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -79,16 +91,18 @@ public class ImageActivity extends BaseActivity {
         @NonNull
         @Override
         public Holder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+            // 钉死布局批：条漫每格先按「屏宽 × 比例」占好高度（没见过的图按 1.4 竖图占位），
+            // 图到了才按真实比例改一次并记住；不再 wrap_content 等图撑开，滚动不跳、不反复重排。
             ImageView imageView = new ImageView(parent.getContext());
-            imageView.setLayoutParams(new RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-            imageView.setAdjustViewBounds(true);
+            imageView.setLayoutParams(new RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, stripHeight(-1)));
             imageView.setScaleType(ImageView.ScaleType.FIT_CENTER);
             return new Holder(imageView);
         }
 
         @Override
         public void onBindViewHolder(@NonNull Holder holder, int position) {
-            loadImage(holder.imageView, mImages.get(position));
+            setStripHeight(holder.imageView, stripHeight(position));
+            loadStripImage(holder.imageView, mImages.get(position), position);
         }
 
         @Override
@@ -291,6 +305,7 @@ public class ImageActivity extends BaseActivity {
     private void showPicsEpisode(int position, String picsUrl) {
         mEpisodePosition = position;
         mImages.clear();
+        mStripRatios.clear();
         mImages.addAll(Arrays.asList(picsUrl.substring("pics://".length()).split("&&")));
         mPosition = 0;
         mBinding.titleText.setText(mEpisodeNames.get(position));
@@ -362,6 +377,84 @@ public class ImageActivity extends BaseActivity {
         mBinding.prevEpisode.setVisibility(!has || mEpisodePosition <= 0 ? View.GONE : View.VISIBLE);
         mBinding.tocEpisode.setVisibility(has ? View.VISIBLE : View.GONE);
         mBinding.nextEpisode.setVisibility(!has || mEpisodePosition >= mEpisodeNames.size() - 1 ? View.GONE : View.VISIBLE);
+    }
+
+    /** 条漫占位比例（高/宽）：没见过的图按常见竖图 1.4 占位。 */
+    private static final float STRIP_RATIO = 1.4f;
+    /** 已加载过的条漫图真实比例（按格位记），换话时清空。 */
+    private final Map<Integer, Float> mStripRatios = new HashMap<>();
+
+    private int stripWidth() {
+        int width = mBinding == null ? 0 : mBinding.recyclerView.getWidth();
+        return width > 0 ? width : ResUtil.getScreenWidth();
+    }
+
+    private int stripHeight(int position) {
+        Float ratio = position < 0 ? null : mStripRatios.get(position);
+        return Math.max(1, Math.round(stripWidth() * (ratio == null ? STRIP_RATIO : ratio)));
+    }
+
+    private static void setStripHeight(View view, int height) {
+        ViewGroup.LayoutParams params = view.getLayoutParams();
+        if (params == null || params.height == height) return;
+        params.height = height;
+        view.setLayoutParams(params);
+    }
+
+    /** 条漫图：限屏宽解码（大图按宽缩小、小图不放大）、优先 RGB_565 省一半内存（带透明的图 Glide 自动退回 ARGB）。 */
+    private RequestBuilder<Drawable> stripRequest(ImageView view, Object model, int position) {
+        return Glide.with(view).load(model)
+                .format(DecodeFormat.PREFER_RGB_565)
+                .downsample(DownsampleStrategy.FIT_CENTER)
+                .override(stripWidth(), Target.SIZE_ORIGINAL)
+                .dontTransform()
+                .listener(new RequestListener<>() {
+                    @Override
+                    public boolean onLoadFailed(@Nullable GlideException e, Object m, @NonNull Target<Drawable> target, boolean isFirstResource) {
+                        return false;
+                    }
+
+                    @Override
+                    public boolean onResourceReady(Drawable resource, Object m, Target<Drawable> target, DataSource dataSource, boolean isFirstResource) {
+                        int w = resource.getIntrinsicWidth();
+                        int h = resource.getIntrinsicHeight();
+                        if (w <= 0 || h <= 0) return false;
+                        float ratio = (float) h / w;
+                        Float old = mStripRatios.get(position);
+                        mStripRatios.put(position, ratio);
+                        float shown = old == null ? STRIP_RATIO : old;
+                        if (Math.abs(ratio - shown) / shown > 0.02f) setStripHeight(view, stripHeight(position));
+                        return false;
+                    }
+                });
+    }
+
+    private void loadStripImage(ImageView view, String url, int position) {
+        if (LocalComics.isLocal(url)) {
+            view.setTag(R.id.comic_image_uri, url);
+            if (url.startsWith(LocalComics.FILE_PREFIX)) {
+                stripRequest(view, new File(url.substring(LocalComics.FILE_PREFIX.length())), position).into(view);
+                return;
+            }
+            // 压缩包条目：先在后台解到缓存文件（与 ComicImageLoader 同法），视图标记防复用错图
+            Glide.with(view).clear(view);
+            view.setImageDrawable(null);
+            Task.execute(() -> {
+                File file = LocalComics.resolve(url);
+                App.post(() -> {
+                    if (file == null || !url.equals(view.getTag(R.id.comic_image_uri))) return;
+                    Context context = view.getContext();
+                    if (context instanceof Activity activity && (activity.isFinishing() || activity.isDestroyed())) return;
+                    stripRequest(view, file, position).into(view);
+                });
+            });
+            return;
+        }
+        view.setTag(R.id.comic_image_uri, url);
+        LazyHeaders.Builder builder = new LazyHeaders.Builder();
+        if (!mUserAgent.isEmpty()) builder.addHeader("User-Agent", mUserAgent);
+        if (!mReferer.isEmpty()) builder.addHeader("Referer", mReferer);
+        stripRequest(view, new GlideUrl(url, builder.build()), position).into(view);
     }
 
     private void loadImage(ImageView view, String url) {

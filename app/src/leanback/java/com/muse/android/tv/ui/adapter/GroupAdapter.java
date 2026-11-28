@@ -66,6 +66,9 @@ public class GroupAdapter extends RecyclerView.Adapter<GroupAdapter.ViewHolder> 
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         Group item = mItems.get(position);
         holder.binding.name.setText(item.getName());
+        // 分组名：焦点时跑马灯内循环，其余单行省略
+        holder.binding.name.setSelected(holder.binding.getRoot().hasFocus());
+        holder.binding.getRoot().setOnFocusChangeListener((v, hasFocus) -> holder.binding.name.setSelected(hasFocus));
         holder.binding.getRoot().setOnClickListener(v -> mListener.onItemClick(item));
     }
 

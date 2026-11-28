@@ -14,6 +14,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.muse.android.tv.databinding.AdapterEpisodeDialogBinding;
 import com.muse.android.tv.databinding.AdapterEpisodeRangeBinding;
 import com.muse.android.tv.databinding.DialogNovelCatalogBinding;
+import com.muse.android.tv.ui.custom.FixedLayout;
 import com.muse.android.tv.ui.custom.SpaceItemDecoration;
 
 import java.util.List;
@@ -84,6 +85,8 @@ public class NovelCatalogDialog extends BaseAlertDialog {
         binding.grid.setHasFixedSize(true);
         binding.grid.setItemAnimator(null);
         binding.grid.addItemDecoration(new SpaceItemDecoration(spanCount, 12));
+        // 钉死布局批：格子区 5 行、页签行高度打开前定死（原版格子/页签尺寸不变）
+        FixedLayout.pinPagedGrid(binding.grid, binding.ranges, 5, 12);
         binding.grid.setLayoutManager(new GridLayoutManager(requireContext(), spanCount));
         binding.ranges.scrollToPosition(page);
         focusRetries = 0;
@@ -119,8 +122,11 @@ public class NovelCatalogDialog extends BaseAlertDialog {
     }
 
     private void setPage(int page) {
+        // 钉死布局批：页签只刷旧页、新页两格
+        int old = this.page;
         this.page = page;
-        binding.ranges.getAdapter().notifyDataSetChanged();
+        binding.ranges.getAdapter().notifyItemChanged(old);
+        binding.ranges.getAdapter().notifyItemChanged(page);
         binding.grid.getAdapter().notifyDataSetChanged();
         binding.ranges.scrollToPosition(page);
     }

@@ -12,6 +12,7 @@ import android.view.ViewGroup;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewbinding.ViewBinding;
@@ -440,10 +441,74 @@ public class BookshelfActivity extends BaseActivity {
         private final List<Row> rows = new ArrayList<>();
         private boolean delete;
 
+        private final List<String> keys = new ArrayList<>();
+        private final List<String> signs = new ArrayList<>();
+
+        // 钉死布局批：返回书架时不再整页从头重刷——每行算「身份 + 显示内容」签名，
+        // 全都没变就什么也不刷；有变化只刷变了的行（DiffUtil），焦点与滚动位置不跳。
         void setRows(List<Row> items) {
+            List<String> newKeys = new ArrayList<>();
+            List<String> newSigns = new ArrayList<>();
+            for (Row row : items) {
+                newKeys.add(keyOf(row));
+                newSigns.add(signOf(row));
+            }
+            if (!rows.isEmpty() && newKeys.equals(keys) && newSigns.equals(signs)) {
+                rows.clear();
+                rows.addAll(items);
+                return;
+            }
+            boolean first = rows.isEmpty();
+            final List<String> oldKeys = new ArrayList<>(keys);
+            final List<String> oldSigns = new ArrayList<>(signs);
             rows.clear();
             rows.addAll(items);
-            notifyDataSetChanged();
+            keys.clear();
+            keys.addAll(newKeys);
+            signs.clear();
+            signs.addAll(newSigns);
+            if (first) {
+                notifyDataSetChanged();
+                return;
+            }
+            DiffUtil.calculateDiff(new DiffUtil.Callback() {
+                @Override
+                public int getOldListSize() {
+                    return oldKeys.size();
+                }
+
+                @Override
+                public int getNewListSize() {
+                    return newKeys.size();
+                }
+
+                @Override
+                public boolean areItemsTheSame(int oldPosition, int newPosition) {
+                    return oldKeys.get(oldPosition).equals(newKeys.get(newPosition));
+                }
+
+                @Override
+                public boolean areContentsTheSame(int oldPosition, int newPosition) {
+                    return oldSigns.get(oldPosition).equals(newSigns.get(newPosition));
+                }
+            }, false).dispatchUpdatesTo(this);
+        }
+
+        private String keyOf(Row row) {
+            if (row.type == Row.TYPE_HEADER) return "h:" + row.section;
+            if (row.type == Row.TYPE_HINT) return "t:" + row.text;
+            if (row.kind == KIND_KEPT) return "k:" + row.keep.getKey();
+            if (row.kind == KIND_RECENT) return "r:" + row.record.optString("bookId");
+            if (row.kind == KIND_COMIC) return "c:" + row.book.optString("path") + "|" + row.book.optString("title");
+            return "l:" + row.book.optString("path");
+        }
+
+        private String signOf(Row row) {
+            if (row.type == Row.TYPE_HEADER) return row.text + "|" + isFolded(row.section);
+            if (row.type == Row.TYPE_HINT) return row.text;
+            String sign = titleOf(row) + "|" + subOf(row) + "|" + percentOf(row);
+            if (row.kind == KIND_COMIC) sign += "|" + row.book.optString("cover");
+            return sign;
         }
 
         boolean isComicRow(int position) {
