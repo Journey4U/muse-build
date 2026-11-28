@@ -114,9 +114,9 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
         return Math.max(1, Math.round(base * unit));
     }
 
-    /** 可见行数：设置页没有关键字框，多放一行。 */
+    /** 可见行数：只有首页带关键字框放 5 行；搜索页、设置页没有关键字框，放 6 行。 */
     private int getRows() {
-        return action ? 6 : 5;
+        return keyword ? 5 : 6;
     }
 
     @Override
