@@ -51,6 +51,7 @@ import com.muse.android.tv.ui.adapter.BaseDiffCallback;
 import com.muse.android.tv.ui.base.BaseFragment;
 import com.muse.android.tv.ui.custom.CustomRowPresenter;
 import com.muse.android.tv.ui.custom.CustomSelector;
+import com.muse.android.tv.ui.custom.TouchScrollHelper;
 import com.muse.android.tv.ui.presenter.FuncPresenter;
 import com.muse.android.tv.ui.presenter.HeaderPresenter;
 import com.muse.android.tv.ui.presenter.HistoryPresenter;
@@ -147,6 +148,8 @@ public class HomePageFragment extends BaseFragment implements VodPresenter.OnCli
         selector.addPresenter(ListRow.class, new CustomRowPresenter(16, FocusHighlight.ZOOM_FACTOR_SMALL, HorizontalGridView.FOCUS_SCROLL_ALIGNED), HistoryPresenter.class);
         mBinding.recycler.setAdapter(new ItemBridgeAdapter(mAdapter = new ArrayObjectAdapter(selector)));
         mBinding.recycler.setVerticalSpacing(ResUtil.dp2px(16));
+        // 手机装电视版的触摸滑动不回弹（只在触摸模式生效，遥控器路径不变）；停下后的选中变化照常走上面的选中监听。
+        TouchScrollHelper.attach(mBinding.recycler, null);
     }
 
     /** 原版 P3/e.Z 的前半：ProgressLayout 进度态 + 功能行 + history 标题（若 W）+ recommend 标题，随后 b0()。 */
