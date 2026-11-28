@@ -45,7 +45,6 @@ import com.muse.android.tv.ui.adapter.SiteAdapter;
 import com.muse.android.tv.utils.MoveHistory;
 import com.muse.android.tv.utils.Notify;
 import com.muse.android.tv.utils.PermissionUtil;
-import com.muse.android.tv.utils.ResUtil;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.io.File;
@@ -54,12 +53,14 @@ import java.util.List;
 
 public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickListener {
 
-    /** 弹窗尺寸按屏幕比例定死（Liu 2026-11-28 定）：基准 1920×1080 电视上 1792×752 px，即宽 93.3%、高 69.6%；不按内容或源数量算。 */
-    private static final float WIDTH_RATIO = 0.933f;
-    private static final float HEIGHT_RATIO = 0.696f;
-    /** 基准弹窗折合 896×376 个基准单位（1920×1080、density 2 时 1 单位 = 2px）；里面所有尺寸按这个基准等比换算。 */
-    private static final float BASE_W = 896f;
-    private static final float BASE_H = 376f;
+    /**
+     * 弹窗尺寸用 dp 钉死（Liu 2026-11-28 17:37「框给我钉死，不要按什么80%」）：宽 896dp、高 376dp，
+     * 与胶囊、关键字框、行距同一单位（原来框按屏幕真实像素×比例、胶囊按 dp，AutoSize 密度一变行距就乱）。
+     * 1920×1080 电视（密度 2）= 1792×752px，1280×720 电视（密度 4/3）= 1195×501px（v55 为 1194×501，四舍五入差 1px）。
+     * 唯一兜底：超出屏幕可用宽高时才夹到屏幕（只防越界，不按比例）。不按内容或源数量算。
+     */
+    private static final float DIALOG_W_DP = 896f;
+    private static final float DIALOG_H_DP = 376f;
     /** 固定 4 列（废除「源少于 10 个自动单列」与单列/网格切换）。 */
     private static final int COLUMNS = 4;
     /** 胶囊恢复原版尺寸：高 40dp（字 18sp、勾选框 24dp 在布局里），不随弹窗比例缩放；关键字框与胶囊同高。 */
@@ -75,7 +76,6 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
     private int type;
     private int dialogW;
     private int dialogH;
-    private float unit;
     /** 行距（px）：列表高度减去行数×胶囊高，平均分给行与行之间。 */
     private int rowGap;
     private ViewTreeObserver touchObserver;
@@ -116,14 +116,9 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
     }
 
     private void computeSize() {
-        dialogW = Math.round(ResUtil.getScreenWidth() * WIDTH_RATIO);
-        dialogH = Math.round(ResUtil.getScreenHeight() * HEIGHT_RATIO);
-        // 长屏时按高度缩（保证行数放得下），多出来的宽度由 GridLayoutManager 分给格子。
-        unit = Math.min(dialogW / BASE_W, dialogH / BASE_H);
-    }
-
-    private int u(float base) {
-        return Math.max(1, Math.round(base * unit));
+        DisplayMetrics metrics = getResources().getDisplayMetrics();
+        dialogW = Math.min(dp(DIALOG_W_DP), metrics.widthPixels);
+        dialogH = Math.min(dp(DIALOG_H_DP), metrics.heightPixels);
     }
 
     private int dp(float value) {
@@ -148,6 +143,8 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
 
     @Override
     public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
+        // 先定尺寸再建窗（super 里会调 initView → applySize，要用到 dialogW/dialogH）。
+        computeSize();
         Dialog dialog = super.onCreateDialog(savedInstanceState);
         // 宽高在显示前一次定死，之后不再改：不跟内容走、不重排。
         // 只由屏幕尺寸决定，与源数量无关（源数量只影响填了几格）。
@@ -164,7 +161,6 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
 
     @Override
     protected void initView() {
-        computeSize();
         adapter = new SiteAdapter(this);
         if (action) binding.action.setVisibility(View.VISIBLE);
         binding.keywordLayout.setVisibility(keyword ? View.VISIBLE : View.GONE);
@@ -189,9 +185,9 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
         }
     }
 
-    /** 按基准等比换算所有尺寸：内边距、关键字框、格子、字号、间距、按钮列。全是固定数，不量内容。 */
+    /** 所有尺寸一律 dp：内边距、关键字框、格子、间距、按钮列。全是固定数，不量内容。 */
     private void applySize() {
-        int pad = u(24);
+        int pad = dp(24);
         binding.getRoot().setPadding(pad, pad, pad, pad);
         int recyclerH = dialogH - pad * 2;
         if (keyword) {
@@ -229,16 +225,16 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
         rowGap = gapV;
         if (action) {
             ViewGroup.MarginLayoutParams alp = (ViewGroup.MarginLayoutParams) binding.action.getLayoutParams();
-            alp.setMarginStart(u(16));
+            alp.setMarginStart(dp(16));
             binding.action.setLayoutParams(alp);
             View[] buttons = {binding.search, binding.change, binding.select, binding.cancel};
             for (int i = 0; i < buttons.length; i++) {
                 ViewGroup.MarginLayoutParams blp = (ViewGroup.MarginLayoutParams) buttons[i].getLayoutParams();
-                blp.width = u(40);
-                blp.height = u(40);
-                blp.topMargin = i == 0 ? 0 : u(16);
+                blp.width = dp(40);
+                blp.height = dp(40);
+                blp.topMargin = i == 0 ? 0 : dp(16);
                 buttons[i].setLayoutParams(blp);
-                buttons[i].setPadding(u(8), u(8), u(8), u(8));
+                buttons[i].setPadding(dp(8), dp(8), dp(8), dp(8));
             }
         }
     }
@@ -331,7 +327,7 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
         binding.recycler.setAdapter(adapter);
         binding.recycler.setHasFixedSize(true);
         binding.recycler.setItemAnimator(null);
-        binding.recycler.addItemDecoration(new GridGap(COLUMNS, u(16), rowGap));
+        binding.recycler.addItemDecoration(new GridGap(COLUMNS, dp(16), rowGap));
         binding.recycler.setLayoutManager(new GridLayoutManager(requireContext(), COLUMNS));
     }
 
