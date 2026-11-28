@@ -18,7 +18,10 @@ import java.util.List;
 
 public class SiteAdapter extends RecyclerView.Adapter<SiteAdapter.ViewHolder> {
 
-    private final OnClickListener listener;
+    /** 局部刷新标记：只改勾选框显隐/勾选/选中/白框，不重设文字（共享网格挂进不同入口时用）。 */
+    public static final Object PAYLOAD_STATE = new Object();
+
+    private OnClickListener listener;
     private final List<Site> mItems;
     private final List<Site> mFiltered;
     private int type;
@@ -48,9 +51,19 @@ public class SiteAdapter extends RecyclerView.Adapter<SiteAdapter.ViewHolder> {
         this.keyListener = keyListener;
     }
 
+    /** 共享网格挂进哪个弹窗，点击就交给哪个弹窗；摘下时置空，避免泄漏。 */
+    public void setListener(OnClickListener listener) {
+        this.listener = listener;
+    }
+
+    public int getItemHeight() {
+        return itemHeight;
+    }
+
+    /** 切入口类型（切源/搜索勾选/换源勾选）：只局部刷新状态，不重设文字。 */
     public void setType(int type) {
         this.type = type;
-        notifyDataSetChanged();
+        notifyItemRangeChanged(0, getItemCount(), PAYLOAD_STATE);
     }
 
     public int getType() {
@@ -102,12 +115,10 @@ public class SiteAdapter extends RecyclerView.Adapter<SiteAdapter.ViewHolder> {
     @Override
     public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         ViewHolder holder = new ViewHolder(AdapterSiteBinding.inflate(LayoutInflater.from(parent.getContext()), parent, false));
-        if (itemHeight > 0) {
-            ViewGroup.LayoutParams lp = holder.binding.getRoot().getLayoutParams();
-            lp.height = itemHeight;
-            holder.binding.getRoot().setLayoutParams(lp);
-        }
-        if (keyListener != null) holder.binding.getRoot().setOnKeyListener(keyListener);
+        holder.baseHeight = holder.binding.getRoot().getLayoutParams().height;
+        applyHeight(holder);
+        // 遥控器按键转给当前挂载的弹窗（共享网格会被不同弹窗复用，不能把建格子时的弹窗写死）。
+        holder.binding.getRoot().setOnKeyListener((v, keyCode, event) -> keyListener != null && keyListener.onKey(v, keyCode, event));
         // 快划卡顿修法：背景、对齐、点击/长按监听只在建格子时设一次，绑定时不再重复创建。
         holder.binding.getRoot().setBackgroundResource(R.drawable.selector_chip_round_site);
         holder.binding.text.setGravity(Gravity.CENTER);
@@ -125,15 +136,41 @@ public class SiteAdapter extends RecyclerView.Adapter<SiteAdapter.ViewHolder> {
     }
 
     @Override
+    public void onBindViewHolder(@NonNull ViewHolder holder, int position, @NonNull List<Object> payloads) {
+        if (payloads.isEmpty()) {
+            onBindViewHolder(holder, position);
+        } else {
+            bindState(holder, mFiltered.get(position));
+        }
+    }
+
+    @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         Site item = mFiltered.get(position);
-        holder.binding.text.setText(item.getName());
+        // 源名排版走应用级缓存（后台预算好的）；没算到就当场照常设置。
+        SiteTextCache.bind(holder.binding.text, item);
+        bindState(holder, item);
+    }
+
+    /** 只改状态：勾选、选中、勾选框显隐、白框。不碰文字，不重排。 */
+    private void bindState(@NonNull ViewHolder holder, Site item) {
+        applyHeight(holder);
         holder.binding.check.setChecked(getChecked(item));
         holder.binding.text.setSelected(item.isSelected());
         holder.binding.check.setVisibility(type == 0 ? View.GONE : View.VISIBLE);
         // 触屏下打开不抢焦点，当前源直接画白框（与原版焦点框同一张图）；遥控器下白框跟焦点走，避免两个白框。
         // 只切 activated 状态，不换背景图、不重排（selector_chip_round_site 的 activated 项即白框）。
         holder.binding.getRoot().setActivated(item.isSelected() && holder.binding.getRoot().isInTouchMode());
+    }
+
+    /** 胶囊高度：原版 40dp，只有矮屏行距不足时才用弹窗传入的值；高度没变就什么都不做（共享网格换入口时用）。 */
+    private void applyHeight(@NonNull ViewHolder holder) {
+        int h = itemHeight > 0 ? itemHeight : holder.baseHeight;
+        ViewGroup.LayoutParams lp = holder.binding.getRoot().getLayoutParams();
+        if (lp != null && lp.height != h) {
+            lp.height = h;
+            holder.binding.getRoot().setLayoutParams(lp);
+        }
     }
 
     private boolean getChecked(Site item) {
@@ -143,28 +180,29 @@ public class SiteAdapter extends RecyclerView.Adapter<SiteAdapter.ViewHolder> {
     }
 
     private void setListener(Site item, int position) {
-        if (type == 0) listener.onItemClick(item);
+        if (type == 0 && listener != null) listener.onItemClick(item);
         if (type == 1) item.setSearchable(!item.isSearchable()).save();
         if (type == 2) item.setChangeable(!item.isChangeable()).save();
-        if (type != 0) notifyItemChanged(position);
+        if (type != 0) notifyItemChanged(position, PAYLOAD_STATE);
     }
 
     private boolean setLongListener(Site item) {
         if (type == 1) setEnable(!item.isSearchable());
         if (type == 2) setEnable(!item.isChangeable());
-        if (type == 0) listener.onItemLongClick(item);
+        if (type == 0 && listener != null) listener.onItemLongClick(item);
         return true;
     }
 
     private void setEnable(boolean enable) {
         if (type == 1) for (Site site : mItems) site.setSearchable(enable).save();
         if (type == 2) for (Site site : mItems) site.setChangeable(enable).save();
-        notifyItemRangeChanged(0, getItemCount());
+        notifyItemRangeChanged(0, getItemCount(), PAYLOAD_STATE);
     }
 
     public class ViewHolder extends RecyclerView.ViewHolder {
 
         private final AdapterSiteBinding binding;
+        private int baseHeight;
 
         ViewHolder(@NonNull AdapterSiteBinding binding) {
             super(binding.getRoot());

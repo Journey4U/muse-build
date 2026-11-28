@@ -48,6 +48,7 @@ import com.muse.android.tv.ui.base.BaseActivity;
 import com.muse.android.tv.ui.custom.CustomTitleView;
 import com.muse.android.tv.ui.custom.ToneBold;
 import com.muse.android.tv.ui.dialog.SiteDialog;
+import com.muse.android.tv.ui.dialog.SiteGridCache;
 import com.muse.android.tv.ui.fragment.FolderFragment;
 import com.muse.android.tv.ui.fragment.HomePageFragment;
 import com.muse.android.tv.ui.presenter.ClassPresenter;
@@ -372,6 +373,8 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     }
 
     private void showContent() {
+        // 配置加载/重载完成：源列表排版缓存在后台整体重建，共享网格按新配置作废（下次打开全量重建）。
+        SiteGridCache.onConfigLoaded(this);
         setTitle();
         setLogo();
         checkAction(getIntent());
