@@ -108,6 +108,19 @@ public class SiteAdapter extends RecyclerView.Adapter<SiteAdapter.ViewHolder> {
             holder.binding.getRoot().setLayoutParams(lp);
         }
         if (keyListener != null) holder.binding.getRoot().setOnKeyListener(keyListener);
+        // 快划卡顿修法：背景、对齐、点击/长按监听只在建格子时设一次，绑定时不再重复创建。
+        holder.binding.getRoot().setBackgroundResource(R.drawable.selector_chip_round_site);
+        holder.binding.text.setGravity(Gravity.CENTER);
+        holder.binding.getRoot().setOnClickListener(v -> {
+            int position = holder.getBindingAdapterPosition();
+            if (position == RecyclerView.NO_POSITION || position >= mFiltered.size()) return;
+            setListener(mFiltered.get(position), position);
+        });
+        holder.binding.getRoot().setOnLongClickListener(v -> {
+            int position = holder.getBindingAdapterPosition();
+            if (position == RecyclerView.NO_POSITION || position >= mFiltered.size()) return true;
+            return setLongListener(mFiltered.get(position));
+        });
         return holder;
     }
 
@@ -118,12 +131,9 @@ public class SiteAdapter extends RecyclerView.Adapter<SiteAdapter.ViewHolder> {
         holder.binding.check.setChecked(getChecked(item));
         holder.binding.text.setSelected(item.isSelected());
         holder.binding.check.setVisibility(type == 0 ? View.GONE : View.VISIBLE);
-        holder.binding.getRoot().setOnLongClickListener(v -> setLongListener(item));
-        holder.binding.getRoot().setOnClickListener(v -> setListener(item, position));
-        holder.binding.text.setGravity(Gravity.CENTER);
         // 触屏下打开不抢焦点，当前源直接画白框（与原版焦点框同一张图）；遥控器下白框跟焦点走，避免两个白框。
-        boolean frame = item.isSelected() && holder.binding.getRoot().isInTouchMode();
-        holder.binding.getRoot().setBackgroundResource(frame ? R.drawable.shape_chip_round_focused : R.drawable.selector_chip_round);
+        // 只切 activated 状态，不换背景图、不重排（selector_chip_round_site 的 activated 项即白框）。
+        holder.binding.getRoot().setActivated(item.isSelected() && holder.binding.getRoot().isInTouchMode());
     }
 
     private boolean getChecked(Site item) {

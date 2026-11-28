@@ -327,6 +327,9 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
         binding.recycler.setAdapter(adapter);
         binding.recycler.setHasFixedSize(true);
         binding.recycler.setItemAnimator(null);
+        // 快划卡顿修法：一行 4 格，默认回收池只留 5 个格子，快划换几行就得现场新建；加大回收池与离屏缓存（4 列×2 行）。
+        binding.recycler.getRecycledViewPool().setMaxRecycledViews(0, 40);
+        binding.recycler.setItemViewCacheSize(COLUMNS * 2);
         binding.recycler.addItemDecoration(new GridGap(COLUMNS, dp(16), rowGap));
         binding.recycler.setLayoutManager(new GridLayoutManager(requireContext(), COLUMNS));
     }

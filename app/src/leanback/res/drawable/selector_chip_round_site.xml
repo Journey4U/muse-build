@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 源列表胶囊专用（2026-11-28 快划卡顿修法）：触屏下当前源用 activated 状态显示白框，背景只在建格子时设一次，滚动时不再换背景图。
+     其余三项与 selector_chip_round 原样一致：遥控器白框跟焦点走。 -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@drawable/shape_chip_round_focused" android:state_activated="true" />
+    <item android:drawable="@drawable/shape_chip_round_focused" android:state_focused="true" />
+    <item android:drawable="@drawable/shape_chip_round_activated" android:state_selected="true" />
+    <item android:drawable="@drawable/shape_chip_round_normal" />
+</selector>
