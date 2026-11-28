@@ -16,6 +16,7 @@ import com.muse.android.tv.R;
 import com.muse.android.tv.databinding.ActivityFileBinding;
 import com.muse.android.tv.ui.adapter.FileAdapter;
 import com.muse.android.tv.ui.base.BaseActivity;
+import com.muse.android.tv.utils.FileBrowse;
 import com.muse.android.tv.utils.FileChooser;
 import com.muse.android.tv.utils.PermissionUtil;
 import com.github.catvod.utils.Path;
@@ -27,10 +28,11 @@ public class FileActivity extends BaseActivity implements FileAdapter.OnClickLis
     /** 文件夹选择模式：只在本地源扫描目录入口用，普通文件选择（源配置等）不受影响。 */
     public static final String EXTRA_PICK_FOLDER = "pick_folder";
 
+    private static final int[] SORT_IDS = {R.id.file_sort_name_asc, R.id.file_sort_name_desc, R.id.file_sort_time_new, R.id.file_sort_time_old};
+
     private ActivityFileBinding mBinding;
     private FileAdapter mAdapter;
     private File dir;
-    private boolean folderMode;
 
     private boolean isRoot() {
         return Path.root().equals(dir);
@@ -51,9 +53,10 @@ public class FileActivity extends BaseActivity implements FileAdapter.OnClickLis
     @Override
     protected void initView(Bundle savedInstanceState) {
         setSupportActionBar(mBinding.toolbar);
-        folderMode = getIntent().getBooleanExtra(FileChooser.EXTRA_FOLDER_MODE, false);
         setRecyclerView();
-        if (getIntent().getBooleanExtra(EXTRA_PICK_FOLDER, false)) {
+        // 本地源选目录（EXTRA_PICK_FOLDER）与书架导入（FileChooser.EXTRA_FOLDER_MODE）统一用底部大按钮选当前文件夹
+        boolean pickFolder = getIntent().getBooleanExtra(EXTRA_PICK_FOLDER, false) || getIntent().getBooleanExtra(FileChooser.EXTRA_FOLDER_MODE, false);
+        if (pickFolder) {
             mBinding.pickFolder.setVisibility(View.VISIBLE);
             mBinding.pickFolder.setOnClickListener(v -> {
                 if (dir != null) {
@@ -76,7 +79,7 @@ public class FileActivity extends BaseActivity implements FileAdapter.OnClickLis
 
     private void update(File dir) {
         mBinding.recycler.scrollToPosition(0);
-        mAdapter.addAll(Path.list(this.dir = dir));
+        mAdapter.addAll(FileBrowse.list(this.dir = dir));
         mBinding.title.setText(dir.getAbsolutePath());
         mBinding.progressLayout.showContent(true, mAdapter.getItemCount());
     }
@@ -93,16 +96,39 @@ public class FileActivity extends BaseActivity implements FileAdapter.OnClickLis
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        if (folderMode) getMenuInflater().inflate(R.menu.menu_file_folder, menu);
+        getMenuInflater().inflate(R.menu.menu_file, menu);
         return super.onCreateOptionsMenu(menu);
     }
 
     @Override
+    public boolean onPrepareOptionsMenu(Menu menu) {
+        MenuItem sort = menu.findItem(SORT_IDS[FileBrowse.getSort()]);
+        if (sort != null) sort.setChecked(true);
+        MenuItem hide = menu.findItem(R.id.file_hide_dot);
+        if (hide != null) hide.setChecked(FileBrowse.isHideDot());
+        return super.onPrepareOptionsMenu(menu);
+    }
+
+    @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
-        if (item.getItemId() == android.R.id.home) onBackInvoked();
-        else if (item.getItemId() == R.id.choose_folder && dir != null) {
-            setResult(RESULT_OK, new Intent().setData(Uri.fromFile(dir)));
-            finish();
+        int id = item.getItemId();
+        if (id == android.R.id.home) {
+            onBackInvoked();
+            return true;
+        }
+        for (int i = 0; i < SORT_IDS.length; i++) {
+            if (id == SORT_IDS[i]) {
+                FileBrowse.putSort(i);
+                item.setChecked(true);
+                if (dir != null) update(dir);
+                return true;
+            }
+        }
+        if (id == R.id.file_hide_dot) {
+            FileBrowse.putHideDot(!FileBrowse.isHideDot());
+            item.setChecked(FileBrowse.isHideDot());
+            if (dir != null) update(dir);
+            return true;
         }
         return super.onOptionsItemSelected(item);
     }

@@ -16,6 +16,8 @@ import com.muse.android.tv.api.loader.LocalSourceHub;
 import com.muse.android.tv.utils.Notify;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
+import com.muse.android.tv.utils.FileBrowse;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -162,19 +164,8 @@ public class FolderTreeDialog {
     }
 
     private List<File> subDirs(File dir) {
-        File[] all = dir == null ? null : dir.listFiles(File::isDirectory);
-        if (all == null) return new ArrayList<>();
-        List<File> out = new ArrayList<>();
-        for (File f : all) {
-            if (f.getName().startsWith(".")) continue;
-            out.add(f);
-        }
-        Collections.sort(out, (a, b) -> {
-            String left = a.getName();
-            String right = b.getName();
-            return left.compareToIgnoreCase(right);
-        });
-        return out;
+        // 隐藏系统文件开关与排序方式统一走 FileBrowse（与文件页同一设置）
+        return FileBrowse.listDirs(dir);
     }
 
     private void addRow(File dir, int depth, boolean hasChild) {

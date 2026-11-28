@@ -15,6 +15,8 @@ import com.muse.android.tv.databinding.AdapterCategoryTreeBinding;
 import com.muse.android.tv.databinding.DialogCategoryTreeBinding;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
+import com.muse.android.tv.utils.FileBrowse;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -83,13 +85,8 @@ public class CategoryTreeDialog extends BaseAlertDialog {
             File dir = stack.peek();
             binding.categoryTreeUp.setVisibility(View.VISIBLE);
             binding.categoryTreePath.setText(dir.getAbsolutePath());
-            File[] children = dir.listFiles();
-            if (children != null) {
-                for (File child : children) {
-                    if (child.isDirectory() && !child.getName().startsWith(".")) current.add(child);
-                }
-                Collections.sort(current, (a, b) -> a.getName().compareToIgnoreCase(b.getName()));
-            }
+            // 隐藏系统文件开关与排序方式统一走 FileBrowse（与文件页同一设置）
+            current.addAll(FileBrowse.listDirs(dir));
         }
         binding.categoryTreeEmpty.setVisibility(current.isEmpty() ? View.VISIBLE : View.GONE);
         adapter.notifyDataSetChanged();

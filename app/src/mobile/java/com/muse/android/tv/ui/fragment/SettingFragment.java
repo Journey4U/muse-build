@@ -39,6 +39,7 @@ import com.muse.android.tv.api.loader.LocalSourceHub;
 import com.muse.android.tv.ui.dialog.LocalSourceDialog;
 import com.muse.android.tv.ui.dialog.WebSourceDialog;
 import com.muse.android.tv.ui.dialog.SiteDialog;
+import com.muse.android.tv.utils.FileBrowse;
 import com.muse.android.tv.utils.AppReset;
 import com.muse.android.tv.utils.FileUtil;
 import com.muse.android.tv.utils.Notify;
@@ -101,6 +102,7 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
     private void setOtherText() {
         mBinding.dohText.setText(getDohList()[getDohIndex()]);
         mBinding.incognitoText.setText(Setting.getSwitch(Setting.isIncognito()));
+        setFileHideText();
         mBinding.netInfoText.setText(Setting.getSwitch(PlayerSetting.isNetInfo()));
         setMediaInfoText();
         setAutoPlayText();
@@ -162,6 +164,7 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
         mBinding.liveHome.setOnClickListener(this::onLiveHome);
         mBinding.wall.setOnLongClickListener(this::onWallEdit);
         mBinding.incognito.setOnClickListener(this::setIncognito);
+        mBinding.fileHide.setOnClickListener(this::setFileHide);
         mBinding.netInfo.setOnClickListener(this::setNetInfo);
         mBinding.mediaInfo.setOnClickListener(this::setMediaInfo);
         mBinding.autoplay.setOnClickListener(this::setAutoPlay);
@@ -307,6 +310,16 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
     private boolean onWallHistory(View view) {
         HistoryDialog.create().wall().show(this);
         return true;
+    }
+
+    // 选本地文件页「隐藏系统文件」开关（与文件页右上角菜单同一设置，默认开）
+    private void setFileHideText() {
+        mBinding.fileHideText.setText(Setting.getSwitch(FileBrowse.isHideDot()));
+    }
+
+    private void setFileHide(View view) {
+        FileBrowse.putHideDot(!FileBrowse.isHideDot());
+        setFileHideText();
     }
 
     private void setIncognito(View view) {
@@ -465,11 +478,18 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
     @Override
     public void onHiddenChanged(boolean hidden) {
         if (hidden) return;
+        setFileHideText();
         setCacheText();
         setLogDebugText();
         setSizeText();
         setMediaInfoText();
         setAutoPlayText();
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (mBinding != null) setFileHideText();
     }
 
     @Override

@@ -835,4 +835,14 @@
     <string name="comic_read_to">At %1$s, page %2$d</string>
     <string name="comic_delete_hint">Delete mode: press OK on a comic to remove it, Back to exit.</string>
 
+    <!-- 选本地文件页：排序 / 隐藏系统文件（2026-11-28） -->
+    <string name="file_sort">Sort</string>
+    <string name="file_sort_name_asc">Name A→Z</string>
+    <string name="file_sort_name_desc">Name Z→A</string>
+    <string name="file_sort_time_new">Time new→old</string>
+    <string name="file_sort_time_old">Time old→new</string>
+    <string name="file_hide_dot">Hide system files</string>
+    <string name="file_sort_label">Sort: %s</string>
+    <string name="file_hide_label">Hide system files: %s</string>
+
 </resources>
