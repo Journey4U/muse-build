@@ -5,6 +5,9 @@ import android.app.Dialog;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.view.KeyEvent;
+import android.util.TypedValue;
+import android.graphics.Rect;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.Editable;
@@ -21,6 +24,7 @@ import android.widget.TextView;
 import androidx.activity.result.ActivityResult;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.FragmentActivity;
@@ -28,7 +32,6 @@ import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewbinding.ViewBinding;
 
-import com.github.catvod.utils.Prefers;
 import com.muse.android.tv.R;
 import com.muse.android.tv.api.config.VodConfig;
 import com.muse.android.tv.api.loader.LocalSourceHub;
@@ -37,9 +40,7 @@ import com.muse.android.tv.databinding.DialogSiteBinding;
 import com.muse.android.tv.impl.Callback;
 import com.muse.android.tv.impl.SiteListener;
 import com.muse.android.tv.ui.activity.FileActivity;
-import com.muse.android.tv.setting.Setting;
 import com.muse.android.tv.ui.adapter.SiteAdapter;
-import com.muse.android.tv.ui.custom.SpaceItemDecoration;
 import com.muse.android.tv.utils.MoveHistory;
 import com.muse.android.tv.utils.Notify;
 import com.muse.android.tv.utils.PermissionUtil;
@@ -52,15 +53,26 @@ import java.util.List;
 
 public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickListener {
 
-    private static final int GRID_COUNT = 10;
+    /** 弹窗尺寸按屏幕比例定死（Liu 2026-11-28 定）：基准 1920×1080 电视上 1792×752 px，即宽 93.3%、高 69.6%；不按内容或源数量算。 */
+    private static final float WIDTH_RATIO = 0.933f;
+    private static final float HEIGHT_RATIO = 0.696f;
+    /** 基准弹窗折合 896×376 个基准单位（1920×1080、density 2 时 1 单位 = 2px）；里面所有尺寸按这个基准等比换算。 */
+    private static final float BASE_W = 896f;
+    private static final float BASE_H = 376f;
+    /** 固定 4 列（废除「源少于 10 个自动单列」与单列/网格切换）。 */
+    private static final int COLUMNS = 4;
 
-    private RecyclerView.ItemDecoration decoration;
     private DialogSiteBinding binding;
     private SiteListener listener;
     private SiteAdapter adapter;
     private boolean action;
     private boolean keyword;
     private int type;
+    private int dialogW;
+    private int dialogH;
+    private float unit;
+    /** 从源区按右键进按钮列时记下的格子，按钮列按左键回到这里。 */
+    private int lastPosition = -1;
 
     public static SiteDialog create() {
         return new SiteDialog();
@@ -91,33 +103,20 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
         if (activity instanceof SiteListener) listener = (SiteListener) activity;
     }
 
-    private boolean list() {
-        // Fresh installs have no stored site_mode: default to the grid
-        // (the stored pref default 0 would otherwise pin the dialog to a
-        // single column forever). Only an explicit user choice counts.
-        boolean modeStored = Prefers.getPrefers().contains("site_mode");
-        return (modeStored && Setting.getSiteMode() == 0) || adapter.getItemCount() < GRID_COUNT;
+    private void computeSize() {
+        dialogW = Math.round(ResUtil.getScreenWidth() * WIDTH_RATIO);
+        dialogH = Math.round(ResUtil.getScreenHeight() * HEIGHT_RATIO);
+        // 长屏时按高度缩（保证行数放得下），多出来的宽度由 GridLayoutManager 分给格子。
+        unit = Math.min(dialogW / BASE_W, dialogH / BASE_H);
     }
 
-    private float getScreenWidthDp() {
-        android.util.DisplayMetrics metrics = requireContext().getResources().getDisplayMetrics();
-        return metrics.widthPixels / metrics.density;
+    private int u(float base) {
+        return Math.max(1, Math.round(base * unit));
     }
 
-    private int getCount() {
-        if (list()) return 1;
-        float avail = getScreenWidthDp() * 0.94f - 48 - (action ? 56 : 0);
-        return Math.clamp((int) ((avail + 16) / 216), 2, 5);
-    }
-
-    private int getIcon() {
-        return list() ? R.drawable.ic_site_grid : R.drawable.ic_site_list;
-    }
-
-    private float getWidth() {
-        int count = getCount();
-        float dialog = count * 200f + (count - 1) * 16 + 48 + (action ? 56 : 0);
-        return Math.clamp(dialog / getScreenWidthDp(), 0.4f, 0.94f);
+    /** 可见行数：设置页没有关键字框，多放一行。 */
+    private int getRows() {
+        return action ? 6 : 5;
     }
 
     @Override
@@ -127,35 +126,35 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
 
     @Override
     protected MaterialAlertDialogBuilder getBuilder() {
-        return builder().setView(getBinding().getRoot());
+        // 去掉 Material 默认的透明外边距，让看到的弹窗本体就是定死的宽高。
+        return builder().setBackgroundInsetStart(0).setBackgroundInsetEnd(0).setBackgroundInsetTop(0).setBackgroundInsetBottom(0).setView(getBinding().getRoot());
     }
 
     @Override
     public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
         Dialog dialog = super.onCreateDialog(savedInstanceState);
-        // 宽度在显示前一次定死：旧写法在 onStart（窗已显示）才改宽，整窗重排一次，
-        // 老设备上看上去像多弹一次窗、站点越多越卡。onMode 切换时的改宽是用户主动操作，不走这里。
-        if (adapter != null && adapter.getItemCount() > 0 && dialog.getWindow() != null) {
+        // 宽高在显示前一次定死，之后不再改：不跟内容走、不重排。
+        // 只由屏幕尺寸决定，与源数量无关（源数量只影响填了几格）。
+        if (dialog.getWindow() != null) {
             WindowManager.LayoutParams params = dialog.getWindow().getAttributes();
-            params.width = (int) (ResUtil.getScreenWidth() * getWidth());
+            params.width = dialogW;
+            params.height = dialogH;
             dialog.getWindow().setAttributes(params);
+            // 触屏模式下格子不再抢焦点，关键字框可能拿到焦点：打开时不自动弹输入法。
+            dialog.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN);
         }
         return dialog;
     }
 
     @Override
     protected void initView() {
+        computeSize();
         adapter = new SiteAdapter(this);
         if (action) binding.action.setVisibility(View.VISIBLE);
+        binding.keywordLayout.setVisibility(keyword ? View.VISIBLE : View.GONE);
+        applySize();
         setType(type);
         setRecyclerView();
-        // 修复已写坏的 site_mode：旧版 setMode 在条目 <10 时自动写 0，钉死单列；清掉一次，之后只认用户手动切换。
-        if (!Prefers.getPrefers().contains("site_mode_fixed")) {
-            Prefers.remove("site_mode");
-            Prefers.put("site_mode_fixed", true);
-        }
-        setMode();
-        binding.keywordLayout.setVisibility(keyword ? View.VISIBLE : View.GONE);
         if (keyword) {
             binding.keyword.addTextChangedListener(new TextWatcher() {
                 @Override
@@ -174,23 +173,140 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
         }
     }
 
+    /** 按基准等比换算所有尺寸：内边距、关键字框、格子、字号、间距、按钮列。全是固定数，不量内容。 */
+    private void applySize() {
+        int pad = u(24);
+        binding.getRoot().setPadding(pad, pad, pad, pad);
+        int recyclerH = dialogH - pad * 2;
+        if (keyword) {
+            int kh = u(56);
+            int kgap = u(8);
+            ViewGroup.MarginLayoutParams klp = (ViewGroup.MarginLayoutParams) binding.keywordLayout.getLayoutParams();
+            klp.height = kh;
+            klp.bottomMargin = kgap;
+            binding.keywordLayout.setLayoutParams(klp);
+            binding.keyword.setTextSize(TypedValue.COMPLEX_UNIT_PX, u(16));
+            binding.keyword.setMinHeight(0);
+            binding.keyword.setMinimumHeight(0);
+            binding.keyword.setPadding(u(16), 0, u(16), 0);
+            ViewGroup.LayoutParams elp = binding.keyword.getLayoutParams();
+            elp.height = kh;
+            binding.keyword.setLayoutParams(elp);
+            recyclerH -= kh + kgap;
+        }
+        ViewGroup.LayoutParams rlp = binding.recycler.getLayoutParams();
+        rlp.height = recyclerH;
+        binding.recycler.setLayoutParams(rlp);
+        int rows = getRows();
+        int gapV = u(16);
+        int itemH = Math.max(1, (recyclerH - (rows - 1) * gapV) / rows);
+        adapter.setItemSize(itemH, u(18), u(24), u(12));
+        if (action) {
+            ViewGroup.MarginLayoutParams alp = (ViewGroup.MarginLayoutParams) binding.action.getLayoutParams();
+            alp.setMarginStart(u(16));
+            binding.action.setLayoutParams(alp);
+            View[] buttons = {binding.search, binding.change, binding.select, binding.cancel};
+            for (int i = 0; i < buttons.length; i++) {
+                ViewGroup.MarginLayoutParams blp = (ViewGroup.MarginLayoutParams) buttons[i].getLayoutParams();
+                blp.width = u(40);
+                blp.height = u(40);
+                blp.topMargin = i == 0 ? 0 : u(16);
+                buttons[i].setLayoutParams(blp);
+                buttons[i].setPadding(u(8), u(8), u(8), u(8));
+            }
+        }
+    }
+
     @Override
     protected void initEvent() {
-        binding.mode.setOnClickListener(this::onMode);
         binding.select.setOnClickListener(v -> adapter.selectAll());
         binding.cancel.setOnClickListener(v -> adapter.cancelAll());
         binding.search.setOnClickListener(v -> setType(v.isSelected() ? 0 : 1));
         binding.change.setOnClickListener(v -> setType(v.isSelected() ? 0 : 2));
+        adapter.setKeyListener(this::onItemKey);
+        View.OnKeyListener buttonKey = this::onButtonKey;
+        binding.search.setOnKeyListener(buttonKey);
+        binding.change.setOnKeyListener(buttonKey);
+        binding.select.setOnKeyListener(buttonKey);
+        binding.cancel.setOnKeyListener(buttonKey);
+    }
+
+    /** 源区遥控器：左右到头停住；最右一列按右键进按钮列（只设置页有）；没有关键字框时顶行按上停住；最后一行按下停住。 */
+    private boolean onItemKey(View view, int keyCode, KeyEvent event) {
+        int pos = binding.recycler.getChildAdapterPosition(view);
+        int count = adapter.getItemCount();
+        if (pos < 0 || count == 0) return false;
+        boolean down = event.getAction() == KeyEvent.ACTION_DOWN;
+        int col = pos % COLUMNS;
+        switch (keyCode) {
+            case KeyEvent.KEYCODE_DPAD_LEFT:
+                return col == 0;
+            case KeyEvent.KEYCODE_DPAD_RIGHT:
+                if (col == COLUMNS - 1 || pos == count - 1) {
+                    if (action && down) {
+                        lastPosition = pos;
+                        focusNearestButton(view);
+                    }
+                    return true;
+                }
+                return false;
+            case KeyEvent.KEYCODE_DPAD_UP:
+                return pos < COLUMNS && !keyword;
+            case KeyEvent.KEYCODE_DPAD_DOWN:
+                return pos / COLUMNS == (count - 1) / COLUMNS;
+            default:
+                return false;
+        }
+    }
+
+    private void focusNearestButton(View item) {
+        int[] loc = new int[2];
+        item.getLocationOnScreen(loc);
+        int centerY = loc[1] + item.getHeight() / 2;
+        View[] buttons = {binding.search, binding.change, binding.select, binding.cancel};
+        View best = buttons[0];
+        int bestDist = Integer.MAX_VALUE;
+        for (View b : buttons) {
+            b.getLocationOnScreen(loc);
+            int dist = Math.abs(loc[1] + b.getHeight() / 2 - centerY);
+            if (dist < bestDist) {
+                bestDist = dist;
+                best = b;
+            }
+        }
+        best.requestFocus();
+    }
+
+    /** 按钮列遥控器：上下由布局 nextFocus 管、到头停住；左键回到刚离开的格子；右键停住。 */
+    private boolean onButtonKey(View view, int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) return true;
+        if (keyCode != KeyEvent.KEYCODE_DPAD_LEFT) return false;
+        if (event.getAction() == KeyEvent.ACTION_DOWN) focusPosition(lastPosition);
+        return true;
+    }
+
+    private void focusPosition(int position) {
+        int count = adapter.getItemCount();
+        if (count == 0) return;
+        int target = position;
+        if (target < 0 || target >= count) {
+            RecyclerView.LayoutManager lm = binding.recycler.getLayoutManager();
+            target = lm instanceof GridLayoutManager ? Math.max(0, ((GridLayoutManager) lm).findFirstCompletelyVisibleItemPosition()) : 0;
+        }
+        RecyclerView.ViewHolder holder = binding.recycler.findViewHolderForAdapterPosition(target);
+        if (holder != null) {
+            holder.itemView.requestFocus();
+        } else {
+            binding.recycler.scrollToPosition(target);
+        }
     }
 
     private void setRecyclerView() {
         binding.recycler.setAdapter(adapter);
         binding.recycler.setHasFixedSize(true);
         binding.recycler.setItemAnimator(null);
-        if (decoration != null) binding.recycler.removeItemDecoration(decoration);
-        binding.recycler.addItemDecoration(decoration = new SpaceItemDecoration(getCount(), 16));
-        binding.recycler.setLayoutManager(new GridLayoutManager(requireContext(), getCount()));
-        if (!binding.mode.hasFocus()) binding.recycler.scrollToPosition(VodConfig.getHomeIndex());
+        binding.recycler.addItemDecoration(new GridGap(COLUMNS, u(16), u(16)));
+        binding.recycler.setLayoutManager(new GridLayoutManager(requireContext(), COLUMNS));
     }
 
     private void setType(int type) {
@@ -199,23 +315,6 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
         binding.select.setClickable(type > 0);
         binding.cancel.setClickable(type > 0);
         adapter.setType(this.type = type);
-    }
-
-    private void setMode() {
-        // 旧版这里在条目 <10 时自动写 site_mode=0，永久钉死单列（多列变 1 列的根因）；<10 显示单列由 list() 按当前条数判定，不写设置。
-        binding.mode.setEnabled(adapter.getItemCount() >= GRID_COUNT);
-        binding.mode.setImageResource(getIcon());
-    }
-
-    private void setWidth() {
-        setWidth(getWidth());
-    }
-
-    private void onMode(View view) {
-        Setting.putSiteMode(Math.abs(Setting.getSiteMode() - 1));
-        setRecyclerView();
-        setMode();
-        setWidth();
     }
 
     @Override
@@ -231,8 +330,16 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
             dismiss();
             return;
         }
-        // 初始焦点给列表：不让搜索框在打开时抢焦点（老设备上会多出一步亮边/光标，还可能带起输入法）。
-        binding.recycler.requestFocus();
+        int home = VodConfig.getHomeIndex();
+        if (binding.recycler.isInTouchMode()) {
+            // 触屏：只滚到当前源，不抢焦点（抢焦点会让手划时列表被往回拽）。
+            RecyclerView.LayoutManager lm = binding.recycler.getLayoutManager();
+            if (lm instanceof GridLayoutManager && home >= 0) ((GridLayoutManager) lm).scrollToPositionWithOffset(home, 0);
+        } else {
+            // 遥控器：与原来一致，滚到当前源并把焦点给它；不让搜索框在打开时抢焦点。
+            binding.recycler.scrollToPosition(home);
+            binding.recycler.requestFocus();
+        }
     }
 
     // ==================== 长按：直接弹删除 / 重命名（不进勾选模式） ====================
@@ -618,5 +725,33 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
 
     private static boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
+    }
+
+    /** 格子间距（px，跟弹窗等比换算）：横向 h、纵向 v，固定 span 列。 */
+    private static class GridGap extends RecyclerView.ItemDecoration {
+
+        private final int span;
+        private final int h;
+        private final int v;
+
+        GridGap(int span, int h, int v) {
+            this.span = span;
+            this.h = h;
+            this.v = v;
+        }
+
+        @Override
+        public void getItemOffsets(@NonNull Rect outRect, @NonNull View view, @NonNull RecyclerView parent, @NonNull RecyclerView.State state) {
+            int position = parent.getChildAdapterPosition(view);
+            if (position < 0) {
+                outRect.set(0, 0, 0, 0);
+                return;
+            }
+            int column = position % span;
+            outRect.left = column * h / span;
+            outRect.right = h - (column + 1) * h / span;
+            outRect.top = position >= span ? v : 0;
+            outRect.bottom = 0;
+        }
     }
 }
