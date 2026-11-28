@@ -28,6 +28,7 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.widget.LinearLayoutCompat;
 import androidx.fragment.app.FragmentActivity;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -70,7 +71,13 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
 
     private DialogSiteBinding binding;
     private SiteListener listener;
+    /** 共享源网格（全应用一份，见 SiteGridCache）与它的适配器：打开时挂进来，关闭时摘下留着。 */
+    private RecyclerView recycler;
     private SiteAdapter adapter;
+    /** 关键字筛选用的临时列表：只建筛选结果的格子；清空关键字切回共享网格，共享网格不重绑。 */
+    private RecyclerView filterRecycler;
+    private SiteAdapter filterAdapter;
+    private String filterWord = "";
     private boolean action;
     private boolean keyword;
     private int type;
@@ -80,8 +87,8 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
     private int rowGap;
     private ViewTreeObserver touchObserver;
     private final ViewTreeObserver.OnTouchModeChangeListener touchModeListener = inTouch -> {
-        // 触屏/遥控器切换时重绑一次：触屏下当前源显示白框，遥控器下白框随焦点走，不会出现两个白框。
-        if (adapter != null) adapter.notifyItemRangeChanged(0, adapter.getItemCount());
+        // 触屏/遥控器切换时只刷一次状态（不重设文字）：触屏下当前源显示白框，遥控器下白框随焦点走，不会出现两个白框。
+        refreshState();
     };
     /** 从源区按右键进按钮列时记下的格子，按钮列按左键回到这里。 */
     private int lastPosition = -1;
@@ -161,7 +168,10 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
 
     @Override
     protected void initView() {
-        adapter = new SiteAdapter(this);
+        // 共享网格顶替布局里的占位列表：首次（或配置/主题/屏幕变了之后首次）当场全量建好，之后各入口直接复用。
+        recycler = SiteGridCache.attach(requireActivity(), binding.recycler);
+        adapter = SiteGridCache.adapter();
+        adapter.setListener(this);
         if (action) binding.action.setVisibility(View.VISIBLE);
         binding.keywordLayout.setVisibility(keyword ? View.VISIBLE : View.GONE);
         applySize();
@@ -171,7 +181,7 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
             binding.keyword.addTextChangedListener(new TextWatcher() {
                 @Override
                 public void afterTextChanged(Editable editable) {
-                    adapter.filter(editable.toString().trim());
+                    applyFilter(editable.toString().trim());
                 }
 
                 @Override
@@ -207,9 +217,9 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
             binding.keyword.setLayoutParams(elp);
             recyclerH -= kh + kgap;
         }
-        ViewGroup.LayoutParams rlp = binding.recycler.getLayoutParams();
+        ViewGroup.LayoutParams rlp = recycler.getLayoutParams();
         rlp.height = recyclerH;
-        binding.recycler.setLayoutParams(rlp);
+        recycler.setLayoutParams(rlp);
         // 胶囊用原版尺寸；行数只看屏幕（首页 5 行，搜索页/设置页 6 行），多出来的高度平均分给行距。
         int rows = getRows();
         int chipH = dp(CHIP_DP);
@@ -241,8 +251,14 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
 
     @Override
     protected void initEvent() {
-        binding.select.setOnClickListener(v -> adapter.selectAll());
-        binding.cancel.setOnClickListener(v -> adapter.cancelAll());
+        binding.select.setOnClickListener(v -> {
+            adapter.selectAll();
+            if (filterAdapter != null) refreshState();
+        });
+        binding.cancel.setOnClickListener(v -> {
+            adapter.cancelAll();
+            if (filterAdapter != null) refreshState();
+        });
         binding.search.setOnClickListener(v -> setType(v.isSelected() ? 0 : 1));
         binding.change.setOnClickListener(v -> setType(v.isSelected() ? 0 : 2));
         adapter.setKeyListener(this::onItemKey);
@@ -255,8 +271,9 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
 
     /** 源区遥控器：左右到头停住；最右一列按右键进按钮列（只设置页有）；没有关键字框时顶行按上停住；最后一行按下停住。 */
     private boolean onItemKey(View view, int keyCode, KeyEvent event) {
-        int pos = binding.recycler.getChildAdapterPosition(view);
-        int count = adapter.getItemCount();
+        RecyclerView list = activeList();
+        int pos = list.getChildAdapterPosition(view);
+        int count = activeAdapter().getItemCount();
         if (pos < 0 || count == 0) return false;
         boolean down = event.getAction() == KeyEvent.ACTION_DOWN;
         int col = pos % COLUMNS;
@@ -308,47 +325,98 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
     }
 
     private void focusPosition(int position) {
-        int count = adapter.getItemCount();
+        RecyclerView list = activeList();
+        int count = activeAdapter().getItemCount();
         if (count == 0) return;
         int target = position;
         if (target < 0 || target >= count) {
-            RecyclerView.LayoutManager lm = binding.recycler.getLayoutManager();
+            RecyclerView.LayoutManager lm = list.getLayoutManager();
             target = lm instanceof GridLayoutManager ? Math.max(0, ((GridLayoutManager) lm).findFirstCompletelyVisibleItemPosition()) : 0;
         }
-        RecyclerView.ViewHolder holder = binding.recycler.findViewHolderForAdapterPosition(target);
+        RecyclerView.ViewHolder holder = list.findViewHolderForAdapterPosition(target);
         if (holder != null) {
             holder.itemView.requestFocus();
         } else {
-            binding.recycler.scrollToPosition(target);
+            list.scrollToPosition(target);
         }
     }
 
-    private void setRecyclerView() {
-        binding.recycler.setAdapter(adapter);
-        binding.recycler.setHasFixedSize(true);
-        binding.recycler.setItemAnimator(null);
-        // 快划卡顿修法：一行 4 格，默认回收池只留 5 个格子，快划换几行就得现场新建；加大回收池与离屏缓存（4 列×2 行）。
-        binding.recycler.getRecycledViewPool().setMaxRecycledViews(0, 40);
-        binding.recycler.setItemViewCacheSize(COLUMNS * 2);
-        binding.recycler.addItemDecoration(new GridGap(COLUMNS, dp(16), rowGap));
-        binding.recycler.setLayoutManager(new GridLayoutManager(requireContext(), COLUMNS));
-        // 打开弹窗时预先造好 40 个格子放进回收池，快划时直接复用、不再现场新建。
-        // 等弹窗首帧显示后再造，每帧造 8 个分 5 帧做完，不拖慢弹出。数量固定，不按源数量算。
-        binding.recycler.post(() -> prebuildCells(PREBUILD_CELLS));
+    /** 当前显示的列表：有关键字时是筛选临时列表，否则是共享网格。 */
+    private RecyclerView activeList() {
+        return filterRecycler != null && filterRecycler.getVisibility() == View.VISIBLE ? filterRecycler : recycler;
     }
 
-    private static final int PREBUILD_CELLS = 40;
-    private static final int PREBUILD_PER_FRAME = 8;
+    private SiteAdapter activeAdapter() {
+        return activeList() == filterRecycler ? filterAdapter : adapter;
+    }
 
-    private void prebuildCells(int left) {
-        if (left <= 0 || binding == null || adapter == null) return;
-        RecyclerView recycler = binding.recycler;
-        if (!recycler.isAttachedToWindow()) return;
-        RecyclerView.RecycledViewPool pool = recycler.getRecycledViewPool();
-        int n = Math.min(left, PREBUILD_PER_FRAME);
-        for (int i = 0; i < n; i++) pool.putRecycledView(adapter.createViewHolder(recycler, 0));
-        int rest = left - n;
-        if (rest > 0) recycler.postOnAnimation(() -> prebuildCells(rest));
+    /**
+     * 共享网格挂进本弹窗后的轻量切换：只换间距装饰（本入口 5/6 行的行距）与额外布局空间的行距，
+     * 格子不重建、文字不重设。回收池/离屏缓存在共享网格建出时已定（全量布局下格子全部挂着）。
+     */
+    private void setRecyclerView() {
+        setupList(recycler);
+    }
+
+    private void setupList(RecyclerView list) {
+        while (list.getItemDecorationCount() > 0) list.removeItemDecorationAt(0);
+        list.addItemDecoration(new GridGap(COLUMNS, dp(16), rowGap));
+        RecyclerView.LayoutManager lm = list.getLayoutManager();
+        if (lm instanceof SiteGridCache.FullGridLayoutManager) {
+            int chipH = adapter.getItemHeight() > 0 ? adapter.getItemHeight() : dp(CHIP_DP);
+            ((SiteGridCache.FullGridLayoutManager) lm).setRowPitch(chipH + rowGap);
+        }
+        list.requestLayout();
+    }
+
+    /**
+     * 关键字筛选：不在共享网格上筛（那样每输一个字都要重绑全部格子，清空关键字时还得把 500 格全部重绑一遍）。
+     * 有关键字时另建一个临时列表只放筛选结果（只建结果那几格），共享网格先藏起来；清空关键字切回共享网格，原样即用。
+     */
+    private void applyFilter(String word) {
+        filterWord = word == null ? "" : word;
+        if (filterWord.isEmpty()) {
+            if (filterRecycler != null && filterRecycler.getVisibility() == View.VISIBLE) {
+                boolean focus = filterRecycler.hasFocus();
+                filterRecycler.setVisibility(View.GONE);
+                recycler.setVisibility(View.VISIBLE);
+                // 筛选列表里可能勾选/取消过：共享网格只刷状态，不重设文字。
+                refreshState();
+                if (focus) recycler.requestFocus();
+            }
+            return;
+        }
+        if (filterRecycler == null) {
+            filterAdapter = new SiteAdapter(this);
+            filterAdapter.setKeyListener(this::onItemKey);
+            filterAdapter.setItemHeight(adapter.getItemHeight());
+            filterAdapter.setType(type);
+            RecyclerView list = new RecyclerView(requireContext());
+            list.setClipChildren(false);
+            list.setClipToPadding(false);
+            list.setOverScrollMode(View.OVER_SCROLL_NEVER);
+            list.setHasFixedSize(true);
+            list.setItemAnimator(null);
+            list.setLayoutManager(new SiteGridCache.FullGridLayoutManager(requireContext(), COLUMNS));
+            list.setAdapter(filterAdapter);
+            ViewGroup parent = (ViewGroup) recycler.getParent();
+            ViewGroup.LayoutParams src = recycler.getLayoutParams();
+            ViewGroup.LayoutParams flp = src instanceof LinearLayoutCompat.LayoutParams ? new LinearLayoutCompat.LayoutParams(src.width, src.height, ((LinearLayoutCompat.LayoutParams) src).weight) : new ViewGroup.LayoutParams(src);
+            parent.addView(list, parent.indexOfChild(recycler) + 1, flp);
+            filterRecycler = list;
+            setupList(list);
+        }
+        filterAdapter.filter(filterWord);
+        if (filterRecycler.getVisibility() != View.VISIBLE) {
+            recycler.setVisibility(View.GONE);
+            filterRecycler.setVisibility(View.VISIBLE);
+        }
+    }
+
+    /** 全部格子只刷状态（勾选、选中、勾选框显隐、白框），不重设文字、不重排。 */
+    private void refreshState() {
+        if (adapter != null) adapter.notifyItemRangeChanged(0, adapter.getItemCount(), SiteAdapter.PAYLOAD_STATE);
+        if (filterAdapter != null) filterAdapter.notifyItemRangeChanged(0, filterAdapter.getItemCount(), SiteAdapter.PAYLOAD_STATE);
     }
 
     private void setType(int type) {
@@ -357,6 +425,7 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
         binding.select.setClickable(type > 0);
         binding.cancel.setClickable(type > 0);
         adapter.setType(this.type = type);
+        if (filterAdapter != null) filterAdapter.setType(type);
     }
 
     @Override
@@ -373,14 +442,14 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
             return;
         }
         int home = VodConfig.getHomeIndex();
-        if (binding.recycler.isInTouchMode()) {
+        if (recycler.isInTouchMode()) {
             // 触屏：只滚到当前源，不抢焦点（抢焦点会让手划时列表被往回拽）。
-            RecyclerView.LayoutManager lm = binding.recycler.getLayoutManager();
+            RecyclerView.LayoutManager lm = recycler.getLayoutManager();
             if (lm instanceof GridLayoutManager && home >= 0) ((GridLayoutManager) lm).scrollToPositionWithOffset(home, 0);
         } else {
             // 遥控器：与原来一致，滚到当前源并把焦点给它；不让搜索框在打开时抢焦点。
-            binding.recycler.scrollToPosition(home);
-            binding.recycler.requestFocus();
+            recycler.scrollToPosition(home);
+            recycler.requestFocus();
         }
         touchObserver = binding.getRoot().getViewTreeObserver();
         if (touchObserver.isAlive()) touchObserver.addOnTouchModeChangeListener(touchModeListener);
@@ -391,6 +460,13 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
         if (touchObserver != null && touchObserver.isAlive()) touchObserver.removeOnTouchModeChangeListener(touchModeListener);
         touchObserver = null;
         super.onStop();
+    }
+
+    @Override
+    public void onDestroyView() {
+        // 弹窗销毁时把共享网格摘下留着（不随弹窗销毁），并清掉指向本弹窗的回调。
+        SiteGridCache.release(recycler);
+        super.onDestroyView();
     }
 
     // ==================== 长按：直接弹删除 / 重命名（不进勾选模式） ====================
@@ -759,15 +835,25 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
             @Override
             public void success() {
                 if (!isAdded()) return;
-                adapter.refresh();
+                refreshAfterReload();
             }
 
             @Override
             public void error(String msg) {
                 Notify.show(msg);
-                if (isAdded()) adapter.refresh();
+                if (isAdded()) refreshAfterReload();
             }
         });
+    }
+
+    /** 重载 = 全部重新加载：共享网格按新源整表重建绑定（额外布局空间按新数量现算），排版缓存后台整体重建；筛选列表同样重筛。 */
+    private void refreshAfterReload() {
+        adapter.refresh();
+        SiteGridCache.resign(requireActivity());
+        if (filterAdapter != null) {
+            filterAdapter.refresh();
+            filterAdapter.filter(filterWord);
+        }
     }
 
     private void post(Runnable runnable) {
