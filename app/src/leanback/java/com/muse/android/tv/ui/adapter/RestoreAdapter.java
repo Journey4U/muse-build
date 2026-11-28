@@ -6,6 +6,7 @@ import android.view.ViewGroup;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.muse.android.tv.R;
 import com.muse.android.tv.databinding.AdapterRestoreBinding;
 import com.muse.android.tv.db.BackupManager;
 import com.github.catvod.utils.Path;
@@ -60,7 +61,7 @@ public class RestoreAdapter extends RecyclerView.Adapter<RestoreAdapter.ViewHold
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         File item = mItems.get(position);
-        holder.binding.text.setText(item.getName());
+        holder.binding.text.setText(BackupManager.isManual(item) ? holder.itemView.getContext().getString(R.string.restore_manual_name, BackupManager.getManualTime(item)) : item.getName());
         holder.binding.text.setOnClickListener(v -> listener.onItemClick(item));
         holder.binding.delete.setOnClickListener(v -> listener.onDeleteClick(item));
     }
