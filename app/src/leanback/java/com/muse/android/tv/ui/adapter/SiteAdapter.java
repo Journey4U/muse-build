@@ -1,5 +1,6 @@
 package com.muse.android.tv.ui.adapter;
 
+import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -11,7 +12,6 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.muse.android.tv.api.config.VodConfig;
 import com.muse.android.tv.bean.Site;
 import com.muse.android.tv.databinding.AdapterSiteBinding;
-import com.muse.android.tv.setting.Setting;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -22,6 +22,11 @@ public class SiteAdapter extends RecyclerView.Adapter<SiteAdapter.ViewHolder> {
     private final List<Site> mItems;
     private final List<Site> mFiltered;
     private int type;
+    private int itemHeight;
+    private float textSize;
+    private int checkSize;
+    private int checkMargin;
+    private View.OnKeyListener keyListener;
 
     public SiteAdapter(OnClickListener listener) {
         this.listener = listener;
@@ -35,6 +40,18 @@ public class SiteAdapter extends RecyclerView.Adapter<SiteAdapter.ViewHolder> {
         void onItemClick(Site item);
 
         void onItemLongClick(Site item);
+    }
+
+    /** 弹窗按比例定死后由弹窗传入的格子尺寸（px）；0 = 用布局默认值。 */
+    public void setItemSize(int itemHeight, float textSize, int checkSize, int checkMargin) {
+        this.itemHeight = itemHeight;
+        this.textSize = textSize;
+        this.checkSize = checkSize;
+        this.checkMargin = checkMargin;
+    }
+
+    public void setKeyListener(View.OnKeyListener keyListener) {
+        this.keyListener = keyListener;
     }
 
     public void setType(int type) {
@@ -90,7 +107,20 @@ public class SiteAdapter extends RecyclerView.Adapter<SiteAdapter.ViewHolder> {
     @NonNull
     @Override
     public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        return new ViewHolder(AdapterSiteBinding.inflate(LayoutInflater.from(parent.getContext()), parent, false));
+        ViewHolder holder = new ViewHolder(AdapterSiteBinding.inflate(LayoutInflater.from(parent.getContext()), parent, false));
+        if (itemHeight > 0) {
+            ViewGroup.LayoutParams lp = holder.binding.getRoot().getLayoutParams();
+            lp.height = itemHeight;
+            holder.binding.getRoot().setLayoutParams(lp);
+            holder.binding.text.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize);
+            ViewGroup.MarginLayoutParams clp = (ViewGroup.MarginLayoutParams) holder.binding.check.getLayoutParams();
+            clp.width = checkSize;
+            clp.height = checkSize;
+            clp.setMarginStart(checkMargin);
+            holder.binding.check.setLayoutParams(clp);
+        }
+        if (keyListener != null) holder.binding.getRoot().setOnKeyListener(keyListener);
+        return holder;
     }
 
     @Override
@@ -102,7 +132,7 @@ public class SiteAdapter extends RecyclerView.Adapter<SiteAdapter.ViewHolder> {
         holder.binding.check.setVisibility(type == 0 ? View.GONE : View.VISIBLE);
         holder.binding.getRoot().setOnLongClickListener(v -> setLongListener(item));
         holder.binding.getRoot().setOnClickListener(v -> setListener(item, position));
-        holder.binding.text.setGravity(Setting.getSiteMode() == 0 ? Gravity.CENTER : Gravity.START);
+        holder.binding.text.setGravity(Gravity.CENTER);
     }
 
     private boolean getChecked(Site item) {
