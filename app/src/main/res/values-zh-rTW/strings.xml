@@ -500,4 +500,14 @@
     <string name="comic_read_to">看到 %1$s 第 %2$d 頁</string>
     <string name="comic_delete_hint">刪除模式：選中漫畫按確認鍵移除，返回鍵退出。</string>
 
+    <!-- 选本地文件页：排序 / 隐藏系统文件（2026-11-28） -->
+    <string name="file_sort">排序</string>
+    <string name="file_sort_name_asc">名稱 A→Z</string>
+    <string name="file_sort_name_desc">名稱 Z→A</string>
+    <string name="file_sort_time_new">時間 新→舊</string>
+    <string name="file_sort_time_old">時間 舊→新</string>
+    <string name="file_hide_dot">隱藏系統檔案</string>
+    <string name="file_sort_label">排序：%s</string>
+    <string name="file_hide_label">隱藏系統檔案：%s</string>
+
 </resources>
