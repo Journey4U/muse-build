@@ -739,4 +739,14 @@
     <string name="comic_read_to">看到 %1$s 第 %2$d 页</string>
     <string name="comic_delete_hint">删除模式：选中漫画按确认键移除，返回键退出。</string>
 
+    <!-- 选本地文件页：排序 / 隐藏系统文件（2026-11-28） -->
+    <string name="file_sort">排序</string>
+    <string name="file_sort_name_asc">名称 A→Z</string>
+    <string name="file_sort_name_desc">名称 Z→A</string>
+    <string name="file_sort_time_new">时间 新→旧</string>
+    <string name="file_sort_time_old">时间 旧→新</string>
+    <string name="file_hide_dot">隐藏系统文件</string>
+    <string name="file_sort_label">排序：%s</string>
+    <string name="file_hide_label">隐藏系统文件：%s</string>
+
 </resources>

@@ -39,6 +39,7 @@ import com.muse.android.tv.ui.dialog.LocalSourceDialog;
 import com.muse.android.tv.ui.dialog.WebSourceDialog;
 import com.muse.android.tv.ui.dialog.RestoreDialog;
 import com.muse.android.tv.ui.dialog.SiteDialog;
+import com.muse.android.tv.utils.FileBrowse;
 import com.muse.android.tv.utils.FileUtil;
 import com.muse.android.tv.utils.Notify;
 import com.muse.android.tv.utils.PermissionUtil;
@@ -94,6 +95,7 @@ public class SettingActivity extends BaseActivity implements ConfigListener, Sit
         mBinding.dohText.setText(getDohList()[getDohIndex()]);
         setLocalSourceText();
         mBinding.incognitoText.setText(Setting.getSwitch(Setting.isIncognito()));
+        setFileHideText();
         mBinding.sizeText.setText((size = ResUtil.getStringArray(R.array.select_size))[PlayerSetting.getSize()]);
         setSearchCapText();
         setWebViewportText();
@@ -160,6 +162,7 @@ public class SettingActivity extends BaseActivity implements ConfigListener, Sit
         mBinding.liveHome.setOnClickListener(this::onLiveHome);
         mBinding.wall.setOnLongClickListener(this::onWallEdit);
         mBinding.incognito.setOnClickListener(this::setIncognito);
+        mBinding.fileHide.setOnClickListener(this::setFileHide);
         mBinding.vodHistory.setOnClickListener(this::onVodHistory);
         mBinding.liveHistory.setOnClickListener(this::onLiveHistory);
         mBinding.wallDefault.setOnClickListener(this::setWallDefault);
@@ -339,6 +342,22 @@ public class SettingActivity extends BaseActivity implements ConfigListener, Sit
     private boolean onWallHistory(View view) {
         HistoryDialog.create().wall().show(this);
         return true;
+    }
+
+    // 选本地文件页「隐藏系统文件」开关（与文件页底部按钮同一设置，默认开）
+    private void setFileHideText() {
+        mBinding.fileHideText.setText(Setting.getSwitch(FileBrowse.isHideDot()));
+    }
+
+    private void setFileHide(View view) {
+        FileBrowse.putHideDot(!FileBrowse.isHideDot());
+        setFileHideText();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (mBinding != null) setFileHideText();
     }
 
     private void setIncognito(View view) {
