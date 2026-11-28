@@ -2,11 +2,15 @@ package com.muse.android.tv.ui.base;
 
 import static android.view.ViewGroup.LayoutParams.MATCH_PARENT;
 
+import android.content.Context;
 import android.content.res.Configuration;
 import android.content.res.Resources;
+import android.graphics.Point;
 import android.os.Bundle;
+import android.view.Display;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.WindowManager;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
@@ -26,6 +30,7 @@ import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 
 import me.jessyan.autosize.AutoSizeCompat;
+import me.jessyan.autosize.AutoSizeConfig;
 
 public abstract class BaseActivity extends AppCompatActivity implements ThemeTone.Host {
 
@@ -154,8 +159,38 @@ public abstract class BaseActivity extends AppCompatActivity implements ThemeTon
         });
     }
 
+    /**
+     * 物理屏横放时的长边×短边（px），进程内只算一次、旋转不变（2026-11-28 电视钉死布局批）。
+     * AutoSize 启动时缓存的屏幕宽高可能是竖屏短边（手机从竖屏桌面启动电视版），转横后才由配置变更回调更新、时机不定，
+     * 整页 density 就时大时小。每次换算前先把 AutoSize 的屏幕宽高设成这对横屏值，density 恒按横屏长边算。
+     * 电视本来就横屏：1920×1080 → 960dp 设计稿 density 2，与原来完全一致。取不到尺寸时保持原逻辑。
+     */
+    private static int sLandW;
+    private static int sLandH;
+
+    private void pinLandscapeSize() {
+        if (sLandW <= 0 || sLandH <= 0) {
+            try {
+                Context app = getApplicationContext();
+                if (app == null) return;
+                WindowManager manager = (WindowManager) app.getSystemService(Context.WINDOW_SERVICE);
+                if (manager == null) return;
+                Display display = manager.getDefaultDisplay();
+                Point size = new Point();
+                display.getRealSize(size);
+                if (size.x <= 0 || size.y <= 0) return;
+                sLandW = Math.max(size.x, size.y);
+                sLandH = Math.min(size.x, size.y);
+            } catch (Exception ignored) {
+                return;
+            }
+        }
+        AutoSizeConfig.getInstance().setScreenWidth(sLandW).setScreenHeight(sLandH);
+    }
+
     private Resources hackResources(Resources resources) {
         try {
+            pinLandscapeSize();
             AutoSizeCompat.autoConvertDensityOfGlobal(resources);
             return resources;
         } catch (Exception ignored) {
