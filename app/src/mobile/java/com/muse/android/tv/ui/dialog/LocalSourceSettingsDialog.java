@@ -110,6 +110,7 @@ public class LocalSourceSettingsDialog extends BaseAlertDialog {
     protected void initEvent() {
         binding.settingsDirAdd.setOnClickListener(view -> onAddDir());
         binding.settingsDirPick.setOnClickListener(view -> onPickDir());
+        binding.settingsDirClean.setOnClickListener(view -> onCleanDirs());
         binding.settingsParses.setOnClickListener(view -> showParses());
         binding.settingsExtAll.setOnClickListener(view -> toggleAllExtensions());
         // r18-⑪：本地源不再屏蔽（清空）其它源，只做追加，「替换原有点播站点」开关已失效 → 直接隐藏
@@ -160,6 +161,7 @@ public class LocalSourceSettingsDialog extends BaseAlertDialog {
     private void renderDirs() {
         binding.settingsDirList.removeAllViews();
         List<String> dirs = LocalSourceHub.getScanDirs();
+        binding.settingsDirClean.setVisibility(dirs.isEmpty() ? View.GONE : View.VISIBLE);
         if (dirs.isEmpty()) {
             binding.settingsDirList.addView(hint(getString(R.string.local_source_settings_dirs_empty)));
             return;
@@ -184,16 +186,56 @@ public class LocalSourceSettingsDialog extends BaseAlertDialog {
             MaterialButton remove = new MaterialButton(requireContext());
             remove.setText(R.string.local_source_settings_dir_remove);
             remove.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+            // 删除前先确认（与「清理」同一确认窗，焦点默认落「取消」）
             remove.setOnClickListener(view -> {
-                LocalSourceHub.removeScanDir(dir);
-                renderDirs();
-                refreshCandidates();
+                List<String> one = new ArrayList<>();
+                one.add(dir);
+                confirmRemoveDirs(one, R.string.local_source_settings_dir_remove_title);
             });
 
             row.addView(check);
             row.addView(remove);
             binding.settingsDirList.addView(row);
         }
+    }
+
+    /** 清理：收集所有未勾选的目录，确认后一次移出扫描列表（只移出列表，不删硬盘上的文件夹）。 */
+    private void onCleanDirs() {
+        List<String> targets = new ArrayList<>();
+        for (String dir : LocalSourceHub.getScanDirs()) {
+            if (!LocalSourceHub.isDirEnabled(dir)) targets.add(dir);
+        }
+        if (targets.isEmpty()) {
+            Notify.show(R.string.local_source_settings_dir_clean_none);
+            return;
+        }
+        confirmRemoveDirs(targets, R.string.local_source_settings_dir_clean_title);
+    }
+
+    /** 移除确认窗：列出完整路径 + 说明只移出列表；焦点默认落「取消」防误删。确认后与原删除同口径刷新。 */
+    private void confirmRemoveDirs(List<String> targets, int titleRes) {
+        StringBuilder message = new StringBuilder();
+        for (String dir : targets) message.append(dir).append('\n');
+        message.append('\n').append(getString(R.string.local_source_settings_dir_clean_note));
+        final List<String> snapshot = new ArrayList<>(targets);
+        androidx.appcompat.app.AlertDialog confirm = new MaterialAlertDialogBuilder(requireActivity(), R.style.TaixuAlertDialogTheme)
+            .setTitle(titleRes)
+            .setMessage(message.toString())
+            .setPositiveButton(R.string.local_source_settings_dir_clean_confirm, (d, which) -> {
+                for (String dir : snapshot) LocalSourceHub.removeScanDir(dir);
+                if (!isAdded() || binding == null) return;
+                renderDirs();
+                refreshCandidates();
+                afterDirsRemoved();
+            })
+            .setNegativeButton(R.string.dialog_negative, null)
+            .show();
+        android.widget.Button negative = confirm.getButton(android.content.DialogInterface.BUTTON_NEGATIVE);
+        if (negative != null) negative.requestFocus();
+    }
+
+    /** 手机版移除后无需焦点归位（触屏）。 */
+    private void afterDirsRemoved() {
     }
 
     private void onPickDir() {
