@@ -332,6 +332,23 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
         binding.recycler.setItemViewCacheSize(COLUMNS * 2);
         binding.recycler.addItemDecoration(new GridGap(COLUMNS, dp(16), rowGap));
         binding.recycler.setLayoutManager(new GridLayoutManager(requireContext(), COLUMNS));
+        // 打开弹窗时预先造好 40 个格子放进回收池，快划时直接复用、不再现场新建。
+        // 等弹窗首帧显示后再造，每帧造 8 个分 5 帧做完，不拖慢弹出。数量固定，不按源数量算。
+        binding.recycler.post(() -> prebuildCells(PREBUILD_CELLS));
+    }
+
+    private static final int PREBUILD_CELLS = 40;
+    private static final int PREBUILD_PER_FRAME = 8;
+
+    private void prebuildCells(int left) {
+        if (left <= 0 || binding == null || adapter == null) return;
+        RecyclerView recycler = binding.recycler;
+        if (!recycler.isAttachedToWindow()) return;
+        RecyclerView.RecycledViewPool pool = recycler.getRecycledViewPool();
+        int n = Math.min(left, PREBUILD_PER_FRAME);
+        for (int i = 0; i < n; i++) pool.putRecycledView(adapter.createViewHolder(recycler, 0));
+        int rest = left - n;
+        if (rest > 0) recycler.postOnAnimation(() -> prebuildCells(rest));
     }
 
     private void setType(int type) {
