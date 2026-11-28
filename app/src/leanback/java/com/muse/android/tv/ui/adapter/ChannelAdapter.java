@@ -45,9 +45,14 @@ public class ChannelAdapter extends RecyclerView.Adapter<ChannelAdapter.ViewHold
         return mItems.get(position);
     }
 
+    // 钉死布局批：只刷选中状态真变了的格子（旧当前频道、新当前频道），不整列重绑。
     public void setSelected(Channel selected) {
-        for (Channel item : mItems) item.setSelected(selected);
-        notifyDataSetChanged();
+        for (int i = 0; i < mItems.size(); i++) {
+            Channel item = mItems.get(i);
+            boolean before = item.isSelected();
+            item.setSelected(selected);
+            if (before != item.isSelected()) notifyItemChanged(i);
+        }
     }
 
     @Override
@@ -68,6 +73,9 @@ public class ChannelAdapter extends RecyclerView.Adapter<ChannelAdapter.ViewHold
         holder.binding.name.setText(item.getShow());
         holder.binding.number.setText(item.getNumber());
         holder.binding.getRoot().setSelected(item.isSelected());
+        // 频道名：焦点或当前频道跑马灯内循环，其余单行省略
+        holder.binding.name.setSelected(holder.binding.getRoot().hasFocus() || item.isSelected());
+        holder.binding.getRoot().setOnFocusChangeListener((v, hasFocus) -> holder.binding.name.setSelected(hasFocus || item.isSelected()));
         holder.binding.getRoot().setRightListener(() -> mListener.showEpg(item));
         holder.binding.getRoot().setOnClickListener(v -> mListener.onItemClick(item));
         holder.binding.getRoot().setOnLongClickListener(v -> mListener.onLongClick(item));

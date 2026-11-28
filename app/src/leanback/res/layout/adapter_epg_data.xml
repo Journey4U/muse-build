@@ -8,7 +8,7 @@
     android:focusableInTouchMode="true"
     android:orientation="vertical">
 
-    <com.google.android.material.textview.MaterialTextView
+    <com.muse.android.tv.ui.custom.MarqueeTextView
         android:id="@+id/title"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

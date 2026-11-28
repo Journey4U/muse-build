@@ -87,7 +87,8 @@ public class SearchActivity extends BaseActivity implements WordAdapter.OnClickL
         mBinding.keyword.addTextChangedListener(new CustomTextListener() {
             @Override
             public void afterTextChanged(Editable s) {
-                getWord(s.toString());
+                // 钉死布局批：联想词防抖——停手 300ms 才发一次请求、刷一次词区，连按遥控键盘不再每字重排
+                App.post(mWordTask, 300);
             }
         });
         mBinding.mic.setOnClickListener(v -> mBinding.mic.start());
@@ -109,6 +110,8 @@ public class SearchActivity extends BaseActivity implements WordAdapter.OnClickL
         mBinding.recordRecycler.setLayoutManager(new FlexboxLayoutManager(this, FlexDirection.ROW));
         mBinding.recordRecycler.setAdapter(mRecordAdapter = new RecordAdapter(this));
     }
+
+    private final Runnable mWordTask = () -> getWord(mBinding.keyword.getText() == null ? "" : mBinding.keyword.getText().toString());
 
     private void checkKeyword() {
         setKeyword(getKeyword());
@@ -314,6 +317,7 @@ public class SearchActivity extends BaseActivity implements WordAdapter.OnClickL
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        App.removeCallbacks(mWordTask);
         mBinding.mic.destroy();
     }
 }

@@ -15,6 +15,7 @@ import com.muse.android.tv.databinding.AdapterEpisodeDialogBinding;
 import com.muse.android.tv.databinding.AdapterEpisodeRangeBinding;
 import com.muse.android.tv.databinding.DialogEpisodeBinding;
 import com.muse.android.tv.ui.adapter.EpisodeAdapter;
+import com.muse.android.tv.ui.custom.FixedLayout;
 import com.muse.android.tv.ui.custom.SpaceItemDecoration;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
@@ -76,6 +77,8 @@ public class EpisodeDialog extends BaseAlertDialog {
         binding.grid.setHasFixedSize(true);
         binding.grid.setItemAnimator(null);
         binding.grid.addItemDecoration(new SpaceItemDecoration(spanCount, 12));
+        // 钉死布局批：格子区 5 行、页签行高度打开前定死（原版格子/页签尺寸不变）
+        FixedLayout.pinPagedGrid(binding.grid, binding.ranges, 5, 12);
         binding.grid.setLayoutManager(new GridLayoutManager(requireContext(), spanCount));
         binding.ranges.scrollToPosition(page);
         focusRetries = 0;
@@ -112,8 +115,11 @@ public class EpisodeDialog extends BaseAlertDialog {
     }
 
     private void setPage(int page) {
+        // 钉死布局批：页签只刷旧页、新页两格
+        int old = this.page;
         this.page = page;
-        rangeAdapter.notifyDataSetChanged();
+        rangeAdapter.notifyItemChanged(old);
+        rangeAdapter.notifyItemChanged(page);
         gridAdapter.notifyDataSetChanged();
         binding.ranges.scrollToPosition(page);
     }

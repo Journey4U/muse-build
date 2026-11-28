@@ -10,6 +10,7 @@ import android.os.Bundle;
 import android.text.TextUtils;
 import android.text.style.ClickableSpan;
 import android.view.KeyEvent;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.RelativeLayout;
@@ -75,6 +76,7 @@ import com.muse.android.tv.ui.adapter.PartAdapter;
 import com.muse.android.tv.ui.adapter.QualityAdapter;
 import com.muse.android.tv.ui.adapter.QuickAdapter;
 import com.muse.android.tv.ui.custom.CustomKeyDownVod;
+import com.muse.android.tv.ui.custom.FixedLayout;
 import com.muse.android.tv.ui.custom.CustomWebView;
 import com.muse.android.tv.ui.custom.CustomMovement;
 import com.muse.android.tv.ui.dialog.ChapterDialog;
@@ -493,23 +495,30 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
 
     private void setRecyclerView() {
         mBinding.flag.setHorizontalSpacing(ResUtil.dp2px(8));
-        mBinding.flag.setRowHeight(ViewGroup.LayoutParams.WRAP_CONTENT);
+        mBinding.flag.setRowHeight(capsuleHeight(R.layout.adapter_flag, mBinding.flag));
         mBinding.flag.setAdapter(mFlagAdapter = new FlagAdapter(this));
         mBinding.episode.setHorizontalSpacing(ResUtil.dp2px(8));
-        mBinding.episode.setRowHeight(ViewGroup.LayoutParams.WRAP_CONTENT);
+        mBinding.episode.setRowHeight(capsuleHeight(R.layout.adapter_episode, mBinding.episode));
         mBinding.episode.setAdapter(mEpisodeAdapter = new EpisodeAdapter(this));
         mBinding.quality.setHorizontalSpacing(ResUtil.dp2px(8));
-        mBinding.quality.setRowHeight(ViewGroup.LayoutParams.WRAP_CONTENT);
+        mBinding.quality.setRowHeight(capsuleHeight(R.layout.adapter_quality, mBinding.quality));
         mBinding.quality.setAdapter(mQualityAdapter = new QualityAdapter(this));
         mBinding.array.setHorizontalSpacing(ResUtil.dp2px(8));
-        mBinding.array.setRowHeight(ViewGroup.LayoutParams.WRAP_CONTENT);
+        mBinding.array.setRowHeight(capsuleHeight(R.layout.adapter_array, mBinding.array));
         mBinding.array.setAdapter(mArrayAdapter = new ArrayAdapter(this));
         mBinding.part.setHorizontalSpacing(ResUtil.dp2px(8));
-        mBinding.part.setRowHeight(ViewGroup.LayoutParams.WRAP_CONTENT);
+        mBinding.part.setRowHeight(capsuleHeight(R.layout.adapter_part, mBinding.part));
         mBinding.part.setAdapter(mPartAdapter = new PartAdapter(item -> mVod.search(item)));
         mBinding.quick.setHorizontalSpacing(ResUtil.dp2px(8));
         mBinding.quick.setRowHeight(ViewGroup.LayoutParams.WRAP_CONTENT);
         mBinding.quick.setAdapter(mQuickAdapter = new QuickAdapter(this));
+    }
+
+    // 钉死布局批：线路/画质/选集/分段/分词五行的行高定死 = 原版胶囊高（16sp + 上下 8dp 内边距），
+    // 用真实胶囊模板配固定样字量一次（量字体不量数据），切集换线路不再让整个下半页重排。
+    private int capsuleHeight(int layout, ViewGroup parent) {
+        View view = LayoutInflater.from(this).inflate(layout, parent, false);
+        return FixedLayout.height(view, view instanceof TextView ? (TextView) view : null);
     }
 
     private void setVideoView() {
@@ -1956,12 +1965,12 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     @Override
     public void renderFlagSelection(Flag item) {
         mBinding.flag.setSelectedPosition(mFlagAdapter.indexOf(item));
-        notifyItemChanged(mBinding.flag, mFlagAdapter);
+        mBinding.flag.post(() -> mFlagAdapter.refreshSelection());
     }
 
     @Override
     public void renderEpisodeSelection(Episode item) {
-        notifyItemChanged(mBinding.episode, mEpisodeAdapter);
+        mBinding.episode.post(() -> mEpisodeAdapter.refreshSelection());
         mBinding.episode.setSelectedPosition(mEpisodeAdapter.getPosition());
     }
 
@@ -2189,9 +2198,13 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         mEpisodeAdapter.setNextFocusUp(findFocusUp(2));
         mFlagAdapter.setNextFocusDown(findFocusDown(0));
         mEpisodeAdapter.setNextFocusDown(findFocusDown(2));
-        notifyItemChanged(mBinding.episode, mEpisodeAdapter);
-        notifyItemChanged(mBinding.part, mPartAdapter);
-        notifyItemChanged(mBinding.flag, mFlagAdapter);
+        // 钉死布局批：只给已显示的格子改上下焦点目标，不再整行重绑三行
+        mEpisodeAdapter.applyFocus(mBinding.episode);
+        mPartAdapter.applyFocus(mBinding.part);
+        mFlagAdapter.applyFocus(mBinding.flag);
+        // 兜底：选中状态若在别处变过而没刷，这里只补刷变了的两格（原来靠整行重绑兜住）
+        mEpisodeAdapter.refreshSelection();
+        mFlagAdapter.refreshSelection();
     }
 
     @Override
