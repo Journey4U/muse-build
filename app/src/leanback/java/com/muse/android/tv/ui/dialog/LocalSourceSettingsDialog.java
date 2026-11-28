@@ -2,6 +2,7 @@ package com.muse.android.tv.ui.dialog;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
@@ -14,6 +15,9 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
+import androidx.activity.result.ActivityResult;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.fragment.app.Fragment;
 import androidx.viewbinding.ViewBinding;
 
@@ -26,6 +30,7 @@ import com.muse.android.tv.api.config.VodConfig;
 import com.muse.android.tv.api.loader.LocalSourceHub;
 import com.muse.android.tv.databinding.DialogLocalSourceSettingsBinding;
 import com.muse.android.tv.impl.Callback;
+import com.muse.android.tv.ui.activity.FileActivity;
 import com.muse.android.tv.utils.Notify;
 import com.muse.android.tv.utils.PermissionUtil;
 import com.muse.android.tv.utils.UrlUtil;
@@ -40,7 +45,7 @@ import java.util.List;
  * 控件全部换成遥控器可聚焦的行：OK = 勾选/取消或进入编辑，文本项点开输入框改。
  *
  * <p>与手机版的差异只有交互外壳：目录勾选/删除合并在一行（OK 切换启用、长按删除），
- * 选目录走电视版 FolderTreeDialog（从内部存储根开始），解析条目的地址编辑走单独输入框（右键打开）。</p>
+ * 选目录走文件管理页的选目录模式（FileActivity.folderPicker，从内部存储根开始，顶部有 U 盘 / SD 卡入口；2026-11-28 替换原树形弹窗），解析条目的地址编辑走单独输入框（右键打开）。</p>
  */
 public class LocalSourceSettingsDialog extends BaseAlertDialog {
 
@@ -52,6 +57,8 @@ public class LocalSourceSettingsDialog extends BaseAlertDialog {
     private String liveUrl = "";
     private final List<String> blockedCandidates = new ArrayList<>();
     private final List<String> extCandidates = new ArrayList<>();
+    // 选扫描目录：打开文件管理页的选目录模式，选好后照原逻辑入库、刷新列表与候选
+    private final ActivityResultLauncher<Intent> dirLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), this::onDirPicked);
 
     public static void show(Fragment fragment, Runnable changed) {
         LocalSourceSettingsDialog dialog = new LocalSourceSettingsDialog();
@@ -205,12 +212,15 @@ public class LocalSourceSettingsDialog extends BaseAlertDialog {
             Notify.show(R.string.local_source_dir_required);
             return;
         }
-        FolderTreeDialog.showRoots(requireContext(), roots, R.string.local_source_settings_dir_pick,
-            R.string.local_source_settings_dir_pick, R.string.dialog_positive, dir -> {
-                LocalSourceHub.addScanDir(dir.getAbsolutePath());
-                renderDirs();
-                refreshCandidates();
-            });
+        dirLauncher.launch(FileActivity.folderPicker(requireContext(), roots, 0));
+    }
+
+    private void onDirPicked(ActivityResult result) {
+        File dir = FileActivity.pickedDir(result);
+        if (dir == null || !isAdded()) return;
+        LocalSourceHub.addScanDir(dir.getAbsolutePath());
+        renderDirs();
+        refreshCandidates();
     }
 
     private void onAddDir() {

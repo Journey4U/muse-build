@@ -12,6 +12,7 @@ import com.muse.android.tv.databinding.ActivityHistoryBinding;
 import com.muse.android.tv.event.RefreshEvent;
 import com.muse.android.tv.ui.adapter.BaseDiffCallback;
 import com.muse.android.tv.ui.base.BaseActivity;
+import com.muse.android.tv.ui.custom.TouchScrollHelper;
 import com.muse.android.tv.ui.presenter.HistoryPresenter;
 import com.muse.android.tv.utils.ResUtil;
 
@@ -47,6 +48,8 @@ public class HistoryActivity extends BaseActivity implements HistoryPresenter.On
     protected void initView(Bundle savedInstanceState) {
         mBinding.recycler.setAdapter(new ItemBridgeAdapter(mAdapter = new ArrayObjectAdapter(mPresenter = new HistoryPresenter(this))));
         mBinding.recycler.setVerticalSpacing(ResUtil.dp2px(16));
+        // 手机装电视版的触摸滑动不回弹（只在触摸模式生效，遥控器路径不变），见 TouchScrollHelper。
+        TouchScrollHelper.attach(mBinding.recycler, null);
         load();
     }
 
