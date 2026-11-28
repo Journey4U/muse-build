@@ -28,6 +28,7 @@ import com.muse.android.tv.R;
 import com.muse.android.tv.api.loader.LocalSourceHub;
 import com.muse.android.tv.databinding.ActivityFileTransferBinding;
 import com.muse.android.tv.ui.base.BaseActivity;
+import com.muse.android.tv.utils.FileBrowse;
 import com.muse.android.tv.utils.Notify;
 import com.muse.android.tv.utils.PermissionUtil;
 
@@ -232,11 +233,8 @@ public class FileTransferActivity extends BaseActivity {
 
     private void refreshDirs() {
         allSubDirs.clear();
-        File[] children = currentDir == null ? null : currentDir.listFiles(File::isDirectory);
-        if (children != null) {
-            Collections.addAll(allSubDirs, children);
-            Collections.sort(allSubDirs, (a, b) -> a.getName().compareToIgnoreCase(b.getName()));
-        }
+        // 跟「隐藏系统文件」开关与排序方式走（FileBrowse 统一规则，与文件页、目录树弹窗同一设置）
+        if (currentDir != null) allSubDirs.addAll(FileBrowse.listDirs(currentDir));
         mBinding.transferPanel.transferPathBox.setText(currentDir == null ? "" : currentDir.getAbsolutePath());
         filterDirs(mBinding.transferPanel.transferSearch.getText() == null ? "" : mBinding.transferPanel.transferSearch.getText().toString());
     }
