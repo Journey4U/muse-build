@@ -12,13 +12,15 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="8dp"
-        android:hint="关键字..."
-        android:visibility="gone">
+        android:visibility="gone"
+        app:hintEnabled="false">
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/keyword"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:hint="关键字..."
             android:imeOptions="actionSearch"
             android:inputType="text"
             android:singleLine="true" />
