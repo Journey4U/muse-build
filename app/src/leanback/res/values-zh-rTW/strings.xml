@@ -44,6 +44,7 @@
     <string name="local_source_settings_dir_remove_title">從清單移除這個目錄？</string>
     <string name="local_source_settings_dir_clean_note">只從掃描清單中移除，不會刪除硬碟上的資料夾和檔案。</string>
     <string name="local_source_settings_dir_clean_confirm">移除</string>
+    <string name="restore_manual_name">%1$s（手動）</string>
 
 </resources>
 
