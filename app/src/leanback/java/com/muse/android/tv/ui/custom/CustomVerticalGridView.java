@@ -3,6 +3,7 @@ package com.muse.android.tv.ui.custom;
 import android.content.Context;
 import android.util.AttributeSet;
 import android.view.KeyEvent;
+import android.view.MotionEvent;
 import android.view.View;
 
 import androidx.annotation.NonNull;
@@ -44,6 +45,14 @@ public class CustomVerticalGridView extends VerticalGridView {
     public CustomVerticalGridView(@NonNull Context context, @Nullable AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
         setMoveTop(true);
+        // 手机装电视版的触摸滑动不回弹（只在触摸模式生效，遥控器路径不变），见 TouchScrollHelper。
+        TouchScrollHelper.attach(this, this::onTouchSettled);
+    }
+
+    /** 触摸滑动停下后：与遥控器同规则——选中第 0 行显示头部，选中第 1 行及以后收起头部。 */
+    private void onTouchSettled(int position) {
+        if (position == 0) showHeader();
+        else hideHeader();
     }
 
     @Override
@@ -86,6 +95,16 @@ public class CustomVerticalGridView extends VerticalGridView {
         scrollToPosition(0);
         showHeader();
         return true;
+    }
+
+    /** 手指按下时清掉上一次遥控器留下的上/下键标记，免得触摸滑动后的选中回调误触发头部显隐。 */
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent event) {
+        if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
+            pressUp = false;
+            pressDown = false;
+        }
+        return super.dispatchTouchEvent(event);
     }
 
     @Override
