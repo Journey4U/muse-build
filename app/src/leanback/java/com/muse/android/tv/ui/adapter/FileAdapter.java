@@ -49,8 +49,11 @@ public class FileAdapter extends RecyclerView.Adapter<FileAdapter.ViewHolder> {
         File file = mItems.get(position);
         holder.binding.name.setText(file.getName());
         holder.binding.image.setImageResource(file.isDirectory() ? R.drawable.ic_folder : R.drawable.ic_file);
-        boolean toneInk = !file.isDirectory() && ThemeTone.isLight(holder.binding.image.getContext());
-        ImageViewCompat.setImageTintList(holder.binding.image, toneInk ? ColorStateList.valueOf(ThemeTone.inkColor(holder.binding.image.getContext())) : null);
+        // 图标跟主题走：浅色壁纸时文件夹用赤陶强调色、文件用正文墨色；深色壁纸保持原样
+        android.content.Context context = holder.binding.image.getContext();
+        ColorStateList tint = null;
+        if (ThemeTone.isLight(context)) tint = ColorStateList.valueOf(file.isDirectory() ? ContextCompat.getColor(context, R.color.muse_tone_accent) : ThemeTone.inkColor(context));
+        ImageViewCompat.setImageTintList(holder.binding.image, tint);
         holder.binding.getRoot().setOnClickListener(v -> mListener.onItemClick(file));
     }
 

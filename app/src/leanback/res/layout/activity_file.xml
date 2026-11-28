@@ -1,40 +1,74 @@
 <?xml version="1.0" encoding="utf-8"?>
-<com.muse.android.tv.ui.custom.ProgressLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.appcompat.widget.LinearLayoutCompat xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/progressLayout"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:orientation="vertical">
 
-    <androidx.appcompat.widget.LinearLayoutCompat
+    <com.muse.android.tv.ui.custom.ProgressLayout
+        android:id="@+id/progressLayout"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:orientation="vertical">
+        android:layout_height="0dp"
+        android:layout_weight="1">
 
         <androidx.leanback.widget.VerticalGridView
             android:id="@+id/recycler"
             android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
+            android:layout_height="match_parent"
             android:clipChildren="false"
             android:clipToPadding="false"
             android:padding="24dp"
             app:focusOutEnd="true"
             app:focusOutFront="true" />
 
+    </com.muse.android.tv.ui.custom.ProgressLayout>
+
+    <!-- 底部按钮行放在 ProgressLayout 外：空目录时列表隐藏，按钮仍可见可按 -->
+    <androidx.appcompat.widget.LinearLayoutCompat
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="24dp"
+        android:layout_marginEnd="24dp"
+        android:layout_marginBottom="24dp"
+        android:orientation="horizontal">
+
         <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/pickFolder"
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="24dp"
-            android:layout_marginEnd="24dp"
-            android:layout_marginBottom="24dp"
+            android:layout_marginEnd="16dp"
+            android:layout_weight="2"
             android:background="?attr/museSelButton"
             android:focusable="true"
+            android:singleLine="true"
             android:text="@string/shelf_choose_folder"
             android:textColor="?attr/museToneText"
             android:textSize="16sp"
             android:visibility="gone" />
 
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/fileSort"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="16dp"
+            android:layout_weight="1"
+            android:background="?attr/museSelButton"
+            android:focusable="true"
+            android:singleLine="true"
+            android:textColor="?attr/museToneText"
+            android:textSize="16sp" />
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/fileHide"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="?attr/museSelButton"
+            android:focusable="true"
+            android:singleLine="true"
+            android:textColor="?attr/museToneText"
+            android:textSize="16sp" />
+
     </androidx.appcompat.widget.LinearLayoutCompat>
 
-</com.muse.android.tv.ui.custom.ProgressLayout>
+</androidx.appcompat.widget.LinearLayoutCompat>

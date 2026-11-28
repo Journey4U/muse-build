@@ -8,13 +8,17 @@ import android.view.View;
 
 import androidx.viewbinding.ViewBinding;
 
+import com.muse.android.tv.R;
 import com.muse.android.tv.databinding.ActivityFileBinding;
+import com.muse.android.tv.setting.Setting;
 import com.muse.android.tv.ui.adapter.FileAdapter;
 import com.muse.android.tv.ui.base.BaseActivity;
+import com.muse.android.tv.utils.FileBrowse;
 import com.muse.android.tv.utils.FileChooser;
 import com.muse.android.tv.utils.PermissionUtil;
 import com.muse.android.tv.utils.ResUtil;
 import com.github.catvod.utils.Path;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.io.File;
 
@@ -38,7 +42,6 @@ public class FileActivity extends BaseActivity implements FileAdapter.OnClickLis
     @Override
     protected void initView(Bundle savedInstanceState) {
         setRecyclerView();
-        checkPermission();
         // 文件夹模式（书架导入专用，FileChooser.showInternalFolder 进入）：
         // 显示「选择当前文件夹」按钮返回当前目录；点 TXT 文件仍按单本返回。
         folderMode = getIntent().getBooleanExtra(FileChooser.EXTRA_FOLDER_MODE, false);
@@ -51,6 +54,11 @@ public class FileActivity extends BaseActivity implements FileAdapter.OnClickLis
                 }
             });
         }
+        // 排序 / 隐藏系统文件：所有模式都显示（源配置选文件也用），遥控器左右切换、确认键操作；菜单键弹同一组选项。
+        mBinding.fileSort.setOnClickListener(v -> showSortDialog());
+        mBinding.fileHide.setOnClickListener(v -> toggleHide());
+        setButtonText();
+        checkPermission();
     }
 
     private void setRecyclerView() {
@@ -65,8 +73,55 @@ public class FileActivity extends BaseActivity implements FileAdapter.OnClickLis
 
     private void update(File dir) {
         mBinding.recycler.setSelectedPosition(0);
-        mAdapter.addAll(Path.list(this.dir = dir));
+        mAdapter.addAll(FileBrowse.list(this.dir = dir));
         mBinding.progressLayout.showContent(true, mAdapter.getItemCount());
+        // 空目录（或全是隐藏文件）时列表不可见，焦点落到底部按钮上，免得遥控器无处可按
+        if (mAdapter.getItemCount() == 0) firstButton().requestFocus();
+    }
+
+    private View firstButton() {
+        return folderMode ? mBinding.pickFolder : mBinding.fileSort;
+    }
+
+    private void setButtonText() {
+        mBinding.fileSort.setText(ResUtil.getString(R.string.file_sort_label, FileBrowse.getSortName()));
+        mBinding.fileHide.setText(ResUtil.getString(R.string.file_hide_label, Setting.getSwitch(FileBrowse.isHideDot())));
+    }
+
+    private void refresh() {
+        setButtonText();
+        if (dir != null) update(dir);
+    }
+
+    private void showSortDialog() {
+        new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.file_sort)
+                .setSingleChoiceItems(FileBrowse.getSortNames(), FileBrowse.getSort(), (dialog, which) -> {
+                    FileBrowse.putSort(which);
+                    dialog.dismiss();
+                    refresh();
+                })
+                .show();
+    }
+
+    private void toggleHide() {
+        FileBrowse.putHideDot(!FileBrowse.isHideDot());
+        refresh();
+    }
+
+    private void showMenuDialog() {
+        String[] sorts = FileBrowse.getSortNames();
+        String[] items = new String[sorts.length + 1];
+        int current = FileBrowse.getSort();
+        for (int i = 0; i < sorts.length; i++) items[i] = (i == current ? "● " : "○ ") + sorts[i];
+        items[sorts.length] = ResUtil.getString(R.string.file_hide_label, Setting.getSwitch(FileBrowse.isHideDot()));
+        new MaterialAlertDialogBuilder(this)
+                .setItems(items, (dialog, which) -> {
+                    if (which < sorts.length) FileBrowse.putSort(which);
+                    else FileBrowse.putHideDot(!FileBrowse.isHideDot());
+                    refresh();
+                })
+                .show();
     }
 
     @Override
@@ -79,18 +134,22 @@ public class FileActivity extends BaseActivity implements FileAdapter.OnClickLis
         }
     }
 
-    // 文件夹模式：文件列表里长按 OK 直接跳焦点到「选择当前文件夹」按钮，
+    // 文件列表里长按 OK 直接跳焦点到底部按钮（文件夹模式跳「选择当前文件夹」，其余跳「排序」），
     // 免去逐行按到底。短按照常进目录/选文件；跳过已消费的重复 DOWN 与收尾 UP，
-    // 防止长按抬手时误点当前条目或按钮。
+    // 防止长按抬手时误点当前条目或按钮。菜单键弹排序/隐藏选项。
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
-        if (folderMode && (event.getKeyCode() == KeyEvent.KEYCODE_DPAD_CENTER
+        if (event.getKeyCode() == KeyEvent.KEYCODE_MENU) {
+            if (event.getAction() == KeyEvent.ACTION_UP) showMenuDialog();
+            return true;
+        }
+        if (event.getKeyCode() == KeyEvent.KEYCODE_DPAD_CENTER
                 || event.getKeyCode() == KeyEvent.KEYCODE_ENTER
-                || event.getKeyCode() == KeyEvent.KEYCODE_NUMPAD_ENTER)) {
+                || event.getKeyCode() == KeyEvent.KEYCODE_NUMPAD_ENTER) {
             if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() > 0) {
                 if (!mOkLongJumped) {
                     mOkLongJumped = true;
-                    mBinding.pickFolder.requestFocus();
+                    firstButton().requestFocus();
                 }
                 return true;
             }
