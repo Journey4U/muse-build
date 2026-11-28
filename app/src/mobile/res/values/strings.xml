@@ -65,4 +65,12 @@
         <item>PiP</item>
     </string-array>
 
+    <!-- 扫描目录清理（2026-11-28） -->
+    <string name="local_source_settings_dir_clean">Clean up unchecked folders</string>
+    <string name="local_source_settings_dir_clean_none">No unchecked folders</string>
+    <string name="local_source_settings_dir_clean_title">Remove these folders from the list?</string>
+    <string name="local_source_settings_dir_remove_title">Remove this folder from the list?</string>
+    <string name="local_source_settings_dir_clean_note">Only removed from the scan list. Folders and files on storage are not deleted.</string>
+    <string name="local_source_settings_dir_clean_confirm">Remove</string>
+
 </resources>

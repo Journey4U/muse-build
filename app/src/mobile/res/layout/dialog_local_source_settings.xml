@@ -61,6 +61,14 @@
             android:layout_height="wrap_content"
             android:orientation="vertical" />
 
+        <!-- 清理：一次移除所有未勾选的目录（只移出列表，不删硬盘文件） -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/settingsDirClean"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/local_source_settings_dir_clean" />
+
         <com.google.android.material.button.MaterialButton
             android:id="@+id/settingsDirPick"
             android:layout_width="wrap_content"
