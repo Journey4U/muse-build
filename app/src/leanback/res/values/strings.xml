@@ -44,6 +44,7 @@
     <string name="local_source_settings_dir_remove_title">Remove this folder from the list?</string>
     <string name="local_source_settings_dir_clean_note">Only removed from the scan list. Folders and files on storage are not deleted.</string>
     <string name="local_source_settings_dir_clean_confirm">Remove</string>
+    <string name="restore_manual_name">%1$s (manual)</string>
 
 </resources>
 
