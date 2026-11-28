@@ -12,6 +12,7 @@ import androidx.fragment.app.FragmentActivity;
 import androidx.viewbinding.ViewBinding;
 
 import com.muse.android.tv.R;
+import com.muse.android.tv.ui.custom.RemoteJump;
 import com.muse.android.tv.api.config.LiveConfig;
 import com.muse.android.tv.api.config.VodConfig;
 import com.muse.android.tv.api.config.WallConfig;
@@ -88,6 +89,11 @@ public class ConfigDialog extends BaseAlertDialog {
 
     @Override
     protected void initEvent() {
+        // 遥控器：输入框光标在最前按左 / 在最后按右，直达底部按钮层最左 / 最右（光标在中间照常移光标）；
+        // 底部按钮层左右只在层内移动、到头停住，上键回输入框
+        binding.text.setNextFocusLeftId(R.id.choose);
+        binding.text.setNextFocusRightId(R.id.negative);
+        RemoteJump.bindRow(() -> binding.text.requestFocus(), null, binding.choose, binding.positive, binding.negative);
         binding.choose.setOnClickListener(this::onChoose);
         binding.positive.setOnClickListener(this::onPositive);
         binding.negative.setOnClickListener(this::onNegative);
@@ -159,6 +165,8 @@ public class ConfigDialog extends BaseAlertDialog {
     public void onStart() {
         super.onStart();
         setWidth(0.55f);
+        // 返回逐层退：焦点在底部按钮上按返回先回输入框，不关弹窗；焦点在输入框里按返回照原样关闭
+        RemoteJump.backToContent(getDialog(), () -> binding.text.requestFocus(), binding.choose, binding.positive, binding.negative);
         EventBus.getDefault().register(this);
     }
 
