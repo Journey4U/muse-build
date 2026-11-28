@@ -37,5 +37,13 @@
 
     <string name="file_storage_entry">U盘 / SD卡（%1$s）</string>
 
+    <!-- 扫描目录清理（2026-11-28） -->
+    <string name="local_source_settings_dir_clean">清理未勾选的目录</string>
+    <string name="local_source_settings_dir_clean_none">没有未勾选的目录</string>
+    <string name="local_source_settings_dir_clean_title">从列表移除这些目录？</string>
+    <string name="local_source_settings_dir_remove_title">从列表移除这个目录？</string>
+    <string name="local_source_settings_dir_clean_note">只从扫描列表中移除，不会删除硬盘上的文件夹和文件。</string>
+    <string name="local_source_settings_dir_clean_confirm">移除</string>
+
 </resources>
 

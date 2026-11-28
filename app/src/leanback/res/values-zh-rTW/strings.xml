@@ -37,5 +37,13 @@
 
     <string name="file_storage_entry">隨身碟 / SD 卡（%1$s）</string>
 
+    <!-- 扫描目录清理（2026-11-28） -->
+    <string name="local_source_settings_dir_clean">清理未勾選的目錄</string>
+    <string name="local_source_settings_dir_clean_none">沒有未勾選的目錄</string>
+    <string name="local_source_settings_dir_clean_title">從清單移除這些目錄？</string>
+    <string name="local_source_settings_dir_remove_title">從清單移除這個目錄？</string>
+    <string name="local_source_settings_dir_clean_note">只從掃描清單中移除，不會刪除硬碟上的資料夾和檔案。</string>
+    <string name="local_source_settings_dir_clean_confirm">移除</string>
+
 </resources>
 

@@ -44,7 +44,7 @@ import java.util.List;
  * 电视版「本地源生成设置」：数据操作与保存/生成/重载语义与手机版 LocalSourceSettingsDialog 一致，
  * 控件全部换成遥控器可聚焦的行：OK = 勾选/取消或进入编辑，文本项点开输入框改。
  *
- * <p>与手机版的差异只有交互外壳：目录勾选/删除合并在一行（OK 切换启用、长按删除），
+ * <p>与手机版的差异只有交互外壳：目录勾选/删除合并在一行（OK 切换启用、长按删除，删除前确认；列表下方「清理」一次移除所有未勾选目录），
  * 选目录走文件管理页的选目录模式（FileActivity.folderPicker，从内部存储根开始，顶部有 U 盘 / SD 卡入口；2026-11-28 替换原树形弹窗），解析条目的地址编辑走单独输入框（右键打开）。</p>
  */
 public class LocalSourceSettingsDialog extends BaseAlertDialog {
@@ -100,6 +100,7 @@ public class LocalSourceSettingsDialog extends BaseAlertDialog {
         binding.settingsDirInput.setOnClickListener(view -> inputText(R.string.local_source_settings_dirs, dirPath, value -> { dirPath = value; paintDirPath(); }));
         binding.settingsLiveUrl.setOnClickListener(view -> inputText(R.string.local_source_settings_live_url, liveUrl, value -> setLiveUrl(value)));
         binding.settingsDirPick.setOnClickListener(view -> onPickDir());
+        binding.settingsDirClean.setOnClickListener(view -> onCleanDirs());
         binding.settingsParses.setOnClickListener(view -> showParses());
         binding.settingsExtAll.setOnClickListener(view -> toggleAllExtensions());
         binding.settingsSpiderPick.setOnClickListener(view -> onPickSpiderJar());
@@ -168,6 +169,7 @@ public class LocalSourceSettingsDialog extends BaseAlertDialog {
     private void renderDirs() {
         binding.settingsDirList.removeAllViews();
         List<String> dirs = LocalSourceHub.getScanDirs();
+        binding.settingsDirClean.setVisibility(dirs.isEmpty() ? View.GONE : View.VISIBLE);
         if (dirs.isEmpty()) {
             binding.settingsDirList.addView(hint(getString(R.string.local_source_settings_dirs_empty)));
             return;
@@ -179,15 +181,60 @@ public class LocalSourceSettingsDialog extends BaseAlertDialog {
                 renderDirs();
                 refreshCandidates();
             });
-            // 长按删除该目录（遥控器长按 OK）；删除后候选随之刷新（与手机版同一口径）。
+            // 长按删除该目录（遥控器长按 OK）：先弹确认窗（焦点落「取消」），确认后删除、候选随之刷新（与手机版同一口径）。
             row.setOnLongClickListener(v -> {
-                LocalSourceHub.removeScanDir(dir);
-                renderDirs();
-                refreshCandidates();
+                List<String> one = new ArrayList<>();
+                one.add(dir);
+                confirmRemoveDirs(one, R.string.local_source_settings_dir_remove_title);
                 return true;
             });
             binding.settingsDirList.addView(row);
         }
+    }
+
+    /** 清理：收集所有未勾选的目录，确认后一次移出扫描列表（只移出列表，不删硬盘上的文件夹）。 */
+    private void onCleanDirs() {
+        List<String> targets = new ArrayList<>();
+        for (String dir : LocalSourceHub.getScanDirs()) {
+            if (!LocalSourceHub.isDirEnabled(dir)) targets.add(dir);
+        }
+        if (targets.isEmpty()) {
+            Notify.show(R.string.local_source_settings_dir_clean_none);
+            return;
+        }
+        confirmRemoveDirs(targets, R.string.local_source_settings_dir_clean_title);
+    }
+
+    /** 移除确认窗：列出完整路径 + 说明只移出列表；焦点默认落「取消」防误删。确认后与原删除同口径刷新。 */
+    private void confirmRemoveDirs(List<String> targets, int titleRes) {
+        StringBuilder message = new StringBuilder();
+        for (String dir : targets) message.append(dir).append('\n');
+        message.append('\n').append(getString(R.string.local_source_settings_dir_clean_note));
+        final List<String> snapshot = new ArrayList<>(targets);
+        androidx.appcompat.app.AlertDialog confirm = new MaterialAlertDialogBuilder(requireActivity(), R.style.TaixuAlertDialogTheme)
+            .setTitle(titleRes)
+            .setMessage(message.toString())
+            .setPositiveButton(R.string.local_source_settings_dir_clean_confirm, (d, which) -> {
+                for (String dir : snapshot) LocalSourceHub.removeScanDir(dir);
+                if (!isAdded() || binding == null) return;
+                renderDirs();
+                refreshCandidates();
+                afterDirsRemoved();
+            })
+            .setNegativeButton(R.string.dialog_negative, null)
+            .show();
+        android.widget.Button negative = confirm.getButton(android.content.DialogInterface.BUTTON_NEGATIVE);
+        if (negative != null) negative.requestFocus();
+    }
+
+    /** 移除后焦点归位（仅遥控器模式）：原焦点行已被移除时，落到列表第一行；列表空了落「从文件管理器选择文件夹」。 */
+    private void afterDirsRemoved() {
+        if (binding.getRoot().isInTouchMode()) return;
+        View focused = binding.getRoot().findFocus();
+        if (focused != null && focused.isShown()) return;
+        View first = binding.settingsDirList.getChildCount() > 0 ? binding.settingsDirList.getChildAt(0) : null;
+        if (first != null && first.isFocusable()) first.requestFocus();
+        else binding.settingsDirPick.requestFocus();
     }
 
     private void onPickDir() {
