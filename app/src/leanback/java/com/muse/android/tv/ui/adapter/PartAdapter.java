@@ -36,9 +36,21 @@ public class PartAdapter extends RecyclerView.Adapter<PartAdapter.ViewHolder> {
         notifyDataSetChanged();
     }
 
+    // 钉死布局批：上焦点目标只存值，已显示的格子由 applyFocus 直接改，不整行重绑。
     public void setNextFocusUp(int nextFocusUp) {
         this.nextFocusUp = nextFocusUp;
-        notifyDataSetChanged();
+    }
+
+    public void applyFocus(RecyclerView view) {
+        for (int i = 0; i < view.getChildCount(); i++) {
+            RecyclerView.ViewHolder holder = view.getChildViewHolder(view.getChildAt(i));
+            if (holder instanceof ViewHolder) ((ViewHolder) holder).binding.text.setNextFocusUpId(nextFocusUp);
+        }
+    }
+
+    @Override
+    public void onViewAttachedToWindow(@NonNull ViewHolder holder) {
+        holder.binding.text.setNextFocusUpId(nextFocusUp);
     }
 
     @Override

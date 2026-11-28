@@ -27,7 +27,7 @@
         android:layout_marginEnd="12dp"
         android:visibility="gone" />
 
-    <com.google.android.material.textview.MaterialTextView
+    <com.muse.android.tv.ui.custom.MarqueeTextView
         android:id="@+id/name"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

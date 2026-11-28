@@ -57,6 +57,7 @@ import com.muse.android.tv.ui.adapter.EpgDataAdapter;
 import com.muse.android.tv.ui.adapter.EpgDateAdapter;
 import com.muse.android.tv.ui.adapter.GroupAdapter;
 import com.muse.android.tv.ui.custom.CustomKeyDownLive;
+import com.muse.android.tv.ui.custom.FixedLayout;
 import com.muse.android.tv.ui.custom.CustomLiveListView;
 import com.muse.android.tv.ui.dialog.HistoryDialog;
 import com.muse.android.tv.ui.dialog.LiveDialog;
@@ -303,32 +304,26 @@ public class LiveActivity extends PlaybackActivity implements GroupAdapter.OnCli
         setPosition(LiveConfig.get().findKeepPosition(items));
     }
 
+    // 钉死布局批（2026-11-28）：分组/频道/节目单三列宽度按屏宽比例定死，不再逐个量名字。
+    // 名字放不下单行省略，焦点或当前频道跑马灯内循环（MarqueeTextView，同书架长书名）。
+    // 1920×1080 与 1280×720 电视逻辑宽同为 960dp：分组 144dp（约 7 个汉字）、频道 269dp（约 13 个汉字）、节目单 326dp（约 18 个汉字），
+    // 加日期列 160dp 合计约 94% 屏宽（原版上限 1/4+1/2+1/2，可超屏）。
+    private static final float GROUP_RATIO = 0.15f;
+    private static final float CHANNEL_RATIO = 0.28f;
+    private static final float EPG_RATIO = 0.34f;
+
     private void setWidth(Live live) {
-        int padding = ResUtil.dp2px(52);
-        if (live.getWidth() == 0) for (Group item : live.getGroups()) live.setWidth(Math.max(live.getWidth(), ResUtil.getTextWidth(item.getName(), 16)));
-        int width = live.getWidth() == 0 ? 0 : Math.min(live.getWidth() + padding, ResUtil.getScreenWidth() / 4);
-        setWidth(mBinding.group, width);
+        setWidth(mBinding.group, live.getGroups().isEmpty() ? 0 : FixedLayout.widthOf(GROUP_RATIO));
     }
 
     private Group setWidth(Group group) {
-        int logo = ResUtil.dp2px(60);
-        int padding = ResUtil.dp2px(64);
-        if (group.isKeep()) group.setWidth(0);
-        if (group.getWidth() == 0) for (Channel item : group.getChannel()) group.setWidth(Math.max(group.getWidth(), (item.getLogo().isEmpty() ? 0 : logo) + ResUtil.getTextWidth(item.getNumber() + item.getName(), 16)));
-        int width = group.getWidth() == 0 ? 0 : Math.min(group.getWidth() + padding, ResUtil.getScreenWidth() / 2);
-        setWidth(mBinding.channel, width);
+        setWidth(mBinding.channel, group.getChannel().isEmpty() ? 0 : FixedLayout.widthOf(CHANNEL_RATIO));
         return group;
     }
 
     private void setWidth(Epg epg) {
-        int padding = ResUtil.dp2px(52);
         if (epg.getList().isEmpty()) return;
-        int minWidth = ResUtil.getTextWidth(epg.getList().get(0).getTime(), 14);
-        if (epg.getWidth() == 0) for (EpgData item : epg.getList()) epg.setWidth(Math.max(epg.getWidth(), ResUtil.getTextWidth(item.getTitle(), 16)));
-        int maxWidth = ResUtil.getScreenWidth() / 2;
-        int minContentWidth = Math.min(minWidth + padding, maxWidth);
-        int width = epg.getWidth() == 0 ? 0 : Math.clamp(epg.getWidth() + padding, minContentWidth, maxWidth);
-        setWidth(mBinding.epgData, width);
+        setWidth(mBinding.epgData, FixedLayout.widthOf(EPG_RATIO));
     }
 
     private void setWidth(View view, int width) {

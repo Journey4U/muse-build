@@ -37,9 +37,14 @@ public class EpgDataAdapter extends RecyclerView.Adapter<EpgDataAdapter.ViewHold
         return mItems.get(position);
     }
 
+    // 钉死布局批：只刷选中状态真变了的格子，不整列重绑。
     public void setSelected(EpgData selected) {
-        for (EpgData item : mItems) item.setSelected(selected);
-        notifyDataSetChanged();
+        for (int i = 0; i < mItems.size(); i++) {
+            EpgData item = mItems.get(i);
+            boolean before = item.isSelected();
+            item.setSelected(selected);
+            if (before != item.isSelected()) notifyItemChanged(i);
+        }
     }
 
     @Override
@@ -59,6 +64,9 @@ public class EpgDataAdapter extends RecyclerView.Adapter<EpgDataAdapter.ViewHold
         holder.binding.time.setText(item.getTime());
         holder.binding.title.setText(item.getTitle());
         holder.binding.getRoot().setSelected(item.isSelected());
+        // 节目名：焦点或当前节目跑马灯内循环，其余单行省略
+        holder.binding.title.setSelected(holder.binding.getRoot().hasFocus() || item.isSelected());
+        holder.binding.getRoot().setOnFocusChangeListener((v, hasFocus) -> holder.binding.title.setSelected(hasFocus || item.isSelected()));
         holder.binding.getRoot().setLeftListener(mListener::onLeft);
         holder.binding.getRoot().setOnClickListener(v -> {
             if (!item.isFuture()) mListener.onItemClick(item);
