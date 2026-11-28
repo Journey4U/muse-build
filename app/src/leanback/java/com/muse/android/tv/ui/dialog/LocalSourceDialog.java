@@ -7,11 +7,15 @@ import android.os.Handler;
 import android.os.Looper;
 import android.text.TextUtils;
 
+import android.view.View;
+
+import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.FragmentActivity;
 import androidx.viewbinding.ViewBinding;
 
 import com.github.catvod.crawler.DebugLogStore;
 import com.muse.android.tv.R;
+import com.muse.android.tv.ui.custom.RemoteJump;
 import com.muse.android.tv.api.config.VodConfig;
 import com.muse.android.tv.api.loader.LocalSourceHub;
 import com.muse.android.tv.bean.Config;
@@ -36,6 +40,7 @@ public class LocalSourceDialog extends BaseAlertDialog {
 
     private DialogLocalSourceBinding binding;
     private Runnable changed;
+    private View lastItem;
 
     public static void show(FragmentActivity activity, Runnable changed) {
         LocalSourceDialog dialog = new LocalSourceDialog();
@@ -69,6 +74,23 @@ public class LocalSourceDialog extends BaseAlertDialog {
     protected void initEvent() {
         binding.localSourceSettings.setOnClickListener(view -> LocalSourceSettingsDialog.show(this, this::onSettingsChanged));
         binding.localSourceEnable.setOnCheckedChangeListener((button, checked) -> refresh());
+        // 遥控器：单列行（两个开关 + 生成设置按钮）按左/右直达底部按钮层最左/最右，开关与按钮左右键原本无用
+        View.OnKeyListener jump = (view, keyCode, event) -> {
+            if (!RemoteJump.isLeftRight(event) || !(getDialog() instanceof AlertDialog)) return false;
+            AlertDialog dialog = (AlertDialog) getDialog();
+            lastItem = view;
+            return RemoteJump.jump(event, dialog.getButton(AlertDialog.BUTTON_NEGATIVE), dialog.getButton(AlertDialog.BUTTON_POSITIVE));
+        };
+        binding.localSourceEnable.setOnKeyListener(jump);
+        binding.localSourceAuto.setOnKeyListener(jump);
+        binding.localSourceSettings.setOnKeyListener(jump);
+        // 记住最后停留的那一行：从底部按钮按上键/返回时回到这一行（不管是左右跳下来还是下键走下来的）
+        View.OnFocusChangeListener remember = (view, hasFocus) -> {
+            if (hasFocus) lastItem = view;
+        };
+        binding.localSourceEnable.setOnFocusChangeListener(remember);
+        binding.localSourceAuto.setOnFocusChangeListener(remember);
+        binding.localSourceSettings.setOnFocusChangeListener(remember);
     }
 
     private void onSettingsChanged() {
@@ -177,5 +199,13 @@ public class LocalSourceDialog extends BaseAlertDialog {
     public void onStart() {
         super.onStart();
         setWidth(0.55f);
+        // 底部按钮层左右只在层内移动、到头停住；上键回跳下来前那一行（没有则第一行）
+        if (getDialog() instanceof AlertDialog dialog) {
+            // 返回逐层退：焦点在底部按钮上按返回先回原来那一行，不关弹窗
+            RemoteJump.backToContent(dialog, () -> (lastItem != null ? lastItem : binding.localSourceEnable).requestFocus(),
+                    dialog.getButton(AlertDialog.BUTTON_NEGATIVE), dialog.getButton(AlertDialog.BUTTON_POSITIVE));
+            RemoteJump.bindRow(() -> (lastItem != null ? lastItem : binding.localSourceEnable).requestFocus(), null,
+                    dialog.getButton(AlertDialog.BUTTON_NEGATIVE), dialog.getButton(AlertDialog.BUTTON_POSITIVE));
+        }
     }
 }
