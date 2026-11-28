@@ -39,6 +39,7 @@ import com.muse.android.tv.ui.dialog.LocalSourceDialog;
 import com.muse.android.tv.ui.dialog.WebSourceDialog;
 import com.muse.android.tv.ui.dialog.RestoreDialog;
 import com.muse.android.tv.ui.dialog.SiteDialog;
+import com.muse.android.tv.ui.dialog.SiteGridCache;
 import com.muse.android.tv.utils.FileBrowse;
 import com.muse.android.tv.utils.FileUtil;
 import com.muse.android.tv.utils.Notify;
@@ -204,6 +205,8 @@ public class SettingActivity extends BaseActivity implements ConfigListener, Sit
             @Override
             public void success() {
                 Notify.dismiss();
+                // 配置加载完成：源列表排版缓存后台整体重建，共享网格按新配置作废（签名没变则不动）。
+                SiteGridCache.onConfigLoaded(SettingActivity.this);
                 setCacheText();
             }
 
