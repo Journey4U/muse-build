@@ -16,12 +16,15 @@ import androidx.appcompat.app.AlertDialog;
 
 import com.muse.android.tv.R;
 import com.muse.android.tv.api.loader.LocalSourceHub;
+import com.muse.android.tv.ui.custom.RemoteJump;
+import com.muse.android.tv.setting.Setting;
+import com.muse.android.tv.utils.FileBrowse;
 import com.muse.android.tv.utils.Notify;
+import com.muse.android.tv.utils.ResUtil;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -34,6 +37,9 @@ import java.util.Set;
  * 另加 {@link #showRoots} 给「本地源生成设置」挑扫描目录（根目录可传任意起点，如内部存储根）。</p>
  *
  * <p>只列目录、不列源文件；子目录按需展开，避免一次性递归扫描整片存储。</p>
+ *
+ * <p>列目录统一走 {@link FileBrowse}（Liu 2026-11-28 文件浏览批）：跟「隐藏系统文件」开关与排序方式走，
+ * 两项与文件页、设置页共用同一设置。列表上方一排「排序」「隐藏系统文件」按钮，遥控器可达；菜单键也弹选项。</p>
  */
 public class FolderTreeDialog {
 
@@ -57,6 +63,8 @@ public class FolderTreeDialog {
     private final Set<String> expanded = new HashSet<>();
     private final LinearLayout rows;
     private final TextView tip;
+    private final TextView sortButton;
+    private final TextView hideButton;
     private final int density;
     private File selected;
     private View firstRow;
@@ -78,6 +86,103 @@ public class FolderTreeDialog {
         this.tip.setTextSize(12);
         this.tip.setAlpha(0.7f);
         this.tip.setText(tipRes);
+        this.sortButton = toolButton();
+        this.hideButton = toolButton();
+        this.sortButton.setOnClickListener(v -> showSortDialog());
+        this.hideButton.setOnClickListener(v -> toggleHide());
+        // 上方工具按钮一层：左右只在两颗之间移动、到头停住；下键回列表（选中行，没有则第一行；列表空则到「确定」）
+        RemoteJump.bindRow(null, () -> {
+            if (rows.getChildCount() > 0) focusRowOrFirst();
+            else if (dialog != null) dialog.getButton(AlertDialog.BUTTON_POSITIVE).requestFocus();
+        }, sortButton, hideButton);
+        updateToolButtons();
+    }
+
+    /** 列表上方的工具按钮（排序 / 隐藏系统文件）：可聚焦，焦点态与行同色。 */
+    private TextView toolButton() {
+        TextView button = new TextView(context);
+        button.setTextSize(14);
+        button.setSingleLine(true);
+        button.setEllipsize(TextUtils.TruncateAt.END);
+        button.setGravity(Gravity.CENTER);
+        button.setPadding(dp(12), dp(8), dp(12), dp(8));
+        button.setFocusable(true);
+        button.setFocusableInTouchMode(true);
+        button.setBackgroundColor(0x1AFFFFFF);
+        button.setOnFocusChangeListener((v, hasFocus) -> v.setBackgroundColor(hasFocus ? 0x5533B5E5 : 0x1AFFFFFF));
+        return button;
+    }
+
+    private void updateToolButtons() {
+        sortButton.setText(ResUtil.getString(R.string.file_sort_label, FileBrowse.getSortName()));
+        hideButton.setText(ResUtil.getString(R.string.file_hide_label, Setting.getSwitch(FileBrowse.isHideDot())));
+    }
+
+    private void showSortDialog() {
+        // 弹出后焦点显式落在当前已选项；OK 选中并关闭、返回取消，关闭后焦点回弹窗里的「排序」按钮
+        RemoteJump.focusChoice(new MaterialAlertDialogBuilder(context, R.style.TaixuAlertDialogTheme)
+                .setTitle(R.string.file_sort)
+                .setSingleChoiceItems(FileBrowse.getSortNames(), FileBrowse.getSort(), (d, which) -> {
+                    FileBrowse.putSort(which);
+                    d.dismiss();
+                    applyBrowseChange(sortButton);
+                })
+                .show(), FileBrowse.getSort(), sortButton);
+    }
+
+    private void toggleHide() {
+        FileBrowse.putHideDot(!FileBrowse.isHideDot());
+        applyBrowseChange(hideButton);
+    }
+
+    /** 菜单键：四种排序 + 隐藏开关（与电视文件页同一套写法）。 */
+    private void showMenuDialog() {
+        String[] sorts = FileBrowse.getSortNames();
+        String[] items = new String[sorts.length + 1];
+        int current = FileBrowse.getSort();
+        for (int i = 0; i < sorts.length; i++) items[i] = (i == current ? "● " : "○ ") + sorts[i];
+        items[sorts.length] = ResUtil.getString(R.string.file_hide_label, Setting.getSwitch(FileBrowse.isHideDot()));
+        RemoteJump.focusChoice(new MaterialAlertDialogBuilder(context, R.style.TaixuAlertDialogTheme)
+                .setItems(items, (d, which) -> {
+                    if (which < sorts.length) FileBrowse.putSort(which);
+                    else FileBrowse.putHideDot(!FileBrowse.isHideDot());
+                    applyBrowseChange(null);
+                })
+                .show(), current, null);
+    }
+
+    /**
+     * 排序/隐藏改了：重建当前树（展开状态保留），选中目录若被隐藏则清掉；
+     * 焦点留在触发的按钮上，菜单键触发的则回到选中行（没有则第一行），保证遥控器焦点不丢。
+     */
+    private void applyBrowseChange(View keepFocus) {
+        updateToolButtons();
+        rebuild();
+        if (selected != null && indexOf(selected) < 0) {
+            selected = null;
+            rebuild();
+        }
+        if (keepFocus != null) keepFocus.requestFocus();
+        else if (rows.getChildCount() > 0) focusRowOrFirst();
+        else sortButton.requestFocus();
+    }
+
+    /** 当前树（含已展开子目录）里某目录所在的行号，不在则 -1。 */
+    private int indexOf(File target) {
+        String path = target.getAbsolutePath();
+        List<File> flat = new ArrayList<>();
+        for (File root : roots) collect(root, flat);
+        for (int i = 0; i < flat.size(); i++) {
+            if (flat.get(i).getAbsolutePath().equals(path)) return i;
+        }
+        return -1;
+    }
+
+    private void focusRowOrFirst() {
+        if (rows.getChildCount() == 0) return;
+        int index = selected == null ? 0 : indexOf(selected);
+        if (index < 0 || index >= rows.getChildCount()) index = 0;
+        rows.getChildAt(index).requestFocus();
     }
 
     private static List<File> scanRoots() {
@@ -126,6 +231,14 @@ public class FolderTreeDialog {
         LinearLayout container = new LinearLayout(context);
         container.setOrientation(LinearLayout.VERTICAL);
         container.addView(tip, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        LinearLayout tools = new LinearLayout(context);
+        tools.setOrientation(LinearLayout.HORIZONTAL);
+        tools.setPadding(dp(10), dp(2), dp(10), dp(6));
+        LinearLayout.LayoutParams sortLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        sortLp.setMarginEnd(dp(8));
+        tools.addView(sortButton, sortLp);
+        tools.addView(hideButton, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        container.addView(tools, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         container.addView(scroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(320)));
 
         MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(context, R.style.TaixuAlertDialogTheme)
@@ -135,24 +248,40 @@ public class FolderTreeDialog {
         if (neutralRes != 0) builder.setNeutralButton(neutralRes, null);
         AlertDialog dialog = builder.setPositiveButton(positiveRes, null).create();
         this.dialog = dialog;
+        // 菜单键（弹窗内任意位置）弹排序/隐藏选项；抬手时弹，按下与抬起都吃掉避免重复
+        // 返回逐层退：焦点在底部按钮或上方排序/隐藏按钮上时，返回先回列表（选中行，没有则第一行），不关弹窗；
+        // 焦点在列表里按返回照原样关闭弹窗
+        dialog.setOnKeyListener((d, keyCode, event) -> {
+            if (keyCode == KeyEvent.KEYCODE_BACK && rows.getChildCount() > 0
+                    && RemoteJump.anyFocused(sortButton, hideButton, dialog.getButton(AlertDialog.BUTTON_POSITIVE),
+                    dialog.getButton(AlertDialog.BUTTON_NEGATIVE), dialog.getButton(AlertDialog.BUTTON_NEUTRAL))) {
+                if (event.getAction() == KeyEvent.ACTION_UP && !event.isCanceled()) {
+                    // 上方工具按钮回选中行（没有则第一行）；底部按钮回选中行（没有则最后一行），与上键一致
+                    if (RemoteJump.anyFocused(sortButton, hideButton)) focusRowOrFirst();
+                    else focusListRow();
+                }
+                return true;
+            }
+            if (keyCode != KeyEvent.KEYCODE_MENU) return false;
+            if (event.getAction() == KeyEvent.ACTION_UP) showMenuDialog();
+            return true;
+        });
         dialog.show();
         // 未选中目录时不允许关闭：原地提示，避免用户以为点了没反应
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> dispatch(dialog, false));
         if (neutralRes != 0) dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v -> dispatch(dialog, true));
-        // 按钮区按上键回列表（停在选中行，没有则最后一行）；列表最后一行按下键也能跳到「确定」（见 addRow）。
-        View.OnKeyListener upToList = (v, keyCode, event) -> {
-            if (event.getAction() == KeyEvent.ACTION_DOWN && keyCode == KeyEvent.KEYCODE_DPAD_UP) {
-                focusListRow();
-                return true;
-            }
-            return false;
-        };
-        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnKeyListener(upToList);
-        dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setOnKeyListener(upToList);
-        if (neutralRes != 0) dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnKeyListener(upToList);
+        // 底部按钮层：左右只在层内移动、到头停住；上键回列表（停在选中行，没有则最后一行，列表空则回上方「排序」）。
+        // 列表最后一行按下键也能跳到「确定」（见 addRow）。树节点的左右键已用于展开/收起，不做左右直达。
+        RemoteJump.bindRow(() -> {
+            if (rows.getChildCount() > 0) focusListRow();
+            else sortButton.requestFocus();
+        }, null, dialog.getButton(AlertDialog.BUTTON_NEGATIVE),
+                neutralRes != 0 ? dialog.getButton(AlertDialog.BUTTON_NEUTRAL) : null,
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE));
         rebuild();
-        // 打开即把焦点给第一行，遥控器可直接上下选
+        // 打开即把焦点给第一行，遥控器可直接上下选；没有子目录时给「排序」按钮，焦点不落空
         if (firstRow != null) firstRow.requestFocus();
+        else sortButton.requestFocus();
     }
 
     private void dispatch(AlertDialog dialog, boolean neutral) {
@@ -186,16 +315,9 @@ public class FolderTreeDialog {
         }
     }
 
+    /** 子目录：按「隐藏系统文件」开关过滤、按当前排序方式排好（FileBrowse 统一规则）。 */
     private List<File> subDirs(File dir) {
-        File[] all = dir == null ? null : dir.listFiles(File::isDirectory);
-        if (all == null) return new ArrayList<>();
-        List<File> out = new ArrayList<>();
-        for (File f : all) {
-            if (f.getName().startsWith(".")) continue;
-            out.add(f);
-        }
-        Collections.sort(out, (a, b) -> a.getName().compareToIgnoreCase(b.getName()));
-        return out;
+        return FileBrowse.listDirs(dir);
     }
 
     private void addRow(File dir, int depth, boolean hasChild) {
@@ -238,6 +360,11 @@ public class FolderTreeDialog {
         });
         row.setOnKeyListener((v, keyCode, event) -> {
             if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
+            // 第一行按上键：焦点跳到上方「排序」按钮
+            if (keyCode == KeyEvent.KEYCODE_DPAD_UP && rows.getChildCount() > 0 && rows.getChildAt(0) == v) {
+                sortButton.requestFocus();
+                return true;
+            }
             // 最后一行按下键：焦点跳到「确定」按钮（列表在定高滚动区里，系统焦点搜索够不到按钮区）。
             if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN && dialog != null
                     && rows.getChildCount() > 0 && rows.getChildAt(rows.getChildCount() - 1) == v) {

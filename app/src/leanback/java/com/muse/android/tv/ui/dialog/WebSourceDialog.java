@@ -13,6 +13,7 @@ import androidx.viewbinding.ViewBinding;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.muse.android.tv.App;
 import com.muse.android.tv.R;
+import com.muse.android.tv.ui.custom.RemoteJump;
 import com.muse.android.tv.api.config.VodConfig;
 import com.muse.android.tv.api.loader.LocalSourceHub;
 import com.muse.android.tv.databinding.DialogWebSourceBinding;
@@ -90,6 +91,14 @@ public class WebSourceDialog extends BaseAlertDialog {
 
     @Override
     protected void initEvent() {
+        // 遥控器：输入框光标在最前按左→「确定」、在最后按右→「取消」（光标在中间照常移光标）；
+        // 底部按钮层左右只在层内移动、到头停住，上键回输入框（批量模式回网址框）
+        binding.url.setNextFocusLeftId(R.id.positive);
+        binding.url.setNextFocusRightId(R.id.negative);
+        binding.name.setNextFocusLeftId(R.id.positive);
+        binding.name.setNextFocusRightId(R.id.negative);
+        RemoteJump.bindRow(() -> (binding.name.getVisibility() == View.VISIBLE ? binding.name : binding.url).requestFocus(), null,
+                binding.positive, binding.negative);
         binding.positive.setOnClickListener(view -> {
             if (isBatch()) onBatchPositive();
             else onPositive();
@@ -257,5 +266,8 @@ public class WebSourceDialog extends BaseAlertDialog {
     public void onStart() {
         super.onStart();
         setWidth(0.55f);
+        // 返回逐层退：焦点在底部按钮上按返回先回输入框（批量模式回网址框），不关弹窗；焦点在输入框里按返回照原样关闭
+        RemoteJump.backToContent(getDialog(), () -> (binding.name.getVisibility() == View.VISIBLE ? binding.name : binding.url).requestFocus(),
+                binding.positive, binding.negative);
     }
 }
